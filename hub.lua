@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Custom Modern Neon Edition)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Configs & Auto-Load Edition)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -7,9 +7,8 @@ local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Безопасная очистка старых GUI
 pcall(function()
-    for _, gui in ipairs(CoreGui:GetChildren()) do
+    for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
         if gui.Name == "TimonHub_Ultimate" or gui.Name == "TimonHub_MobileButtons" then
             gui:Destroy()
         end
@@ -63,7 +62,17 @@ local FlySpeed = 50
 local flying = false
 local bodyGyro, bodyVelocity
 
--- Создание главного GUI
+local ConfigFolder = "TimonHub_Configs"
+local AutoLoadFileName = ConfigFolder .. "/autoload.json"
+local CurrentConfigName = "default"
+local AutoLoadEnabled = false
+
+pcall(function()
+    if makefolder and not isfolder(ConfigFolder) then
+        makefolder(ConfigFolder)
+    end
+end)
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "TimonHub_Ultimate"
 pcall(function()
@@ -78,7 +87,6 @@ if not ScreenGui.Parent then
 end
 ScreenGui.ResetOnSpawn = false
 
--- Мобильные кнопки вызова
 local MobileGui = Instance.new("ScreenGui")
 MobileGui.Name = "TimonHub_MobileButtons"
 pcall(function()
@@ -121,7 +129,6 @@ local ToggleUIMobileBtn = createMobileButton(UDim2.new(0, 20, 0, 20), "⚡ MENU"
 local MobileAimToggleBtn = createMobileButton(UDim2.new(0, 135, 0, 20), "Mob.Aim: OFF")
 local FlyMobileBtn = createMobileButton(UDim2.new(0, 250, 0, 20), "Fly: OFF")
 
--- Стильное неоновое окно
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 650, 0, 430)
 MainFrame.Position = UDim2.new(0.5, -325, 0.5, -215)
@@ -140,7 +147,6 @@ MainStroke.Color = Color3.fromRGB(160, 70, 240)
 MainStroke.Thickness = 2
 MainStroke.Parent = MainFrame
 
--- Верхняя неоновая линия
 local NeonGlow = Instance.new("Frame")
 NeonGlow.Size = UDim2.new(1, 0, 0, 3)
 NeonGlow.BackgroundColor3 = Color3.fromRGB(210, 130, 255)
@@ -151,7 +157,6 @@ ToggleUIMobileBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
--- Шапка
 local Header = Instance.new("Frame")
 Header.Size = UDim2.new(1, 0, 0, 50)
 Header.BackgroundColor3 = Color3.fromRGB(18, 12, 28)
@@ -180,7 +185,6 @@ Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
--- Боковая панель вкладок
 local Sidebar = Instance.new("ScrollingFrame")
 Sidebar.Size = UDim2.new(0, 160, 1, -65)
 Sidebar.Position = UDim2.new(0, 12, 0, 58)
@@ -195,7 +199,6 @@ SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 SidebarLayout.Padding = UDim.new(0, 6)
 SidebarLayout.Parent = Sidebar
 
--- Область контента
 local ContentArea = Instance.new("Frame")
 ContentArea.Size = UDim2.new(1, -190, 1, -65)
 ContentArea.Position = UDim2.new(0, 180, 0, 58)
@@ -207,7 +210,7 @@ local function createTabContent()
     sf.Size = UDim2.new(1, 0, 1, 0)
     sf.BackgroundTransparency = 1
     sf.BorderSizePixel = 0
-    sf.CanvasSize = UDim2.new(0, 0, 0, 600)
+    sf.CanvasSize = UDim2.new(0, 0, 0, 650)
     sf.ScrollBarThickness = 3
     sf.Visible = false
     sf.Parent = ContentArea
@@ -384,7 +387,7 @@ createLabel(PlayerTab, "ПОЛЕТ (FLY)")
 local FlyToggle = createActionBtn(PlayerTab, "Fly: OFF")
 local FlySpeedInput = createInputBox(PlayerTab, "Fly Speed (например: 50)")
 
--- === HAMSTER COMBAT TAB (Идеально по центру с анимацией) ===
+-- === HAMSTER COMBAT TAB ===
 createLabel(HamsterTab, "КЛИКЕР HAMSTER COIN")
 
 local HamsterCounterLabel = Instance.new("TextLabel")
@@ -407,9 +410,9 @@ local HamsterClickBtn = Instance.new("TextButton")
 HamsterClickBtn.Size = UDim2.new(0, 190, 0, 190)
 HamsterClickBtn.Position = UDim2.new(0.5, -95, 0.5, -95)
 HamsterClickBtn.BackgroundColor3 = Color3.fromRGB(22, 14, 35)
-HamsterClickBtn.Text = "🐹\nTAP ME!"
-HamsterClickBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
-HamsterClickBtn.TextSize = 22
+HamsterClickBtn.Text = "🐹"
+HamsterClickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+HamsterClickBtn.TextSize = 68
 HamsterClickBtn.Font = Enum.Font.GothamBold
 HamsterClickBtn.Parent = ClickerContainer
 
@@ -418,8 +421,8 @@ HamsterCorner.CornerRadius = UDim.new(1, 0)
 HamsterCorner.Parent = HamsterClickBtn
 
 local HamsterStroke = Instance.new("UIStroke")
-HamsterStroke.Color = Color3.fromRGB(255, 215, 0)
-HamsterStroke.Thickness = 3
+HamsterStroke.Color = Color3.fromRGB(210, 130, 255)
+HamsterStroke.Thickness = 3.5
 HamsterStroke.Parent = HamsterClickBtn
 
 HamsterClickBtn.MouseButton1Click:Connect(function()
@@ -432,12 +435,176 @@ HamsterClickBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- === SETTINGS TAB ===
-createLabel(SettingsTab, "ДЕИНСТАЛЛЯЦИЯ")
+-- === SETTINGS TAB (МЕНЮ КОНФИГОВ) ===
+createLabel(SettingsTab, "МЕНЮ КОНФИГОВ")
+local ConfigNameInput = createInputBox(SettingsTab, "Имя конфига (например: pro)")
+local SaveConfigBtn = createActionBtn(SettingsTab, "Save Config")
+local LoadConfigBtn = createActionBtn(SettingsTab, "Load Config")
+local AutoLoadBtn = createActionBtn(SettingsTab, "Auto-Load: OFF")
+
+createLabel(SettingsTab, "УПРАВЛЕНИЕ СКРИПТОМ")
 local UnloadBtn = createActionBtn(SettingsTab, "Unload Script (Full Delete)")
 UnloadBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
 
+-- Функция сохранения конфига
+local function saveConfig(name)
+    if not writefile then return end
+    if name == "" then name = "default" end
+    CurrentConfigName = name
+    
+    local configData = {
+        AssistActive = AssistActive,
+        AssistSmooth = AssistSmooth,
+        TargetPartName = TargetPartName,
+        FOVEnabled = FOVEnabled,
+        FOVRadius = FOVRadius,
+        TouchAssistActive = TouchAssistActive,
+        TouchAssistSmooth = TouchAssistSmooth,
+        TouchAssistFOV = TouchAssistFOV,
+        VisualsEnabled = VisualsEnabled,
+        VisualsTransparency = VisualsTransparency,
+        HitboxEnabled = HitboxEnabled,
+        HitboxSize = HitboxSize,
+        HitboxTransparency = HitboxTransparency,
+        HamsterCoins = HamsterCoins,
+        WalkSpeedEnabled = WalkSpeedEnabled,
+        CustomWalkSpeed = CustomWalkSpeed,
+        JumpPowerEnabled = JumpPowerEnabled,
+        CustomJumpPower = CustomJumpPower,
+        FlyEnabled = FlyEnabled,
+        FlySpeed = FlySpeed
+    }
+    
+    pcall(function()
+        writefile(ConfigFolder .. "/" .. name .. ".json", HttpService:JSONEncode(configData))
+    end)
+end
+
+-- Функция загрузки конфига
+local function loadConfig(name)
+    if not readfile or not isfile then return end
+    if name == "" then name = "default" end
+    local path = ConfigFolder .. "/" .. name .. ".json"
+    
+    if isfile(path) then
+        local success, data = pcall(function()
+            return HttpService:JSONDecode(readfile(path))
+        end)
+        if success and data then
+            AssistActive = data.AssistActive or false
+            AssistSmooth = data.AssistSmooth or 0.5
+            TargetPartName = data.TargetPartName or "Head"
+            FOVEnabled = data.FOVEnabled ~= false
+            FOVRadius = data.FOVRadius or 120
+            TouchAssistActive = data.TouchAssistActive or false
+            TouchAssistSmooth = data.TouchAssistSmooth or 0.5
+            TouchAssistFOV = data.TouchAssistFOV or 150
+            VisualsEnabled = data.VisualsEnabled or false
+            VisualsTransparency = data.VisualsTransparency or 0.7
+            HitboxEnabled = data.HitboxEnabled or false
+            HitboxSize = data.HitboxSize or 4
+            HitboxTransparency = data.HitboxTransparency or 0.5
+            HamsterCoins = data.HamsterCoins or 0
+            HamsterCounterLabel.Text = "Hamster Coins: " .. HamsterCoins
+            WalkSpeedEnabled = data.WalkSpeedEnabled or false
+            CustomWalkSpeed = data.CustomWalkSpeed or 16
+            JumpPowerEnabled = data.JumpPowerEnabled or false
+            CustomJumpPower = data.CustomJumpPower or 50
+            FlyEnabled = data.FlyEnabled or false
+            FlySpeed = data.FlySpeed or 50
+
+            -- Обновление текста кнопок в интерфейсе
+            ToggleBtn.Text = AssistActive and "Assist System: ON" or "Assist System: OFF"
+            ToggleBtn.TextColor3 = AssistActive and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+            MobileAimToggle.Text = TouchAssistActive and "Mobile Assist: ON" or "Mobile Assist: OFF"
+            MobileAimToggle.TextColor3 = TouchAssistActive and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+            MobileAimToggleBtn.Text = TouchAssistActive and "Mob.Aim: ON" or "Mob.Aim: OFF"
+            ESPToggleBtn.Text = VisualsEnabled and "Visuals: ON" or "Visuals: OFF"
+            ESPToggleBtn.TextColor3 = VisualsEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+            HitboxToggle.Text = HitboxEnabled and "Hitbox Extender: ON" or "Hitbox Extender: OFF"
+            HitboxToggle.TextColor3 = HitboxEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+            SpeedToggle.Text = WalkSpeedEnabled and "WalkSpeed: ON" or "WalkSpeed: OFF"
+            SpeedToggle.TextColor3 = WalkSpeedEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+            JumpToggle.Text = JumpPowerEnabled and "JumpPower: ON" or "JumpPower: OFF"
+            JumpToggle.TextColor3 = JumpPowerEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+            FlyToggle.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
+            FlyToggle.TextColor3 = FlyEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+            FlyMobileBtn.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
+            PartDropdownBtn.Text = "Target: " .. TargetPartName
+            
+            CurrentConfigName = name
+        end
+    end
+end
+
+-- Автозагрузка конфига при старте
+pcall(function()
+    if readfile and isfile and isfile(AutoLoadFileName) then
+        local autoData = HttpService:JSONDecode(readfile(AutoLoadFileName))
+        if autoData and autoData.Enabled and autoData.ConfigName then
+            AutoLoadEnabled = true
+            AutoLoadConfigName = autoData.ConfigName
+            AutoLoadBtn.Text = "Auto-Load: " .. AutoLoadConfigName
+            AutoLoadBtn.TextColor3 = Color3.fromRGB(160, 255, 120)
+            loadConfig(AutoLoadConfigName)
+        end
+    end
+end)
+
+SaveConfigBtn.MouseButton1Click:Connect(function()
+    local name = ConfigNameInput.Text
+    if name == "" then name = "default" end
+    saveConfig(name)
+    SaveConfigBtn.Text = "Saved (" .. name .. ")!"
+    task.delay(1.5, function() SaveConfigBtn.Text = "Save Config" end)
+end)
+
+LoadConfigBtn.MouseButton1Click:Connect(function()
+    local name = ConfigNameInput.Text
+    if name == "" then name = "default" end
+    loadConfig(name)
+    LoadConfigBtn.Text = "Loaded (" .. name .. ")!"
+    task.delay(1.5, function() LoadConfigBtn.Text = "Load Config" end)
+end)
+
+AutoLoadBtn.MouseButton1Click:Connect(function()
+    AutoLoadEnabled = not AutoLoadEnabled
+    local name = ConfigNameInput.Text
+    if name == "" then name = CurrentConfigName end
+    
+    if AutoLoadEnabled then
+        AutoLoadConfigName = name
+        AutoLoadBtn.Text = "Auto-Load: " .. name
+        AutoLoadBtn.TextColor3 = Color3.fromRGB(160, 255, 120)
+        if writefile then
+            writefile(AutoLoadFileName, HttpService:JSONEncode({Enabled = true, ConfigName = name}))
+        end
+    else
+        AutoLoadBtn.Text = "Auto-Load: OFF"
+        AutoLoadBtn.TextColor3 = Color3.fromRGB(230, 210, 250)
+        if writefile then
+            writefile(AutoLoadFileName, HttpService:JSONEncode({Enabled = false, ConfigName = name}))
+        end
+    end
+end)
+
+-- Автосохранение конфига при выходе или деинсталляции
+local function autoSaveOnExit()
+    if AutoLoadEnabled and AutoLoadConfigName ~= "" then
+        saveConfig(AutoLoadConfigName)
+    else
+        saveConfig(CurrentConfigName)
+    end
+end
+
+Players.PlayerRemoving:Connect(function(plr)
+    if plr == LocalPlayer then
+        autoSaveOnExit()
+    end
+end)
+
 UnloadBtn.MouseButton1Click:Connect(function()
+    autoSaveOnExit()
     pcall(function()
         if FOVCircle then FOVCircle:Remove() end
     end)
@@ -606,7 +773,6 @@ UserInputService.InputBegan:Connect(function(input)
     end
 end)
 
--- Основной цикл работы модулей
 RunService.RenderStepped:Connect(function()
     local activeFOV = TouchAssistActive and TouchAssistFOV or FOVRadius
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
