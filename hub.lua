@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Configs & Auto-Load Edition)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Universal Mobile Fly Edition)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -49,18 +49,36 @@ local VisualsMap = {}
 local HitboxEnabled = false
 local HitboxSize = 4
 local HitboxTransparency = 0.5
+local HitboxKey = Enum.KeyCode.Q
 local OriginalSizes = {}
 
+local InvisFlingEnabled = false
+local AntiFlingEnabled = false
 local HamsterCoins = 0
 
 local WalkSpeedEnabled = false
 local CustomWalkSpeed = 16
 local JumpPowerEnabled = false
 local CustomJumpPower = 50
+
+-- Универсальный Fly
 local FlyEnabled = false
 local FlySpeed = 50
+local FlyKey = Enum.KeyCode.F
 local flying = false
-local bodyGyro, bodyVelocity
+local flyConnection = nil
+local controlModule = nil
+
+-- Безопасный поиск модуля управления движением для мобилок в Roblox
+pcall(function()
+    local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
+    if playerScripts then
+        local playerModule = playerScripts:FindFirstChild("PlayerModule")
+        if playerModule then
+            controlModule = require(playerModule:FindFirstChild("ControlModule"))
+        end
+    end
+end)
 
 local ConfigFolder = "TimonHub_Configs"
 local AutoLoadFileName = ConfigFolder .. "/autoload.json"
@@ -210,7 +228,7 @@ local function createTabContent()
     sf.Size = UDim2.new(1, 0, 1, 0)
     sf.BackgroundTransparency = 1
     sf.BorderSizePixel = 0
-    sf.CanvasSize = UDim2.new(0, 0, 0, 650)
+    sf.CanvasSize = UDim2.new(0, 0, 0, 700)
     sf.ScrollBarThickness = 3
     sf.Visible = false
     sf.Parent = ContentArea
@@ -226,6 +244,7 @@ local CombatTab = createTabContent()
 local ESPTab = createTabContent()
 local HitboxTab = createTabContent()
 local PlayerTab = createTabContent()
+local FlingTab = createTabContent()
 local HamsterTab = createTabContent()
 local SettingsTab = createTabContent()
 CombatTab.Visible = true
@@ -254,6 +273,7 @@ local function createTabButton(name, targetTab)
         ESPTab.Visible = false
         HitboxTab.Visible = false
         PlayerTab.Visible = false
+        FlingTab.Visible = false
         HamsterTab.Visible = false
         SettingsTab.Visible = false
         targetTab.Visible = true
@@ -265,6 +285,7 @@ createTabButton("Combat", CombatTab)
 createTabButton("ESP & Visuals", ESPTab)
 createTabButton("Hitbox", HitboxTab)
 createTabButton("Player", PlayerTab)
+createTabButton("Fling & Anti", FlingTab)
 createTabButton("HamsterCombat", HamsterTab)
 createTabButton("Settings", SettingsTab)
 
@@ -373,6 +394,7 @@ local ESPTransInput = createInputBox(ESPTab, "Fill Transparency (наприме�
 -- === HITBOX TAB ===
 createLabel(HitboxTab, "УВЕЛИЧЕНИЕ ХИТБОКСОВ")
 local HitboxToggle = createActionBtn(HitboxTab, "Hitbox Extender: OFF")
+local HitboxKeyBindBtn = createActionBtn(HitboxTab, "Hitbox Bind: Q")
 local HitboxSizeInput = createInputBox(HitboxTab, "Hitbox Size (например: 4)")
 local HitboxTransInput = createInputBox(HitboxTab, "Hitbox Transparency (например: 0.5)")
 
@@ -385,7 +407,13 @@ local JumpInput = createInputBox(PlayerTab, "Jump Value (например: 100)"
 
 createLabel(PlayerTab, "ПОЛЕТ (FLY)")
 local FlyToggle = createActionBtn(PlayerTab, "Fly: OFF")
+local FlyKeyBindBtn = createActionBtn(PlayerTab, "Fly Bind: F")
 local FlySpeedInput = createInputBox(PlayerTab, "Fly Speed (например: 50)")
+
+-- === FLING & ANTI-FLING TAB ===
+createLabel(FlingTab, "МОДУЛЬ РАСКИДА (FLING)")
+local InvisFlingToggle = createActionBtn(FlingTab, "Invis Fling: OFF")
+local AntiFlingToggle = createActionBtn(FlingTab, "Anti Fling (No Collision): OFF")
 
 -- === HAMSTER COMBAT TAB ===
 createLabel(HamsterTab, "КЛИКЕР HAMSTER COIN")
@@ -435,7 +463,7 @@ HamsterClickBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- === SETTINGS TAB (МЕНЮ КОНФИГОВ) ===
+-- === SETTINGS TAB ===
 createLabel(SettingsTab, "МЕНЮ КОНФИГОВ")
 local ConfigNameInput = createInputBox(SettingsTab, "Имя конфига (например: pro)")
 local SaveConfigBtn = createActionBtn(SettingsTab, "Save Config")
@@ -446,7 +474,6 @@ createLabel(SettingsTab, "УПРАВЛЕНИЕ СКРИПТОМ")
 local UnloadBtn = createActionBtn(SettingsTab, "Unload Script (Full Delete)")
 UnloadBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
 
--- Функция сохранения конфига
 local function saveConfig(name)
     if not writefile then return end
     if name == "" then name = "default" end
@@ -454,6 +481,7 @@ local function saveConfig(name)
     
     local configData = {
         AssistActive = AssistActive,
+        AssistKey = AssistKey and AssistKey.Name or "E",
         AssistSmooth = AssistSmooth,
         TargetPartName = TargetPartName,
         FOVEnabled = FOVEnabled,
@@ -464,14 +492,18 @@ local function saveConfig(name)
         VisualsEnabled = VisualsEnabled,
         VisualsTransparency = VisualsTransparency,
         HitboxEnabled = HitboxEnabled,
+        HitboxKey = HitboxKey and HitboxKey.Name or "Q",
         HitboxSize = HitboxSize,
         HitboxTransparency = HitboxTransparency,
+        InvisFlingEnabled = InvisFlingEnabled,
+        AntiFlingEnabled = AntiFlingEnabled,
         HamsterCoins = HamsterCoins,
         WalkSpeedEnabled = WalkSpeedEnabled,
         CustomWalkSpeed = CustomWalkSpeed,
         JumpPowerEnabled = JumpPowerEnabled,
         CustomJumpPower = CustomJumpPower,
         FlyEnabled = FlyEnabled,
+        FlyKey = FlyKey and FlyKey.Name or "F",
         FlySpeed = FlySpeed
     }
     
@@ -480,7 +512,6 @@ local function saveConfig(name)
     end)
 end
 
--- Функция загрузки конфига
 local function loadConfig(name)
     if not readfile or not isfile then return end
     if name == "" then name = "default" end
@@ -492,6 +523,10 @@ local function loadConfig(name)
         end)
         if success and data then
             AssistActive = data.AssistActive or false
+            if data.AssistKey and Enum.KeyCode[data.AssistKey] then
+                AssistKey = Enum.KeyCode[data.AssistKey]
+                KeyBindBtn.Text = "Bind Key: " .. AssistKey.Name
+            end
             AssistSmooth = data.AssistSmooth or 0.5
             TargetPartName = data.TargetPartName or "Head"
             FOVEnabled = data.FOVEnabled ~= false
@@ -502,8 +537,14 @@ local function loadConfig(name)
             VisualsEnabled = data.VisualsEnabled or false
             VisualsTransparency = data.VisualsTransparency or 0.7
             HitboxEnabled = data.HitboxEnabled or false
+            if data.HitboxKey and Enum.KeyCode[data.HitboxKey] then
+                HitboxKey = Enum.KeyCode[data.HitboxKey]
+                HitboxKeyBindBtn.Text = "Hitbox Bind: " .. HitboxKey.Name
+            end
             HitboxSize = data.HitboxSize or 4
             HitboxTransparency = data.HitboxTransparency or 0.5
+            InvisFlingEnabled = data.InvisFlingEnabled or false
+            AntiFlingEnabled = data.AntiFlingEnabled or false
             HamsterCoins = data.HamsterCoins or 0
             HamsterCounterLabel.Text = "Hamster Coins: " .. HamsterCoins
             WalkSpeedEnabled = data.WalkSpeedEnabled or false
@@ -511,9 +552,12 @@ local function loadConfig(name)
             JumpPowerEnabled = data.JumpPowerEnabled or false
             CustomJumpPower = data.CustomJumpPower or 50
             FlyEnabled = data.FlyEnabled or false
+            if data.FlyKey and Enum.KeyCode[data.FlyKey] then
+                FlyKey = Enum.KeyCode[data.FlyKey]
+                FlyKeyBindBtn.Text = "Fly Bind: " .. FlyKey.Name
+            end
             FlySpeed = data.FlySpeed or 50
 
-            -- Обновление текста кнопок в интерфейсе
             ToggleBtn.Text = AssistActive and "Assist System: ON" or "Assist System: OFF"
             ToggleBtn.TextColor3 = AssistActive and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
             MobileAimToggle.Text = TouchAssistActive and "Mobile Assist: ON" or "Mobile Assist: OFF"
@@ -523,6 +567,10 @@ local function loadConfig(name)
             ESPToggleBtn.TextColor3 = VisualsEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
             HitboxToggle.Text = HitboxEnabled and "Hitbox Extender: ON" or "Hitbox Extender: OFF"
             HitboxToggle.TextColor3 = HitboxEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+            InvisFlingToggle.Text = InvisFlingEnabled and "Invis Fling: ON" or "Invis Fling: OFF"
+            InvisFlingToggle.TextColor3 = InvisFlingEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+            AntiFlingToggle.Text = AntiFlingEnabled and "Anti Fling (No Collision): ON" or "Anti Fling (No Collision): OFF"
+            AntiFlingToggle.TextColor3 = AntiFlingEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
             SpeedToggle.Text = WalkSpeedEnabled and "WalkSpeed: ON" or "WalkSpeed: OFF"
             SpeedToggle.TextColor3 = WalkSpeedEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
             JumpToggle.Text = JumpPowerEnabled and "JumpPower: ON" or "JumpPower: OFF"
@@ -537,7 +585,6 @@ local function loadConfig(name)
     end
 end
 
--- Автозагрузка конфига при старте
 pcall(function()
     if readfile and isfile and isfile(AutoLoadFileName) then
         local autoData = HttpService:JSONDecode(readfile(AutoLoadFileName))
@@ -588,7 +635,6 @@ AutoLoadBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Автосохранение конфига при выходе или деинсталляции
 local function autoSaveOnExit()
     if AutoLoadEnabled and AutoLoadConfigName ~= "" then
         saveConfig(AutoLoadConfigName)
@@ -615,7 +661,159 @@ UnloadBtn.MouseButton1Click:Connect(function()
     MobileGui:Destroy()
 end)
 
--- Логика кнопок и функционала
+-- Идеал-система управления биндами
+local bindingAimKey = false
+local bindingFlyKey = false
+local bindingHitboxKey = false
+
+KeyBindBtn.MouseButton1Click:Connect(function()
+    bindingAimKey = true
+    bindingFlyKey = false
+    bindingHitboxKey = false
+    KeyBindBtn.Text = "Press any key..."
+end)
+
+FlyKeyBindBtn.MouseButton1Click:Connect(function()
+    bindingFlyKey = true
+    bindingAimKey = false
+    bindingHitboxKey = false
+    FlyKeyBindBtn.Text = "Press any key..."
+end)
+
+HitboxKeyBindBtn.MouseButton1Click:Connect(function()
+    bindingHitboxKey = true
+    bindingAimKey = false
+    bindingFlyKey = false
+    HitboxKeyBindBtn.Text = "Press any key..."
+end)
+
+-- Улучшенный универсальный Fly (работает на мобилках и ПК во всех плейсах)
+local function toggleFlyFunc()
+    FlyEnabled = not FlyEnabled
+    FlyToggle.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
+    FlyToggle.TextColor3 = FlyEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+    FlyMobileBtn.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
+    
+    if FlyEnabled then
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum then return end
+
+        hum.PlatformStand = true
+        if flyConnection then flyConnection:Disconnect() end
+
+        flyConnection = RunService.RenderStepped:Connect(function()
+            if not FlyEnabled or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                if flyConnection then flyConnection:Disconnect() end
+                return
+            end
+
+            local currentHrp = LocalPlayer.Character.HumanoidRootPart
+            local currentHum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if currentHum then currentHum.PlatformStand = true end
+
+            local moveDir = Vector3.new(0, 0, 0)
+            
+            -- Поддержка мобильного джойстика через controlModule
+            if controlModule then
+                local rawMove = controlModule:GetMoveVector()
+                if rawMove.Magnitude > 0 then
+                    moveDir = (Camera.CFrame.RightVector * rawMove.X + Camera.CFrame.LookVector * rawMove.Z)
+                end
+            end
+
+            -- Поддержка клавиатуры (WASD)
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+
+            if moveDir.Magnitude > 0 then
+                moveDir = moveDir.Unit * FlySpeed
+            end
+
+            currentHrp.Velocity = moveDir
+            currentHrp.CFrame = CFrame.new(currentHrp.Position, currentHrp.Position + Camera.CFrame.LookVector)
+        end)
+    else
+        if flyConnection then flyConnection:Disconnect() end
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hum then 
+                hum.PlatformStand = false 
+            end
+            if hrp then
+                hrp.Velocity = Vector3.new(0, 0, 0)
+            end
+        end
+    end
+end
+
+local function toggleHitboxFunc()
+    HitboxEnabled = not HitboxEnabled
+    HitboxToggle.Text = HitboxEnabled and "Hitbox Extender: ON" or "Hitbox Extender: OFF"
+    HitboxToggle.TextColor3 = HitboxEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+    if not HitboxEnabled then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = p.Character.HumanoidRootPart
+                if OriginalSizes[hrp] then
+                    hrp.Size = OriginalSizes[hrp]
+                    hrp.Transparency = 1
+                    hrp.CanCollide = false
+                end
+            end
+        end
+    end
+end
+
+InvisFlingToggle.MouseButton1Click:Connect(function()
+    InvisFlingEnabled = not InvisFlingEnabled
+    InvisFlingToggle.Text = InvisFlingEnabled and "Invis Fling: ON" or "Invis Fling: OFF"
+    InvisFlingToggle.TextColor3 = InvisFlingEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+end)
+
+AntiFlingToggle.MouseButton1Click:Connect(function()
+    AntiFlingEnabled = not AntiFlingEnabled
+    AntiFlingToggle.Text = AntiFlingEnabled and "Anti Fling (No Collision): ON" or "Anti Fling (No Collision): OFF"
+    AntiFlingToggle.TextColor3 = AntiFlingEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if bindingAimKey then
+            AssistKey = input.KeyCode
+            KeyBindBtn.Text = "Bind Key: " .. AssistKey.Name
+            bindingAimKey = false
+            return
+        end
+        if bindingFlyKey then
+            FlyKey = input.KeyCode
+            FlyKeyBindBtn.Text = "Fly Bind: " .. FlyKey.Name
+            bindingFlyKey = false
+            return
+        end
+        if bindingHitboxKey then
+            HitboxKey = input.KeyCode
+            HitboxKeyBindBtn.Text = "Hitbox Bind: " .. HitboxKey.Name
+            bindingHitboxKey = false
+            return
+        end
+
+        if input.KeyCode == ToggleKey then
+            MainFrame.Visible = not MainFrame.Visible
+        elseif input.KeyCode == FlyKey then
+            toggleFlyFunc()
+        elseif input.KeyCode == HitboxKey then
+            toggleHitboxFunc()
+        end
+    end
+end)
+
 ToggleBtn.MouseButton1Click:Connect(function()
     AssistActive = not AssistActive
     ToggleBtn.Text = AssistActive and "Assist System: ON" or "Assist System: OFF"
@@ -682,23 +880,7 @@ ESPTransInput.FocusLost:Connect(function()
     if val then VisualsTransparency = math.clamp(val, 0, 1) end
 end)
 
-HitboxToggle.MouseButton1Click:Connect(function()
-    HitboxEnabled = not HitboxEnabled
-    HitboxToggle.Text = HitboxEnabled and "Hitbox Extender: ON" or "Hitbox Extender: OFF"
-    HitboxToggle.TextColor3 = HitboxEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
-    if not HitboxEnabled then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = p.Character.HumanoidRootPart
-                if OriginalSizes[hrp] then
-                    hrp.Size = OriginalSizes[hrp]
-                    hrp.Transparency = 1
-                    hrp.CanCollide = false
-                end
-            end
-        end
-    end
-end)
+HitboxToggle.MouseButton1Click:Connect(toggleHitboxFunc)
 
 HitboxSizeInput.FocusLost:Connect(function()
     local val = tonumber(HitboxSizeInput.Text)
@@ -732,33 +914,6 @@ JumpInput.FocusLost:Connect(function()
     if val then CustomJumpPower = val end
 end)
 
-local function toggleFlyFunc()
-    FlyEnabled = not FlyEnabled
-    FlyToggle.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
-    FlyToggle.TextColor3 = FlyEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
-    FlyMobileBtn.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
-    flying = FlyEnabled
-    local char = LocalPlayer.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        local hrp = char.HumanoidRootPart
-        if flying then
-            bodyGyro = Instance.new("BodyGyro")
-            bodyGyro.P = 9e4
-            bodyGyro.MaxTorque = Vector3.new(9e4, 9e4, 9e4)
-            bodyGyro.CFrame = hrp.CFrame
-            bodyGyro.Parent = hrp
-            
-            bodyVelocity = Instance.new("BodyVelocity")
-            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-            bodyVelocity.MaxForce = Vector3.new(9e4, 9e4, 9e4)
-            bodyVelocity.Parent = hrp
-        else
-            if bodyGyro then bodyGyro:Destroy() end
-            if bodyVelocity then bodyVelocity:Destroy() end
-        end
-    end
-end
-
 FlyToggle.MouseButton1Click:Connect(toggleFlyFunc)
 FlyMobileBtn.MouseButton1Click:Connect(toggleFlyFunc)
 
@@ -767,11 +922,15 @@ FlySpeedInput.FocusLost:Connect(function()
     if val then FlySpeed = val end
 end)
 
-UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == ToggleKey then
-        MainFrame.Visible = not MainFrame.Visible
+local function isAssistKeyDown()
+    if TouchAssistActive then
+        return true
     end
-end)
+    if AssistKey and UserInputService:IsKeyDown(AssistKey) then
+        return true
+    end
+    return false
+end
 
 RunService.RenderStepped:Connect(function()
     local activeFOV = TouchAssistActive and TouchAssistFOV or FOVRadius
@@ -787,7 +946,33 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    if AssistActive and not TouchAssistActive and UserInputService:IsKeyDown(Enum.KeyCode.E) then
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            for _, part in ipairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = not AntiFlingEnabled
+                end
+            end
+        end
+    end
+
+    if InvisFlingEnabled then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local hrp = char.HumanoidRootPart
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local targetHrp = player.Character.HumanoidRootPart
+                    if (hrp.Position - targetHrp.Position).Magnitude < 8 then
+                        hrp.Velocity = Vector3.new(math.random(-50000, 50000), 50000, math.random(-50000, 50000))
+                        hrp.RotVelocity = Vector3.new(math.random(-50000, 50000), 50000, math.random(-50000, 50000))
+                    end
+                end
+            end
+        end
+    end
+
+    if AssistActive and not TouchAssistActive and isAssistKeyDown() then
         local target = nil
         local bestScore = math.huge
         for _, player in ipairs(Players:GetPlayers()) do
@@ -851,42 +1036,6 @@ RunService.RenderStepped:Connect(function()
         if hum then
             if WalkSpeedEnabled then hum.WalkSpeed = CustomWalkSpeed end
             if JumpPowerEnabled then hum.JumpPower = CustomJumpPower end
-        end
-
-        if FlyEnabled and bodyGyro and bodyVelocity and char:FindFirstChild("HumanoidRootPart") then
-            bodyGyro.CFrame = Camera.CFrame
-            local moveDir = Vector3.new(0, 0, 0)
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
-            bodyVelocity.Velocity = moveDir * FlySpeed
-        end
-    end
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            if VisualsEnabled then
-                local character = player.Character
-                if character and character:FindFirstChildOfClass("Humanoid") and character:FindFirstChildOfClass("Humanoid").Health > 0 then
-                    if not VisualsMap[player] or VisualsMap[player].Parent ~= character then
-                        if VisualsMap[player] then VisualsMap[player]:Destroy() end
-                        local hl = Instance.new("Highlight")
-                        hl.Adornee = character
-                        hl.FillColor = Color3.fromRGB(180, 100, 255)
-                        hl.OutlineColor = Color3.fromRGB(220, 130, 255)
-                        hl.FillTransparency = VisualsTransparency
-                        hl.Parent = character
-                        VisualsMap[player] = hl
-                    else
-                        VisualsMap[player].FillTransparency = VisualsTransparency
-                    end
-                else
-                    if VisualsMap[player] then VisualsMap[player]:Destroy() VisualsMap[player] = nil end
-                end
-            else
-                if VisualsMap[player] then VisualsMap[player]:Destroy() VisualsMap[player] = nil end
-            end
         end
     end
 
