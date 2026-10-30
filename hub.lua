@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Final Master Edition)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Glassmorphism & Adaptive Edition)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -118,10 +118,11 @@ MobileGui.ResetOnSpawn = false
 
 local function createMobileButton(pos, text)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 110, 0, 40)
+    btn.Size = UDim2.new(0, 115, 0, 42)
     btn.Position = pos
     btn.BackgroundColor3 = Color3.fromRGB(15, 10, 25)
-    btn.TextColor3 = Color3.fromRGB(220, 180, 255)
+    btn.BackgroundTransparency = 0.25
+    btn.TextColor3 = Color3.fromRGB(235, 200, 255)
     btn.TextSize = 12
     btn.Font = Enum.Font.GothamBold
     btn.Text = text
@@ -134,37 +135,42 @@ local function createMobileButton(pos, text)
     corner.Parent = btn
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(160, 70, 240)
+    stroke.Color = Color3.fromRGB(180, 80, 255)
+    stroke.Transparency = 0.3
     stroke.Thickness = 1.8
     stroke.Parent = btn
     return btn
 end
 
 local ToggleUIMobileBtn = createMobileButton(UDim2.new(0, 20, 0, 20), "⚡ MENU")
-local MobileAimToggleBtn = createMobileButton(UDim2.new(0, 135, 0, 20), "Mob.Aim: OFF")
-local FlyMobileBtn = createMobileButton(UDim2.new(0, 250, 0, 20), "Fly: OFF")
+local MobileAimToggleBtn = createMobileButton(UDim2.new(0, 145, 0, 20), "Mob.Aim: OFF")
+local FlyMobileBtn = createMobileButton(UDim2.new(0, 270, 0, 20), "Fly: OFF")
 
+-- Главное окно с полупрозрачным эффектом стекла (Glassmorphism)
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 650, 0, 430)
-MainFrame.Position = UDim2.new(0.5, -325, 0.5, -215)
-MainFrame.BackgroundColor3 = Color3.fromRGB(12, 8, 18)
+MainFrame.Size = UDim2.new(0, 660, 0, 440)
+MainFrame.Position = UDim2.new(0.5, -330, 0.5, -220)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 6, 16)
+MainFrame.BackgroundTransparency = 0.12
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.CornerRadius = UDim.new(0, 16)
 MainCorner.Parent = MainFrame
 
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = Color3.fromRGB(160, 70, 240)
+MainStroke.Color = Color3.fromRGB(180, 80, 255)
+MainStroke.Transparency = 0.2
 MainStroke.Thickness = 2
 MainStroke.Parent = MainFrame
 
+-- Верхняя неоновая линия градиента
 local NeonGlow = Instance.new("Frame")
 NeonGlow.Size = UDim2.new(1, 0, 0, 3)
-NeonGlow.BackgroundColor3 = Color3.fromRGB(210, 130, 255)
+NeonGlow.BackgroundColor3 = Color3.fromRGB(220, 140, 255)
 NeonGlow.BorderSizePixel = 0
 NeonGlow.Parent = MainFrame
 
@@ -173,36 +179,38 @@ ToggleUIMobileBtn.MouseButton1Click:Connect(function()
 end)
 
 local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 50)
-Header.BackgroundColor3 = Color3.fromRGB(18, 12, 28)
+Header.Size = UDim2.new(1, 0, 0, 52)
+Header.BackgroundColor3 = Color3.fromRGB(16, 10, 26)
+Header.BackgroundTransparency = 0.3
 Header.BorderSizePixel = 0
 Header.Parent = MainFrame
 
 local HeaderCorner = Instance.new("UICorner")
-HeaderCorner.CornerRadius = UDim.new(0, 14)
+HeaderCorner.CornerRadius = UDim.new(0, 16)
 HeaderCorner.Parent = Header
 
 local HeaderCover = Instance.new("Frame")
 HeaderCover.Size = UDim2.new(1, 0, 0, 10)
 HeaderCover.Position = UDim2.new(0, 0, 1, -10)
-HeaderCover.BackgroundColor3 = Color3.fromRGB(18, 12, 28)
+HeaderCover.BackgroundColor3 = Color3.fromRGB(16, 10, 26)
+HeaderCover.BackgroundTransparency = 0.3
 HeaderCover.BorderSizePixel = 0
 HeaderCover.Parent = Header
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -20, 1, 0)
-Title.Position = UDim2.new(0, 20, 0, 0)
+Title.Position = UDim2.new(0, 22, 0, 0)
 Title.BackgroundTransparency = 1
 Title.Text = "TIMON HUB  ✦  ULTIMATE SUITE"
-Title.TextColor3 = Color3.fromRGB(240, 215, 255)
+Title.TextColor3 = Color3.fromRGB(245, 225, 255)
 Title.TextSize = 15
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
 local Sidebar = Instance.new("ScrollingFrame")
-Sidebar.Size = UDim2.new(0, 160, 1, -65)
-Sidebar.Position = UDim2.new(0, 12, 0, 58)
+Sidebar.Size = UDim2.new(0, 165, 1, -68)
+Sidebar.Position = UDim2.new(0, 12, 0, 60)
 Sidebar.BackgroundTransparency = 1
 Sidebar.BorderSizePixel = 0
 Sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -211,12 +219,12 @@ Sidebar.Parent = MainFrame
 
 local SidebarLayout = Instance.new("UIListLayout")
 SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
-SidebarLayout.Padding = UDim.new(0, 6)
+SidebarLayout.Padding = UDim.new(0, 8)
 SidebarLayout.Parent = Sidebar
 
 local ContentArea = Instance.new("Frame")
-ContentArea.Size = UDim2.new(1, -190, 1, -65)
-ContentArea.Position = UDim2.new(0, 180, 0, 58)
+ContentArea.Size = UDim2.new(1, -195, 1, -68)
+ContentArea.Position = UDim2.new(0, 185, 0, 60)
 ContentArea.BackgroundTransparency = 1
 ContentArea.Parent = MainFrame
 
@@ -225,7 +233,7 @@ local function createTabContent()
     sf.Size = UDim2.new(1, 0, 1, 0)
     sf.BackgroundTransparency = 1
     sf.BorderSizePixel = 0
-    sf.CanvasSize = UDim2.new(0, 0, 0, 700)
+    sf.CanvasSize = UDim2.new(0, 0, 0, 750)
     sf.ScrollBarThickness = 3
     sf.Visible = false
     sf.Parent = ContentArea
@@ -248,21 +256,23 @@ CombatTab.Visible = true
 
 local function createTabButton(name, targetTab)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 38)
-    btn.BackgroundColor3 = Color3.fromRGB(18, 12, 28)
-    btn.TextColor3 = Color3.fromRGB(200, 175, 235)
+    btn.Size = UDim2.new(1, 0, 0, 40)
+    btn.BackgroundColor3 = Color3.fromRGB(18, 11, 28)
+    btn.BackgroundTransparency = 0.25
+    btn.TextColor3 = Color3.fromRGB(205, 180, 240)
     btn.TextSize = 13
     btn.Font = Enum.Font.GothamMedium
     btn.Text = name
     btn.Parent = Sidebar
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
+    corner.CornerRadius = UDim.new(0, 10)
     corner.Parent = btn
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(80, 40, 120)
-    stroke.Thickness = 1
+    stroke.Color = Color3.fromRGB(90, 45, 135)
+    stroke.Transparency = 0.3
+    stroke.Thickness = 1.2
     stroke.Parent = btn
     
     btn.MouseButton1Click:Connect(function()
@@ -288,10 +298,10 @@ createTabButton("Settings", SettingsTab)
 
 local function createLabel(parent, text)
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 0, 22)
+    lbl.Size = UDim2.new(1, 0, 0, 24)
     lbl.BackgroundTransparency = 1
     lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(160, 130, 205)
+    lbl.TextColor3 = Color3.fromRGB(170, 135, 215)
     lbl.TextSize = 11
     lbl.Font = Enum.Font.GothamBold
     lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -300,31 +310,34 @@ end
 
 local function createActionBtn(parent, text)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 38)
-    btn.BackgroundColor3 = Color3.fromRGB(18, 12, 28)
-    btn.TextColor3 = Color3.fromRGB(230, 210, 250)
+    btn.Size = UDim2.new(1, 0, 0, 40)
+    btn.BackgroundColor3 = Color3.fromRGB(18, 11, 28)
+    btn.BackgroundTransparency = 0.25
+    btn.TextColor3 = Color3.fromRGB(235, 215, 255)
     btn.TextSize = 13
     btn.Font = Enum.Font.GothamMedium
     btn.Text = text
     btn.Parent = parent
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
+    corner.CornerRadius = UDim.new(0, 10)
     corner.Parent = btn
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(80, 40, 120)
-    stroke.Thickness = 1
+    stroke.Color = Color3.fromRGB(90, 45, 135)
+    stroke.Transparency = 0.3
+    stroke.Thickness = 1.2
     stroke.Parent = btn
     return btn
 end
 
 local function createInputBox(parent, placeholder)
     local box = Instance.new("TextBox")
-    box.Size = UDim2.new(1, 0, 0, 38)
-    box.BackgroundColor3 = Color3.fromRGB(18, 12, 28)
-    box.TextColor3 = Color3.fromRGB(230, 210, 250)
-    box.PlaceholderColor3 = Color3.fromRGB(130, 105, 165)
+    box.Size = UDim2.new(1, 0, 0, 40)
+    box.BackgroundColor3 = Color3.fromRGB(18, 11, 28)
+    box.BackgroundTransparency = 0.25
+    box.TextColor3 = Color3.fromRGB(235, 215, 255)
+    box.PlaceholderColor3 = Color3.fromRGB(140, 110, 180)
     box.TextSize = 13
     box.Font = Enum.Font.GothamMedium
     box.PlaceholderText = placeholder
@@ -332,12 +345,13 @@ local function createInputBox(parent, placeholder)
     box.Parent = parent
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
+    corner.CornerRadius = UDim.new(0, 10)
     corner.Parent = box
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(80, 40, 120)
-    stroke.Thickness = 1
+    stroke.Color = Color3.fromRGB(90, 45, 135)
+    stroke.Transparency = 0.3
+    stroke.Thickness = 1.2
     stroke.Parent = box
     return box
 end
@@ -357,6 +371,7 @@ local PartDropdownBtn = createActionBtn(CombatTab, "Target: Head")
 local PartFrame = Instance.new("Frame")
 PartFrame.Size = UDim2.new(1, 0, 0, 140)
 PartFrame.BackgroundColor3 = Color3.fromRGB(14, 8, 22)
+PartFrame.BackgroundTransparency = 0.15
 PartFrame.Visible = false
 PartFrame.Parent = CombatTab
 local PartLayout = Instance.new("UIListLayout")
@@ -417,7 +432,7 @@ createLabel(HamsterTab, "КЛИКЕР HAMSTER COIN")
 
 local HamsterCounterLabel = Instance.new("TextLabel")
 HamsterCounterLabel.Size = UDim2.new(0, 200, 0, 30)
-HamsterCounterLabel.Position = UDim2.new(1, -210, 0, 10)
+HamsterCounterLabel.Position = UDim2.new(1, -210, 0, 11)
 HamsterCounterLabel.BackgroundTransparency = 1
 HamsterCounterLabel.Text = "Hamster Coins: 0"
 HamsterCounterLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
@@ -435,6 +450,7 @@ local HamsterClickBtn = Instance.new("TextButton")
 HamsterClickBtn.Size = UDim2.new(0, 190, 0, 190)
 HamsterClickBtn.Position = UDim2.new(0.5, -95, 0.5, -95)
 HamsterClickBtn.BackgroundColor3 = Color3.fromRGB(22, 14, 35)
+HamsterClickBtn.BackgroundTransparency = 0.2
 HamsterClickBtn.Text = "🐹"
 HamsterClickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 HamsterClickBtn.TextSize = 68
@@ -729,7 +745,6 @@ local function toggleFlyFunc()
             end
 
             currentHrp.Velocity = moveDir
-            currentHrp.CFrame = CFrame.new(currentHrp.Position, currentHrp.Position + Camera.CFrame.LookVector)
         end)
     else
         if flyConnection then flyConnection:Disconnect() end
@@ -1003,13 +1018,14 @@ RunService.RenderStepped:Connect(function()
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local hrp = char.HumanoidRootPart
-            hrp.CustomPhysicalProperties = PhysicalProperties.new(100, 0, 0, 100, 100)
+            hrp.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
+            hrp.Velocity = Vector3.new(0, 0, 0)
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                     local targetHrp = player.Character.HumanoidRootPart
-                    if (hrp.Position - targetHrp.Position).Magnitude < 9 then
-                        targetHrp.Velocity = Vector3.new(math.random(-50000, 50000), 100000, math.random(-50000, 50000))
-                        targetHrp.RotVelocity = Vector3.new(math.random(-50000, 50000), 100000, math.random(-50000, 50000))
+                    if (hrp.Position - targetHrp.Position).Magnitude < 10 then
+                        targetHrp.Velocity = Vector3.new(math.random(-60000, 60000), 120000, math.random(-60000, 60000))
+                        targetHrp.RotVelocity = Vector3.new(math.random(-60000, 60000), 120000, math.random(-60000, 60000))
                     end
                 end
             end
