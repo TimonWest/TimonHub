@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Glassmorphism & Adaptive Edition)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Ultra-Glassmorphic Edition)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -42,7 +42,7 @@ local TouchAssistFOV = 150
 local LockedTarget = nil
 
 local VisualsEnabled = false
-local VisualsTransparency = 0.6
+local VisualsTransparency = 0.5
 local VisualsMap = {}
 
 local HitboxEnabled = false
@@ -120,9 +120,9 @@ local function createMobileButton(pos, text)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 115, 0, 42)
     btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(15, 10, 25)
-    btn.BackgroundTransparency = 0.25
-    btn.TextColor3 = Color3.fromRGB(235, 200, 255)
+    btn.BackgroundColor3 = Color3.fromRGB(12, 8, 20)
+    btn.BackgroundTransparency = 0.2
+    btn.TextColor3 = Color3.fromRGB(235, 205, 255)
     btn.TextSize = 12
     btn.Font = Enum.Font.GothamBold
     btn.Text = text
@@ -131,12 +131,12 @@ local function createMobileButton(pos, text)
     btn.Parent = MobileGui
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
+    corner.CornerRadius = UDim.new(0, 12)
     corner.Parent = btn
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(180, 80, 255)
-    stroke.Transparency = 0.3
+    stroke.Color = Color3.fromRGB(190, 90, 255)
+    stroke.Transparency = 0.25
     stroke.Thickness = 1.8
     stroke.Parent = btn
     return btn
@@ -146,12 +146,12 @@ local ToggleUIMobileBtn = createMobileButton(UDim2.new(0, 20, 0, 20), "⚡ MENU"
 local MobileAimToggleBtn = createMobileButton(UDim2.new(0, 145, 0, 20), "Mob.Aim: OFF")
 local FlyMobileBtn = createMobileButton(UDim2.new(0, 270, 0, 20), "Fly: OFF")
 
--- Главное окно с полупрозрачным эффектом стекла (Glassmorphism)
+-- Главное окно в стиле Fluid Glassmorphism (прозрачное стекло с неоном)
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 660, 0, 440)
-MainFrame.Position = UDim2.new(0.5, -330, 0.5, -220)
-MainFrame.BackgroundColor3 = Color3.fromRGB(10, 6, 16)
-MainFrame.BackgroundTransparency = 0.12
+MainFrame.Size = UDim2.new(0, 680, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -340, 0.5, -225)
+MainFrame.BackgroundColor3 = Color3.fromRGB(8, 5, 14)
+MainFrame.BackgroundTransparency = 0.15
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
@@ -162,15 +162,15 @@ MainCorner.CornerRadius = UDim.new(0, 16)
 MainCorner.Parent = MainFrame
 
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = Color3.fromRGB(180, 80, 255)
-MainStroke.Transparency = 0.2
+MainStroke.Color = Color3.fromRGB(170, 70, 255)
+MainStroke.Transparency = 0.15
 MainStroke.Thickness = 2
 MainStroke.Parent = MainFrame
 
 -- Верхняя неоновая линия градиента
 local NeonGlow = Instance.new("Frame")
 NeonGlow.Size = UDim2.new(1, 0, 0, 3)
-NeonGlow.BackgroundColor3 = Color3.fromRGB(220, 140, 255)
+NeonGlow.BackgroundColor3 = Color3.fromRGB(220, 130, 255)
 NeonGlow.BorderSizePixel = 0
 NeonGlow.Parent = MainFrame
 
@@ -179,9 +179,9 @@ ToggleUIMobileBtn.MouseButton1Click:Connect(function()
 end)
 
 local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 52)
-Header.BackgroundColor3 = Color3.fromRGB(16, 10, 26)
-Header.BackgroundTransparency = 0.3
+Header.Size = UDim2.new(1, 0, 0, 54)
+Header.BackgroundColor3 = Color3.fromRGB(14, 8, 24)
+Header.BackgroundTransparency = 0.35
 Header.BorderSizePixel = 0
 Header.Parent = MainFrame
 
@@ -192,25 +192,25 @@ HeaderCorner.Parent = Header
 local HeaderCover = Instance.new("Frame")
 HeaderCover.Size = UDim2.new(1, 0, 0, 10)
 HeaderCover.Position = UDim2.new(0, 0, 1, -10)
-HeaderCover.BackgroundColor3 = Color3.fromRGB(16, 10, 26)
-HeaderCover.BackgroundTransparency = 0.3
+HeaderCover.BackgroundColor3 = Color3.fromRGB(14, 8, 24)
+HeaderCover.BackgroundTransparency = 0.35
 HeaderCover.BorderSizePixel = 0
 HeaderCover.Parent = Header
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -20, 1, 0)
-Title.Position = UDim2.new(0, 22, 0, 0)
+Title.Position = UDim2.new(0, 24, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "TIMON HUB  ✦  ULTIMATE SUITE"
-Title.TextColor3 = Color3.fromRGB(245, 225, 255)
+Title.Text = "TIMON HUB  ✦  ULTIMATE SUITE v4.0"
+Title.TextColor3 = Color3.fromRGB(250, 230, 255)
 Title.TextSize = 15
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
 local Sidebar = Instance.new("ScrollingFrame")
-Sidebar.Size = UDim2.new(0, 165, 1, -68)
-Sidebar.Position = UDim2.new(0, 12, 0, 60)
+Sidebar.Size = UDim2.new(0, 175, 1, -70)
+Sidebar.Position = UDim2.new(0, 12, 0, 62)
 Sidebar.BackgroundTransparency = 1
 Sidebar.BorderSizePixel = 0
 Sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -223,8 +223,8 @@ SidebarLayout.Padding = UDim.new(0, 8)
 SidebarLayout.Parent = Sidebar
 
 local ContentArea = Instance.new("Frame")
-ContentArea.Size = UDim2.new(1, -195, 1, -68)
-ContentArea.Position = UDim2.new(0, 185, 0, 60)
+ContentArea.Size = UDim2.new(1, -205, 1, -70)
+ContentArea.Position = UDim2.new(0, 195, 0, 62)
 ContentArea.BackgroundTransparency = 1
 ContentArea.Parent = MainFrame
 
@@ -256,10 +256,10 @@ CombatTab.Visible = true
 
 local function createTabButton(name, targetTab)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 40)
-    btn.BackgroundColor3 = Color3.fromRGB(18, 11, 28)
-    btn.BackgroundTransparency = 0.25
-    btn.TextColor3 = Color3.fromRGB(205, 180, 240)
+    btn.Size = UDim2.new(1, 0, 0, 42)
+    btn.BackgroundColor3 = Color3.fromRGB(16, 9, 26)
+    btn.BackgroundTransparency = 0.3
+    btn.TextColor3 = Color3.fromRGB(210, 185, 245)
     btn.TextSize = 13
     btn.Font = Enum.Font.GothamMedium
     btn.Text = name
@@ -270,8 +270,8 @@ local function createTabButton(name, targetTab)
     corner.Parent = btn
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(90, 45, 135)
-    stroke.Transparency = 0.3
+    stroke.Color = Color3.fromRGB(110, 50, 160)
+    stroke.Transparency = 0.4
     stroke.Thickness = 1.2
     stroke.Parent = btn
     
@@ -301,7 +301,7 @@ local function createLabel(parent, text)
     lbl.Size = UDim2.new(1, 0, 0, 24)
     lbl.BackgroundTransparency = 1
     lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(170, 135, 215)
+    lbl.TextColor3 = Color3.fromRGB(175, 140, 220)
     lbl.TextSize = 11
     lbl.Font = Enum.Font.GothamBold
     lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -310,10 +310,10 @@ end
 
 local function createActionBtn(parent, text)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 40)
-    btn.BackgroundColor3 = Color3.fromRGB(18, 11, 28)
-    btn.BackgroundTransparency = 0.25
-    btn.TextColor3 = Color3.fromRGB(235, 215, 255)
+    btn.Size = UDim2.new(1, 0, 0, 42)
+    btn.BackgroundColor3 = Color3.fromRGB(16, 9, 26)
+    btn.BackgroundTransparency = 0.3
+    btn.TextColor3 = Color3.fromRGB(240, 220, 255)
     btn.TextSize = 13
     btn.Font = Enum.Font.GothamMedium
     btn.Text = text
@@ -324,8 +324,8 @@ local function createActionBtn(parent, text)
     corner.Parent = btn
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(90, 45, 135)
-    stroke.Transparency = 0.3
+    stroke.Color = Color3.fromRGB(110, 50, 160)
+    stroke.Transparency = 0.4
     stroke.Thickness = 1.2
     stroke.Parent = btn
     return btn
@@ -333,11 +333,11 @@ end
 
 local function createInputBox(parent, placeholder)
     local box = Instance.new("TextBox")
-    box.Size = UDim2.new(1, 0, 0, 40)
-    box.BackgroundColor3 = Color3.fromRGB(18, 11, 28)
-    box.BackgroundTransparency = 0.25
-    box.TextColor3 = Color3.fromRGB(235, 215, 255)
-    box.PlaceholderColor3 = Color3.fromRGB(140, 110, 180)
+    box.Size = UDim2.new(1, 0, 0, 42)
+    box.BackgroundColor3 = Color3.fromRGB(16, 9, 26)
+    box.BackgroundTransparency = 0.3
+    box.TextColor3 = Color3.fromRGB(240, 220, 255)
+    box.PlaceholderColor3 = Color3.fromRGB(140, 110, 185)
     box.TextSize = 13
     box.Font = Enum.Font.GothamMedium
     box.PlaceholderText = placeholder
@@ -349,8 +349,8 @@ local function createInputBox(parent, placeholder)
     corner.Parent = box
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(90, 45, 135)
-    stroke.Transparency = 0.3
+    stroke.Color = Color3.fromRGB(110, 50, 160)
+    stroke.Transparency = 0.4
     stroke.Thickness = 1.2
     stroke.Parent = box
     return box
@@ -370,8 +370,8 @@ createLabel(CombatTab, "ВЫБОР ЧАСТИ ТЕЛА")
 local PartDropdownBtn = createActionBtn(CombatTab, "Target: Head")
 local PartFrame = Instance.new("Frame")
 PartFrame.Size = UDim2.new(1, 0, 0, 140)
-PartFrame.BackgroundColor3 = Color3.fromRGB(14, 8, 22)
-PartFrame.BackgroundTransparency = 0.15
+PartFrame.BackgroundColor3 = Color3.fromRGB(12, 6, 20)
+PartFrame.BackgroundTransparency = 0.2
 PartFrame.Visible = false
 PartFrame.Parent = CombatTab
 local PartLayout = Instance.new("UIListLayout")
@@ -401,7 +401,7 @@ local FOVRadiusInput = createInputBox(CombatTab, "FOV Radius (например: 
 -- === ESP TAB ===
 createLabel(ESPTab, "ПОДСВЕТКА ИГРОКОВ (ESP)")
 local ESPToggleBtn = createActionBtn(ESPTab, "Visuals: OFF")
-local ESPTransInput = createInputBox(ESPTab, "Fill Transparency (например: 0.6)")
+local ESPTransInput = createInputBox(ESPTab, "Fill Transparency (например: 0.5)")
 
 -- === HITBOX TAB ===
 createLabel(HitboxTab, "УВЕЛИЧЕНИЕ ХИТБОКСОВ")
@@ -432,7 +432,7 @@ createLabel(HamsterTab, "КЛИКЕР HAMSTER COIN")
 
 local HamsterCounterLabel = Instance.new("TextLabel")
 HamsterCounterLabel.Size = UDim2.new(0, 200, 0, 30)
-HamsterCounterLabel.Position = UDim2.new(1, -210, 0, 11)
+HamsterCounterLabel.Position = UDim2.new(1, -210, 0, 12)
 HamsterCounterLabel.BackgroundTransparency = 1
 HamsterCounterLabel.Text = "Hamster Coins: 0"
 HamsterCounterLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
@@ -449,7 +449,7 @@ ClickerContainer.Parent = HamsterTab
 local HamsterClickBtn = Instance.new("TextButton")
 HamsterClickBtn.Size = UDim2.new(0, 190, 0, 190)
 HamsterClickBtn.Position = UDim2.new(0.5, -95, 0.5, -95)
-HamsterClickBtn.BackgroundColor3 = Color3.fromRGB(22, 14, 35)
+HamsterClickBtn.BackgroundColor3 = Color3.fromRGB(18, 10, 28)
 HamsterClickBtn.BackgroundTransparency = 0.2
 HamsterClickBtn.Text = "🐹"
 HamsterClickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -548,7 +548,7 @@ local function loadConfig(name)
             TouchAssistSmooth = data.TouchAssistSmooth or 0.5
             TouchAssistFOV = data.TouchAssistFOV or 150
             VisualsEnabled = data.VisualsEnabled or false
-            VisualsTransparency = data.VisualsTransparency or 0.7
+            VisualsTransparency = data.VisualsTransparency or 0.5
             HitboxEnabled = data.HitboxEnabled or false
             if data.HitboxKey and Enum.KeyCode[data.HitboxKey] then
                 HitboxKey = Enum.KeyCode[data.HitboxKey]
@@ -1014,18 +1014,19 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- Идеально чистый и безопасный флинг (без отдачи на владельца)
     if InvisFlingEnabled then
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local hrp = char.HumanoidRootPart
-            hrp.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-            hrp.Velocity = Vector3.new(0, 0, 0)
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                     local targetHrp = player.Character.HumanoidRootPart
                     if (hrp.Position - targetHrp.Position).Magnitude < 10 then
-                        targetHrp.Velocity = Vector3.new(math.random(-60000, 60000), 120000, math.random(-60000, 60000))
-                        targetHrp.RotVelocity = Vector3.new(math.random(-60000, 60000), 120000, math.random(-60000, 60000))
+                        targetHrp.AssemblyLinearVelocity = Vector3.new(math.random(-80000, 80000), 150000, math.random(-80000, 80000))
+                        targetHrp.AssemblyAngularVelocity = Vector3.new(math.random(-80000, 80000), 150000, math.random(-80000, 80000))
                     end
                 end
             end
