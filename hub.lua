@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Masterpiece Fly Edition)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Fly Fixed & Hitbox Target Edition)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -48,6 +48,7 @@ local VisualsMap = {}
 local HitboxEnabled = false
 local HitboxSize = 4
 local HitboxTransparency = 0.5
+local HitboxTargetName = "HumanoidRootPart" -- Выбор части хитбокса
 local HitboxKey = Enum.KeyCode.Q
 local OriginalSizes = {}
 
@@ -60,7 +61,6 @@ local CustomWalkSpeed = 16
 local JumpPowerEnabled = false
 local CustomJumpPower = 50
 
--- Новый усовершенствованный модуль полета
 local FlyEnabled = false
 local FlySpeed = 50
 local FlyKey = Enum.KeyCode.F
@@ -200,7 +200,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -20, 1, 0)
 Title.Position = UDim2.new(0, 24, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "TIMON HUB  ✦  ULTIMATE SUITE v4.0"
+Title.Text = "TIMON HUB  ✦  ULTIMATE SUITE v4.1"
 Title.TextColor3 = Color3.fromRGB(250, 230, 255)
 Title.TextSize = 15
 Title.Font = Enum.Font.GothamBold
@@ -232,7 +232,7 @@ local function createTabContent()
     sf.Size = UDim2.new(1, 0, 1, 0)
     sf.BackgroundTransparency = 1
     sf.BorderSizePixel = 0
-    sf.CanvasSize = UDim2.new(0, 0, 0, 750)
+    sf.CanvasSize = UDim2.new(0, 0, 0, 800)
     sf.ScrollBarThickness = 3
     sf.Visible = false
     sf.Parent = ContentArea
@@ -406,6 +406,39 @@ local ESPTransInput = createInputBox(ESPTab, "Fill Transparency (наприме�
 createLabel(HitboxTab, "УВЕЛИЧЕНИЕ ХИТБОКСОВ")
 local HitboxToggle = createActionBtn(HitboxTab, "Hitbox Extender: OFF")
 local HitboxKeyBindBtn = createActionBtn(HitboxTab, "Hitbox Bind: Q")
+
+createLabel(HitboxTab, "ВЫБОР ЧАСТИ ДЛЯ ХИТБОКСА")
+local HitboxPartBtn = createActionBtn(HitboxTab, "Hitbox Part: RootPart")
+local HitboxPartFrame = Instance.new("Frame")
+HitboxPartFrame.Size = UDim2.new(1, 0, 0, 140)
+HitboxPartFrame.BackgroundColor3 = Color3.fromRGB(12, 6, 20)
+HitboxPartFrame.BackgroundTransparency = 0.2
+HitboxPartFrame.Visible = false
+HitboxPartFrame.Parent = HitboxTab
+local HitboxPartLayout = Instance.new("UIListLayout")
+HitboxPartLayout.Padding = UDim.new(0, 5)
+HitboxPartLayout.Parent = HitboxPartFrame
+
+local hitboxParts = {
+    {Name = "Все тело (RootPart)", Part = "HumanoidRootPart"},
+    {Name = "Голова (Head)", Part = "Head"},
+    {Name = "Торс (Torso)", Part = "UpperTorso"},
+    {Name = "Руки/Ноги (LeftLowerArm)", Part = "LeftLowerArm"}
+}
+for _, hp in ipairs(hitboxParts) do
+    local b = createActionBtn(HitboxPartFrame, hp.Name)
+    b.MouseButton1Click:Connect(function()
+        HitboxTargetName = hp.Part
+        HitboxPartBtn.Text = "Hitbox Part: " .. hp.Name
+        HitboxPartFrame.Visible = false
+    end)
+end
+
+HitboxPartBtn.MouseButton1Click:Connect(function()
+    HitboxPartFrame.Visible = not HitboxPartFrame.Visible
+end)
+
+createLabel(HitboxTab, "НАСТРОЙКИ ХИТБОКСА")
 local HitboxSizeInput = createInputBox(HitboxTab, "Hitbox Size (например: 4)")
 local HitboxTransInput = createInputBox(HitboxTab, "Hitbox Transparency (например: 0.5)")
 
@@ -505,6 +538,7 @@ local function saveConfig(name)
         VisualsTransparency = VisualsTransparency,
         HitboxEnabled = HitboxEnabled,
         HitboxKey = HitboxKey and HitboxKey.Name or "Q",
+        HitboxTargetName = HitboxTargetName,
         HitboxSize = HitboxSize,
         HitboxTransparency = HitboxTransparency,
         InvisFlingEnabled = InvisFlingEnabled,
@@ -553,6 +587,7 @@ local function loadConfig(name)
                 HitboxKey = Enum.KeyCode[data.HitboxKey]
                 HitboxKeyBindBtn.Text = "Hitbox Bind: " .. HitboxKey.Name
             end
+            HitboxTargetName = data.HitboxTargetName or "HumanoidRootPart"
             HitboxSize = data.HitboxSize or 4
             HitboxTransparency = data.HitboxTransparency or 0.5
             InvisFlingEnabled = data.InvisFlingEnabled or false
@@ -591,6 +626,7 @@ local function loadConfig(name)
             FlyToggle.TextColor3 = FlyEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
             FlyMobileBtn.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
             PartDropdownBtn.Text = "Target: " .. TargetPartName
+            HitboxPartBtn.Text = "Hitbox Part: " .. HitboxTargetName
             
             CurrentConfigName = name
         end
@@ -699,7 +735,7 @@ HitboxKeyBindBtn.MouseButton1Click:Connect(function()
     HitboxKeyBindBtn.Text = "Press any key..."
 end)
 
--- УЛЬТИМАТИВНЫЙ ИДЕАЛЬНЫЙ FLY (работает во все 4 стороны на ПК и телефоне)
+-- ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ И ПЛАВНЫЙ UNIVERSAL FLY (работает во все стороны)
 local function toggleFlyFunc()
     FlyEnabled = not FlyEnabled
     FlyToggle.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
@@ -728,7 +764,6 @@ local function toggleFlyFunc()
 
             local moveDirection = Vector3.new(0, 0, 0)
             
-            -- Считывание мобильного джойстика
             if controlModule then
                 local rawMove = controlModule:GetMoveVector()
                 if rawMove.Magnitude > 0 then
@@ -736,7 +771,6 @@ local function toggleFlyFunc()
                 end
             end
 
-            -- Считывание клавиатуры WASD
             if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + Camera.CFrame.LookVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - Camera.CFrame.LookVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - Camera.CFrame.RightVector end
@@ -747,10 +781,9 @@ local function toggleFlyFunc()
             end
 
             local targetVelocity = moveDirection * FlySpeed
-            currentVelocity = currentVelocity:Lerp(targetVelocity, math.clamp(dt * 12, 0, 1))
+            currentVelocity = currentVelocity:Lerp(targetVelocity, math.clamp(dt * 15, 0, 1))
 
             currentHrp.AssemblyLinearVelocity = currentVelocity
-            currentHrp.CFrame = CFrame.new(currentHrp.Position, currentHrp.Position + Camera.CFrame.LookVector)
         end)
     else
         if flyConnection then flyConnection:Disconnect() end
@@ -775,12 +808,12 @@ local function toggleHitboxFunc()
     HitboxToggle.TextColor3 = HitboxEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
     if not HitboxEnabled then
         for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = p.Character.HumanoidRootPart
-                if OriginalSizes[hrp] then
-                    hrp.Size = OriginalSizes[hrp]
-                    hrp.Transparency = 1
-                    hrp.CanCollide = false
+            if p ~= LocalPlayer and p.Character then
+                local targetPart = p.Character:FindFirstChild(HitboxTargetName)
+                if targetPart and OriginalSizes[targetPart] then
+                    targetPart.Size = OriginalSizes[targetPart]
+                    targetPart.Transparency = 1
+                    targetPart.CanCollide = false
                 end
             end
         end
@@ -1178,13 +1211,13 @@ RunService.RenderStepped:Connect(function()
     if HitboxEnabled then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
-                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    if not OriginalSizes[hrp] then OriginalSizes[hrp] = hrp.Size end
-                    hrp.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-                    hrp.Transparency = HitboxTransparency
-                    hrp.Material = Enum.Material.Neon
-                    hrp.CanCollide = false
+                local targetPart = player.Character:FindFirstChild(HitboxTargetName)
+                if targetPart then
+                    if not OriginalSizes[targetPart] then OriginalSizes[targetPart] = targetPart.Size end
+                    targetPart.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+                    targetPart.Transparency = HitboxTransparency
+                    targetPart.Material = Enum.Material.Neon
+                    targetPart.CanCollide = false
                 end
             end
         end
