@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Universal Mobile Fly Edition)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Final Master Edition)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -30,7 +30,6 @@ end)
 
 local AssistActive = false
 local AssistKey = Enum.KeyCode.E
-local AssistMouseType = nil
 local ToggleKey = Enum.KeyCode.LeftAlt
 local AssistSmooth = 0.5
 local TargetPartName = "Head"
@@ -43,7 +42,7 @@ local TouchAssistFOV = 150
 local LockedTarget = nil
 
 local VisualsEnabled = false
-local VisualsTransparency = 0.7
+local VisualsTransparency = 0.6
 local VisualsMap = {}
 
 local HitboxEnabled = false
@@ -61,7 +60,6 @@ local CustomWalkSpeed = 16
 local JumpPowerEnabled = false
 local CustomJumpPower = 50
 
--- Универсальный Fly
 local FlyEnabled = false
 local FlySpeed = 50
 local FlyKey = Enum.KeyCode.F
@@ -69,7 +67,6 @@ local flying = false
 local flyConnection = nil
 local controlModule = nil
 
--- Безопасный поиск модуля управления движением для мобилок в Roblox
 pcall(function()
     local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
     if playerScripts then
@@ -387,9 +384,9 @@ local FOVToggleBtn = createActionBtn(CombatTab, "FOV Circle: ON")
 local FOVRadiusInput = createInputBox(CombatTab, "FOV Radius (например: 120)")
 
 -- === ESP TAB ===
-createLabel(ESPTab, "ПОДСВЕТКА ИГРОКОВ")
+createLabel(ESPTab, "ПОДСВЕТКА ИГРОКОВ (ESP)")
 local ESPToggleBtn = createActionBtn(ESPTab, "Visuals: OFF")
-local ESPTransInput = createInputBox(ESPTab, "Fill Transparency (например: 0.7)")
+local ESPTransInput = createInputBox(ESPTab, "Fill Transparency (например: 0.6)")
 
 -- === HITBOX TAB ===
 createLabel(HitboxTab, "УВЕЛИЧЕНИЕ ХИТБОКСОВ")
@@ -654,14 +651,14 @@ UnloadBtn.MouseButton1Click:Connect(function()
     pcall(function()
         if FOVCircle then FOVCircle:Remove() end
     end)
-    for _, hl in pairs(VisualsMap) do
-        if hl then hl:Destroy() end
+    for _, data in pairs(VisualsMap) do
+        if data.Highlight then data.Highlight:Destroy() end
+        if data.Billboard then data.Billboard:Destroy() end
     end
     ScreenGui:Destroy()
     MobileGui:Destroy()
 end)
 
--- Идеал-система управления биндами
 local bindingAimKey = false
 local bindingFlyKey = false
 local bindingHitboxKey = false
@@ -687,7 +684,6 @@ HitboxKeyBindBtn.MouseButton1Click:Connect(function()
     HitboxKeyBindBtn.Text = "Press any key..."
 end)
 
--- Улучшенный универсальный Fly (работает на мобилках и ПК во всех плейсах)
 local function toggleFlyFunc()
     FlyEnabled = not FlyEnabled
     FlyToggle.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
@@ -716,7 +712,6 @@ local function toggleFlyFunc()
 
             local moveDir = Vector3.new(0, 0, 0)
             
-            -- Поддержка мобильного джойстика через controlModule
             if controlModule then
                 local rawMove = controlModule:GetMoveVector()
                 if rawMove.Magnitude > 0 then
@@ -724,7 +719,6 @@ local function toggleFlyFunc()
                 end
             end
 
-            -- Поддержка клавиатуры (WASD)
             if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
@@ -868,8 +862,9 @@ ESPToggleBtn.MouseButton1Click:Connect(function()
     ESPToggleBtn.Text = VisualsEnabled and "Visuals: ON" or "Visuals: OFF"
     ESPToggleBtn.TextColor3 = VisualsEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
     if not VisualsEnabled then
-        for _, hl in pairs(VisualsMap) do
-            if hl then hl:Destroy() end
+        for _, data in pairs(VisualsMap) do
+            if data.Highlight then data.Highlight:Destroy() end
+            if data.Billboard then data.Billboard:Destroy() end
         end
         VisualsMap = {}
     end
@@ -932,6 +927,54 @@ local function isAssistKeyDown()
     return false
 end
 
+local function getClosestTarget()
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local refPos = TouchAssistActive and screenCenter or UserInputService:GetMouseLocation()
+    local activeFOV = TouchAssistActive and TouchAssistFOV or FOVRadius
+
+    if LockedTarget and LockedTarget.Parent and LockedTarget.Parent:FindFirstChildOfClass("Humanoid") then
+        local humanoid = LockedTarget.Parent:FindFirstChildOfClass("Humanoid")
+        if humanoid.Health > 0 then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(LockedTarget.Position)
+            if onScreen then
+                local distToRef = (Vector2.new(screenPos.X, screenPos.Y) - refPos).Magnitude
+                if distToRef <= (activeFOV * 1.5) then
+                    return LockedTarget
+                end
+            end
+        end
+    end
+
+    local closestTarget = nil
+    local bestScore = math.huge
+    local localHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            local targetPart = player.Character:FindFirstChild(TargetPartName) or player.Character:FindFirstChild("Head")
+            if humanoid and humanoid.Health > 0 and targetPart then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                if onScreen then
+                    local distToRef = (Vector2.new(screenPos.X, screenPos.Y) - refPos).Magnitude
+                    if distToRef <= activeFOV then
+                        local distToMe = localHrp and (localHrp.Position - targetPart.Position).Magnitude or 0
+                        local score = (distToRef * 0.7) + (distToMe * 0.3)
+                        
+                        if score < bestScore then
+                            bestScore = score
+                            closestTarget = targetPart
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    LockedTarget = closestTarget
+    return LockedTarget
+end
+
 RunService.RenderStepped:Connect(function()
     local activeFOV = TouchAssistActive and TouchAssistFOV or FOVRadius
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -960,12 +1003,13 @@ RunService.RenderStepped:Connect(function()
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local hrp = char.HumanoidRootPart
+            hrp.CustomPhysicalProperties = PhysicalProperties.new(100, 0, 0, 100, 100)
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                     local targetHrp = player.Character.HumanoidRootPart
-                    if (hrp.Position - targetHrp.Position).Magnitude < 8 then
-                        hrp.Velocity = Vector3.new(math.random(-50000, 50000), 50000, math.random(-50000, 50000))
-                        hrp.RotVelocity = Vector3.new(math.random(-50000, 50000), 50000, math.random(-50000, 50000))
+                    if (hrp.Position - targetHrp.Position).Magnitude < 9 then
+                        targetHrp.Velocity = Vector3.new(math.random(-50000, 50000), 100000, math.random(-50000, 50000))
+                        targetHrp.RotVelocity = Vector3.new(math.random(-50000, 50000), 100000, math.random(-50000, 50000))
                     end
                 end
             end
@@ -973,59 +1017,128 @@ RunService.RenderStepped:Connect(function()
     end
 
     if AssistActive and not TouchAssistActive and isAssistKeyDown() then
-        local target = nil
-        local bestScore = math.huge
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local hum = player.Character:FindFirstChildOfClass("Humanoid")
-                local part = player.Character:FindFirstChild(TargetPartName) or player.Character:FindFirstChild("Head")
-                if hum and hum.Health > 0 and part then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen then
-                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - UserInputService:GetMouseLocation()).Magnitude
-                        if dist <= activeFOV and dist < bestScore then
-                            bestScore = dist
-                            target = part
-                        end
-                    end
-                end
-            end
-        end
+        local target = getClosestTarget()
         if target then
-            local curMouse = UserInputService:GetMouseLocation()
-            local scrPos = Camera:WorldToViewportPoint(target.Position)
-            local delta = Vector2.new(scrPos.X, scrPos.Y) - curMouse
+            local currentMouse = UserInputService:GetMouseLocation()
+            local screenPos = Camera:WorldToViewportPoint(target.Position)
+            local targetPos = Vector2.new(screenPos.X, screenPos.Y)
+            local moveDelta = targetPos - currentMouse
             if AssistSmooth > 0 then
-                mousemoverel(delta.X * (1 - AssistSmooth), delta.Y * (1 - AssistSmooth))
+                mousemoverel(moveDelta.X * (1 - AssistSmooth), moveDelta.Y * (1 - AssistSmooth))
             else
-                mousemoverel(delta.X, delta.Y)
+                mousemoverel(moveDelta.X, moveDelta.Y)
             end
         end
-    elseif TouchAssistActive then
-        local target = nil
-        local bestScore = math.huge
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local hum = player.Character:FindFirstChildOfClass("Humanoid")
-                local part = player.Character:FindFirstChild(TargetPartName) or player.Character:FindFirstChild("Head")
-                if hum and hum.Health > 0 and part then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen then
-                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                        if dist <= activeFOV and dist < bestScore then
-                            bestScore = dist
-                            target = part
-                        end
-                    end
-                end
-            end
-        end
+    elseif TouchAssistActive and isAssistKeyDown() then
+        local target = getClosestTarget()
         if target then
+            local currentCamCF = Camera.CFrame
             local targetCF = CFrame.new(Camera.CFrame.Position, target.Position)
             if TouchAssistSmooth > 0 then
-                Camera.CFrame = Camera.CFrame:Lerp(targetCF, 1 - TouchAssistSmooth)
+                Camera.CFrame = currentCamCF:Lerp(targetCF, 1 - TouchAssistSmooth)
             else
                 Camera.CFrame = targetCF
+            end
+        end
+    else
+        LockedTarget = nil
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if VisualsEnabled then
+                local character = player.Character
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                local head = character and character:FindFirstChild("Head")
+                
+                if character and humanoid and head and humanoid.Health > 0 then
+                    if not VisualsMap[player] then
+                        VisualsMap[player] = {}
+                    end
+                    
+                    if not VisualsMap[player].Highlight or VisualsMap[player].Highlight.Parent ~= character then
+                        if VisualsMap[player].Highlight then VisualsMap[player].Highlight:Destroy() end
+                        
+                        local hl = Instance.new("Highlight")
+                        hl.Adornee = character
+                        hl.FillColor = Color3.fromRGB(170, 90, 255)
+                        hl.OutlineColor = Color3.fromRGB(230, 180, 255)
+                        hl.FillTransparency = VisualsTransparency
+                        hl.OutlineTransparency = 0.1
+                        hl.Parent = character
+                        VisualsMap[player].Highlight = hl
+                    else
+                        VisualsMap[player].Highlight.FillTransparency = VisualsTransparency
+                    end
+
+                    if not VisualsMap[player].Billboard or VisualsMap[player].Billboard.Parent ~= head then
+                        if VisualsMap[player].Billboard then VisualsMap[player].Billboard:Destroy() end
+
+                        local bb = Instance.new("BillboardGui")
+                        bb.Name = "TimonESP"
+                        bb.Size = UDim2.new(0, 120, 0, 50)
+                        bb.StudsOffset = Vector3.new(0, 2.5, 0)
+                        bb.AlwaysOnTop = true
+                        bb.Adornee = head
+                        bb.Parent = head
+
+                        local nameLabel = Instance.new("TextLabel")
+                        nameLabel.Name = "NameLabel"
+                        nameLabel.Size = UDim2.new(1, 0, 0, 20)
+                        nameLabel.BackgroundTransparency = 1
+                        nameLabel.Text = player.Name
+                        nameLabel.TextColor3 = Color3.fromRGB(245, 230, 255)
+                        nameLabel.TextSize = 12
+                        nameLabel.Font = Enum.Font.GothamBold
+                        nameLabel.TextStrokeTransparency = 0.5
+                        nameLabel.Parent = bb
+
+                        local hpBg = Instance.new("Frame")
+                        hpBg.Name = "HpBg"
+                        hpBg.Size = UDim2.new(0.8, 0, 0, 6)
+                        hpBg.Position = UDim2.new(0.1, 0, 0, 22)
+                        hpBg.BackgroundColor3 = Color3.fromRGB(30, 20, 45)
+                        hpBg.BorderSizePixel = 0
+                        hpBg.Parent = bb
+
+                        local hpCorner = Instance.new("UICorner")
+                        hpCorner.CornerRadius = UDim.new(1, 0)
+                        hpCorner.Parent = hpBg
+
+                        local hpBar = Instance.new("Frame")
+                        hpBar.Name = "HpBar"
+                        hpBar.Size = UDim2.new(1, 0, 1, 0)
+                        hpBar.BackgroundColor3 = Color3.fromRGB(120, 255, 120)
+                        hpBar.BorderSizePixel = 0
+                        hpBar.Parent = hpBg
+
+                        local hpBarCorner = Instance.new("UICorner")
+                        hpBarCorner.CornerRadius = UDim.new(1, 0)
+                        hpBarCorner.Parent = hpBar
+
+                        VisualsMap[player].Billboard = bb
+                        VisualsMap[player].HpBar = hpBar
+                    else
+                        local hpBar = VisualsMap[player].HpBar
+                        if hpBar then
+                            local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                            hpBar.Size = UDim2.new(healthPercent, 0, 1, 0)
+                            hpBar.BackgroundColor3 = Color3.fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 80)
+                        end
+                    end
+                else
+                    if VisualsMap[player] then
+                        if VisualsMap[player].Highlight then VisualsMap[player].Highlight:Destroy() end
+                        if VisualsMap[player].Billboard then VisualsMap[player].Billboard:Destroy() end
+                        VisualsMap[player] = nil
+                    end
+                end
+            else
+                if VisualsMap[player] then
+                    if VisualsMap[player].Highlight then VisualsMap[player].Highlight:Destroy() end
+                    if VisualsMap[player].Billboard then VisualsMap[player].Billboard:Destroy() end
+                    VisualsMap[player] = nil
+                end
             end
         end
     end
