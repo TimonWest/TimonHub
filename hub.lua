@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Fly Fixed & Hitbox Target Edition)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Fixed Hitbox Dropdown & Fly)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -48,7 +48,7 @@ local VisualsMap = {}
 local HitboxEnabled = false
 local HitboxSize = 4
 local HitboxTransparency = 0.5
-local HitboxTargetName = "HumanoidRootPart" -- Выбор части хитбокса
+local HitboxTargetName = "HumanoidRootPart"
 local HitboxKey = Enum.KeyCode.Q
 local OriginalSizes = {}
 
@@ -200,7 +200,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -20, 1, 0)
 Title.Position = UDim2.new(0, 24, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "TIMON HUB  ✦  ULTIMATE SUITE v4.1"
+Title.Text = "TIMON HUB  ✦  ULTIMATE SUITE v4.2"
 Title.TextColor3 = Color3.fromRGB(250, 230, 255)
 Title.TextSize = 15
 Title.Font = Enum.Font.GothamBold
@@ -232,7 +232,7 @@ local function createTabContent()
     sf.Size = UDim2.new(1, 0, 1, 0)
     sf.BackgroundTransparency = 1
     sf.BorderSizePixel = 0
-    sf.CanvasSize = UDim2.new(0, 0, 0, 800)
+    sf.CanvasSize = UDim2.new(0, 0, 0, 850)
     sf.ScrollBarThickness = 3
     sf.Visible = false
     sf.Parent = ContentArea
@@ -402,22 +402,22 @@ createLabel(ESPTab, "ПОДСВЕТКА ИГРОКОВ (ESP)")
 local ESPToggleBtn = createActionBtn(ESPTab, "Visuals: OFF")
 local ESPTransInput = createInputBox(ESPTab, "Fill Transparency (например: 0.5)")
 
--- === HITBOX TAB ===
+-- === HITBOX TAB (С надежным выбором части тела) ===
 createLabel(HitboxTab, "УВЕЛИЧЕНИЕ ХИТБОКСОВ")
 local HitboxToggle = createActionBtn(HitboxTab, "Hitbox Extender: OFF")
 local HitboxKeyBindBtn = createActionBtn(HitboxTab, "Hitbox Bind: Q")
 
 createLabel(HitboxTab, "ВЫБОР ЧАСТИ ДЛЯ ХИТБОКСА")
 local HitboxPartBtn = createActionBtn(HitboxTab, "Hitbox Part: RootPart")
-local HitboxPartFrame = Instance.new("Frame")
-HitboxPartFrame.Size = UDim2.new(1, 0, 0, 140)
-HitboxPartFrame.BackgroundColor3 = Color3.fromRGB(12, 6, 20)
-HitboxPartFrame.BackgroundTransparency = 0.2
-HitboxPartFrame.Visible = false
-HitboxPartFrame.Parent = HitboxTab
-local HitboxPartLayout = Instance.new("UIListLayout")
-HitboxPartLayout.Padding = UDim.new(0, 5)
-HitboxPartLayout.Parent = HitboxPartFrame
+local HitboxPartContainer = Instance.new("Frame")
+HitboxPartContainer.Size = UDim2.new(1, 0, 0, 160)
+HitboxPartContainer.BackgroundTransparency = 1
+HitboxPartContainer.Visible = false
+HitboxPartContainer.Parent = HitboxTab
+
+local HitboxPartListLayout = Instance.new("UIListLayout")
+HitboxPartListLayout.Padding = UDim.new(0, 5)
+HitboxPartListLayout.Parent = HitboxPartContainer
 
 local hitboxParts = {
     {Name = "Все тело (RootPart)", Part = "HumanoidRootPart"},
@@ -426,16 +426,16 @@ local hitboxParts = {
     {Name = "Руки/Ноги (LeftLowerArm)", Part = "LeftLowerArm"}
 }
 for _, hp in ipairs(hitboxParts) do
-    local b = createActionBtn(HitboxPartFrame, hp.Name)
+    local b = createActionBtn(HitboxPartContainer, hp.Name)
     b.MouseButton1Click:Connect(function()
         HitboxTargetName = hp.Part
         HitboxPartBtn.Text = "Hitbox Part: " .. hp.Name
-        HitboxPartFrame.Visible = false
+        HitboxPartContainer.Visible = false
     end)
 end
 
 HitboxPartBtn.MouseButton1Click:Connect(function()
-    HitboxPartFrame.Visible = not HitboxPartFrame.Visible
+    HitboxPartContainer.Visible = not HitboxPartContainer.Visible
 end)
 
 createLabel(HitboxTab, "НАСТРОЙКИ ХИТБОКСА")
@@ -735,7 +735,6 @@ HitboxKeyBindBtn.MouseButton1Click:Connect(function()
     HitboxKeyBindBtn.Text = "Press any key..."
 end)
 
--- ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ И ПЛАВНЫЙ UNIVERSAL FLY (работает во все стороны)
 local function toggleFlyFunc()
     FlyEnabled = not FlyEnabled
     FlyToggle.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
@@ -809,11 +808,13 @@ local function toggleHitboxFunc()
     if not HitboxEnabled then
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
-                local targetPart = p.Character:FindFirstChild(HitboxTargetName)
-                if targetPart and OriginalSizes[targetPart] then
-                    targetPart.Size = OriginalSizes[targetPart]
-                    targetPart.Transparency = 1
-                    targetPart.CanCollide = false
+                for _, partName in ipairs({"HumanoidRootPart", "Head", "UpperTorso", "LeftLowerArm"}) do
+                    local part = p.Character:FindFirstChild(partName)
+                    if part and OriginalSizes[part] then
+                        part.Size = OriginalSizes[part]
+                        part.Transparency = 1
+                        part.CanCollide = false
+                    end
                 end
             end
         end
