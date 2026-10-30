@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Ultra-Glassmorphic Edition)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Masterpiece Fly Edition)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -60,12 +60,13 @@ local CustomWalkSpeed = 16
 local JumpPowerEnabled = false
 local CustomJumpPower = 50
 
+-- Новый усовершенствованный модуль полета
 local FlyEnabled = false
 local FlySpeed = 50
 local FlyKey = Enum.KeyCode.F
-local flying = false
 local flyConnection = nil
 local controlModule = nil
+local currentVelocity = Vector3.new(0, 0, 0)
 
 pcall(function()
     local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
@@ -146,7 +147,6 @@ local ToggleUIMobileBtn = createMobileButton(UDim2.new(0, 20, 0, 20), "⚡ MENU"
 local MobileAimToggleBtn = createMobileButton(UDim2.new(0, 145, 0, 20), "Mob.Aim: OFF")
 local FlyMobileBtn = createMobileButton(UDim2.new(0, 270, 0, 20), "Fly: OFF")
 
--- Главное окно в стиле Fluid Glassmorphism (прозрачное стекло с неоном)
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 680, 0, 450)
 MainFrame.Position = UDim2.new(0.5, -340, 0.5, -225)
@@ -167,7 +167,6 @@ MainStroke.Transparency = 0.15
 MainStroke.Thickness = 2
 MainStroke.Parent = MainFrame
 
--- Верхняя неоновая линия градиента
 local NeonGlow = Instance.new("Frame")
 NeonGlow.Size = UDim2.new(1, 0, 0, 3)
 NeonGlow.BackgroundColor3 = Color3.fromRGB(220, 130, 255)
@@ -700,6 +699,7 @@ HitboxKeyBindBtn.MouseButton1Click:Connect(function()
     HitboxKeyBindBtn.Text = "Press any key..."
 end)
 
+-- УЛЬТИМАТИВНЫЙ ИДЕАЛЬНЫЙ FLY (работает во все 4 стороны на ПК и телефоне)
 local function toggleFlyFunc()
     FlyEnabled = not FlyEnabled
     FlyToggle.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
@@ -716,7 +716,7 @@ local function toggleFlyFunc()
         hum.PlatformStand = true
         if flyConnection then flyConnection:Disconnect() end
 
-        flyConnection = RunService.RenderStepped:Connect(function()
+        flyConnection = RunService.RenderStepped:Connect(function(dt)
             if not FlyEnabled or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 if flyConnection then flyConnection:Disconnect() end
                 return
@@ -726,28 +726,35 @@ local function toggleFlyFunc()
             local currentHum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
             if currentHum then currentHum.PlatformStand = true end
 
-            local moveDir = Vector3.new(0, 0, 0)
+            local moveDirection = Vector3.new(0, 0, 0)
             
+            -- Считывание мобильного джойстика
             if controlModule then
                 local rawMove = controlModule:GetMoveVector()
                 if rawMove.Magnitude > 0 then
-                    moveDir = (Camera.CFrame.RightVector * rawMove.X + Camera.CFrame.LookVector * rawMove.Z)
+                    moveDirection = (Camera.CFrame.RightVector * rawMove.X + Camera.CFrame.LookVector * rawMove.Z)
                 end
             end
 
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+            -- Считывание клавиатуры WASD
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + Camera.CFrame.RightVector end
 
-            if moveDir.Magnitude > 0 then
-                moveDir = moveDir.Unit * FlySpeed
+            if moveDirection.Magnitude > 0 then
+                moveDirection = moveDirection.Unit
             end
 
-            currentHrp.Velocity = moveDir
+            local targetVelocity = moveDirection * FlySpeed
+            currentVelocity = currentVelocity:Lerp(targetVelocity, math.clamp(dt * 12, 0, 1))
+
+            currentHrp.AssemblyLinearVelocity = currentVelocity
+            currentHrp.CFrame = CFrame.new(currentHrp.Position, currentHrp.Position + Camera.CFrame.LookVector)
         end)
     else
         if flyConnection then flyConnection:Disconnect() end
+        currentVelocity = Vector3.new(0, 0, 0)
         local char = LocalPlayer.Character
         if char then
             local hum = char:FindFirstChildOfClass("Humanoid")
@@ -756,7 +763,7 @@ local function toggleFlyFunc()
                 hum.PlatformStand = false 
             end
             if hrp then
-                hrp.Velocity = Vector3.new(0, 0, 0)
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
             end
         end
     end
@@ -1014,7 +1021,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Идеально чистый и безопасный флинг (без отдачи на владельца)
     if InvisFlingEnabled then
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
