@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Fixed Hitbox Dropdown & Fly)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Classic Stable Fly Edition)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -61,12 +61,14 @@ local CustomWalkSpeed = 16
 local JumpPowerEnabled = false
 local CustomJumpPower = 50
 
+-- Возвращенный стабильный модуль Fly
 local FlyEnabled = false
 local FlySpeed = 50
 local FlyKey = Enum.KeyCode.F
+local flying = false
 local flyConnection = nil
 local controlModule = nil
-local currentVelocity = Vector3.new(0, 0, 0)
+local bg, bv
 
 pcall(function()
     local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
@@ -200,7 +202,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -20, 1, 0)
 Title.Position = UDim2.new(0, 24, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "TIMON HUB  ✦  ULTIMATE SUITE v4.2"
+Title.Text = "TIMON HUB  ✦  ULTIMATE SUITE v4.3"
 Title.TextColor3 = Color3.fromRGB(250, 230, 255)
 Title.TextSize = 15
 Title.Font = Enum.Font.GothamBold
@@ -402,7 +404,7 @@ createLabel(ESPTab, "ПОДСВЕТКА ИГРОКОВ (ESP)")
 local ESPToggleBtn = createActionBtn(ESPTab, "Visuals: OFF")
 local ESPTransInput = createInputBox(ESPTab, "Fill Transparency (например: 0.5)")
 
--- === HITBOX TAB (С надежным выбором части тела) ===
+-- === HITBOX TAB ===
 createLabel(HitboxTab, "УВЕЛИЧЕНИЕ ХИТБОКСОВ")
 local HitboxToggle = createActionBtn(HitboxTab, "Hitbox Extender: OFF")
 local HitboxKeyBindBtn = createActionBtn(HitboxTab, "Hitbox Bind: Q")
@@ -735,23 +737,38 @@ HitboxKeyBindBtn.MouseButton1Click:Connect(function()
     HitboxKeyBindBtn.Text = "Press any key..."
 end)
 
+-- НАДЕЖНЫЙ КЛАССИЧЕСКИЙ FLY ЧЕРЕЗ BODYVELOCITY И BODYGYRO (Работает во всех направлениях без багов)
 local function toggleFlyFunc()
     FlyEnabled = not FlyEnabled
     FlyToggle.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
     FlyToggle.TextColor3 = FlyEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
     FlyMobileBtn.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
     
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
+
     if FlyEnabled then
-        local char = LocalPlayer.Character
-        if not char then return end
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hrp or not hum then return end
-
         hum.PlatformStand = true
-        if flyConnection then flyConnection:Disconnect() end
+        
+        if bg then bg:Destroy() end
+        if bv then bv:Destroy() end
 
-        flyConnection = RunService.RenderStepped:Connect(function(dt)
+        bg = Instance.new("BodyGyro")
+        bg.P = 9e4
+        bg.MaxTorque = Vector3.new(9e4, 9e4, 9e4)
+        bg.CFrame = hrp.CFrame
+        bg.Parent = hrp
+
+        bv = Instance.new("BodyVelocity")
+        bv.Velocity = Vector3.new(0, 0, 0)
+        bv.MaxForce = Vector3.new(9e4, 9e4, 9e4)
+        bv.Parent = hrp
+
+        if flyConnection then flyConnection:Disconnect() end
+        flyConnection = RunService.RenderStepped:Connect(function()
             if not FlyEnabled or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 if flyConnection then flyConnection:Disconnect() end
                 return
@@ -761,43 +778,32 @@ local function toggleFlyFunc()
             local currentHum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
             if currentHum then currentHum.PlatformStand = true end
 
-            local moveDirection = Vector3.new(0, 0, 0)
-            
-            if controlModule then
-                local rawMove = controlModule:GetMoveVector()
-                if rawMove.Magnitude > 0 then
-                    moveDirection = (Camera.CFrame.RightVector * rawMove.X + Camera.CFrame.LookVector * rawMove.Z)
+            if bg and bv then
+                bg.CFrame = Camera.CFrame
+                local moveDir = Vector3.new(0, 0, 0)
+
+                if controlModule then
+                    local rawMove = controlModule:GetMoveVector()
+                    if rawMove.Magnitude > 0 then
+                        moveDir = (Camera.CFrame.RightVector * rawMove.X + Camera.CFrame.LookVector * rawMove.Z)
+                    end
                 end
+
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+
+                bv.Velocity = moveDir * FlySpeed
             end
-
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + Camera.CFrame.RightVector end
-
-            if moveDirection.Magnitude > 0 then
-                moveDirection = moveDirection.Unit
-            end
-
-            local targetVelocity = moveDirection * FlySpeed
-            currentVelocity = currentVelocity:Lerp(targetVelocity, math.clamp(dt * 15, 0, 1))
-
-            currentHrp.AssemblyLinearVelocity = currentVelocity
         end)
     else
         if flyConnection then flyConnection:Disconnect() end
-        currentVelocity = Vector3.new(0, 0, 0)
-        local char = LocalPlayer.Character
-        if char then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if hum then 
-                hum.PlatformStand = false 
-            end
-            if hrp then
-                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-            end
-        end
+        if bg then bg:Destroy() end
+        if bv then bv:Destroy() end
+
+        if hum then hum.PlatformStand = false end
+        if hrp then hrp.Velocity = Vector3.new(0, 0, 0) end
     end
 end
 
