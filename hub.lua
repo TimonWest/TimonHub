@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v3.3 — Floating Button Lock + Cursor Aim Hold-Bind + XNEO Fly
+-- TIMON HUB v3.4 — AimbotHold fix + оптимизация ESP/effects
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -578,7 +578,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v3.3"
+TitleLbl.Text = "⚡ TIMON HUB · v3.4"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -926,7 +926,7 @@ Toggle(FN, "🎵 Random Emote Loop",
     function(v) S.Fun.RandomEmote = v end)
 
 -- ============================================================
--- TAB: BINDS — + Fix Floating Buttons
+-- TAB: BINDS
 -- ============================================================
 local B = Tab("🔗 Binds")
 Section(B, "⌨ Key Binds (ПК)")
@@ -1169,12 +1169,9 @@ function applyGravityState()
 end
 
 -- ============================================================
--- FLOATING DRAG LAYER (lock-aware + persistance)
+-- FLOATING DRAG LAYER
 -- ============================================================
--- id: уникальный ключ ("OpenBtn", "Aimbot", "MobileFly" ...)
--- defaultPos: UDim2 по умолчанию
--- makeDraggable: локальная, уважает S.FloatingLock
-local AllFloating = {}  -- id -> {btn = Instance, defaultPos = UDim2}
+local AllFloating = {}
 
 local function saveBtnPos(id, pos)
     S.FloatingPos[id] = {
@@ -1194,7 +1191,7 @@ end
 local function MakeDraggableLockable(frame, dragBar, id, defaultPos)
     local dragging, dragStart, startPos
     dragBar.InputBegan:Connect(function(input)
-        if S.FloatingLock then return end  -- 🔒 заблокировано
+        if S.FloatingLock then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true; dragStart = input.Position; startPos = frame.Position
@@ -1225,13 +1222,11 @@ end
 function RepositionAllFloatingBtns()
     for id, entry in pairs(AllFloating) do
         if entry.btn and entry.btn.Parent then
-            local pos = loadBtnPos(id, entry.defaultPos)
-            entry.btn.Position = pos
+            entry.btn.Position = loadBtnPos(id, entry.defaultPos)
         end
     end
 end
 
--- визуальная индикация лока: лёгкая подсветка рамки
 function ApplyFloatingLock()
     for _, entry in pairs(AllFloating) do
         local b = entry.btn
@@ -1240,18 +1235,17 @@ function ApplyFloatingLock()
             if s then
                 if S.FloatingLock then
                     s.Color = Color3.fromRGB(120, 255, 160)
-                    s.Thickness = 2
                 else
                     s.Color = COL.accent2
-                    s.Thickness = 2
                 end
+                s.Thickness = 2
             end
         end
     end
 end
 
 -- ============================================================
--- AIMBOT (с AimbotHold)
+-- AIMBOT — исправленный AimbotHold (IsKeyDown polling)
 -- ============================================================
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false; fovCircle.Thickness = 1
@@ -1259,9 +1253,26 @@ fovCircle.Color = COL.accent; fovCircle.Transparency = 0.7
 
 local StickyTarget = nil
 local aimHoldDown = false
+local aimHoldAvailable = false
 
+pcall(function()
+    local _ = UIS:IsKeyDown(Enum.KeyCode.LeftShift)
+    aimHoldAvailable = true
+end)
+
+-- Истина = aim разрешён прямо сейчас.
+-- Cursor + бинд AimbotHold назначен → только пока клавиша зажата (polling + fallback).
+-- Cursor + бинд НЕ назначен → всегда.
+-- Camera/Mobile → всегда (hold на них не действует).
 local function IsCursorAimActive()
+    if S.Aimbot.Mode ~= "Cursor" then return true end
     if not S.Binds.AimbotHold then return true end
+    if aimHoldAvailable then
+        local ok, isDown = pcall(function()
+            return UIS:IsKeyDown(S.Binds.AimbotHold)
+        end)
+        if ok then return isDown == true end
+    end
     return aimHoldDown
 end
 
@@ -1350,7 +1361,7 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
     end
 
     if not S.Aimbot.Enabled then StickyTarget = nil; return end
-    if S.Aimbot.Mode == "Cursor" and not IsCursorAimActive() then return end
+    if not IsCursorAimActive() then return end
 
     local t = FindTarget()
     if not t then return end
@@ -1370,7 +1381,7 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
 end)
 
 -- ============================================================
--- ESP
+-- ESP — оптимизировано: кэш ссылок, no FindFirstChild каждый кадр
 -- ============================================================
 ESPObjs = {}
 
@@ -1389,6 +1400,16 @@ function RefreshESPColors()
     end
 end
 
+-- Связи на респавн, чтобы отцепить после RemoveESP
+local espCharConn = {}
+
+local function refreshEspCache(d)
+    local c = d.player and d.player.Character
+    d.cacheChar = c
+    d.cacheHead = c and c:FindFirstChild("Head") or nil
+    d.cacheRoot = c and c:FindFirstChild("HumanoidRootPart") or nil
+end
+
 function CreateESP(pl)
     if pl == LP or ESPObjs[pl] then return end
     local hl = Instance.new("Highlight")
@@ -1405,12 +1426,19 @@ function CreateESP(pl)
     ds.Visible = false; ds.Center = true; ds.Outline = true
     ds.Size = 13; ds.Color = Color3.fromRGB(230,230,230)
 
-    ESPObjs[pl] = {hl = hl, name = nm, dist = ds}
+    local d = {hl = hl, name = nm, dist = ds, player = pl}
+    refreshEspCache(d)
+    ESPObjs[pl] = d
 
-    pl.CharacterAdded:Connect(function(ch)
+    if espCharConn[pl] then
+        pcall(function() espCharConn[pl]:Disconnect() end)
+    end
+    espCharConn[pl] = pl.CharacterAdded:Connect(function()
         task.wait(0.3)
         local e = ESPObjs[pl]
-        if e and e.hl then e.hl.Adornee = ch end
+        if not e then return end
+        if e.hl then e.hl.Adornee = pl.Character end
+        refreshEspCache(e)
     end)
 end
 
@@ -1422,6 +1450,10 @@ function RemoveESP(pl)
         pcall(function() e.dist:Remove() end)
         ESPObjs[pl] = nil
     end
+    if espCharConn[pl] then
+        pcall(function() espCharConn[pl]:Disconnect() end)
+        espCharConn[pl] = nil
+    end
 end
 
 Players.PlayerAdded:Connect(function(pl)
@@ -1430,12 +1462,15 @@ Players.PlayerAdded:Connect(function(pl)
         if S.ESP.Enabled then CreateESP(pl) end
     end)
 end)
-Players.PlayerRemoving:Connect(RemoveESP)
+Players.PlayerRemoving:Connect(function(pl)
+    RemoveESP(pl)
+    RemoveHitboxFor(pl)
+end)
 
 -- ============================================================
--- HITBOX (Players)
+-- HITBOX (Players) — кэш ссылок
 -- ============================================================
-local HitboxParts = {}
+HitboxParts = {}
 
 local function createHitboxPart(name)
     local p = Instance.new("Part")
@@ -1457,7 +1492,7 @@ function ApplyHitbox(pl)
     if pl == LP or not pl.Character then return end
     local ch = pl.Character
     local entry = HitboxParts[pl]
-    if not entry then entry = {}; HitboxParts[pl] = entry end
+    if not entry then entry = {srcHead = nil, srcTorso = nil}; HitboxParts[pl] = entry end
 
     if S.Hitbox.HeadEnabled then
         if not entry.head or not entry.head.Parent then
@@ -1465,13 +1500,14 @@ function ApplyHitbox(pl)
         end
         local head = ch:FindFirstChild("Head")
         if head then
+            entry.srcHead = head
             entry.head.Size = Vector3.new(S.Hitbox.HeadSize, S.Hitbox.HeadSize, S.Hitbox.HeadSize)
             entry.head.CFrame = head.CFrame
             entry.head.Color = S.Hitbox.Color
             entry.head.Transparency = S.Hitbox.Transparency
         end
     elseif entry.head then
-        entry.head:Destroy(); entry.head = nil
+        entry.head:Destroy(); entry.head = nil; entry.srcHead = nil
     end
 
     if S.Hitbox.BodyEnabled then
@@ -1480,17 +1516,18 @@ function ApplyHitbox(pl)
         end
         local torso = ch:FindFirstChild("UpperTorso") or ch:FindFirstChild("Torso")
         if torso then
+            entry.srcTorso = torso
             entry.body.Size = Vector3.new(S.Hitbox.BodySize, S.Hitbox.BodySize, S.Hitbox.BodySize)
             entry.body.CFrame = torso.CFrame
             entry.body.Color = S.Hitbox.Color
             entry.body.Transparency = S.Hitbox.Transparency
         end
     elseif entry.body then
-        entry.body:Destroy(); entry.body = nil
+        entry.body:Destroy(); entry.body = nil; entry.srcTorso = nil
     end
 end
 
-local function RemoveHitboxFor(pl)
+function RemoveHitboxFor(pl)
     local e = HitboxParts[pl]
     if e then
         if e.head and e.head.Parent then e.head:Destroy() end
@@ -1513,8 +1550,6 @@ function RefreshHitboxes()
     end
 end
 
-Players.PlayerRemoving:Connect(RemoveHitboxFor)
-
 task.spawn(function()
     while task.wait(0.3) do
         if S.Hitbox.Enabled then
@@ -1526,10 +1561,10 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- NPC HITBOX
+-- NPC HITBOX — кэш src-ссылок
 -- ============================================================
-local NPCCache = {}
-local NPCHitboxes = {}
+NPCCache = {}
+NPCHitboxes = {}
 
 local function isPlayerCharacter(model)
     return Players:GetPlayerFromCharacter(model) ~= nil
@@ -1574,13 +1609,14 @@ function ApplyNPCHitbox(model)
         end
         local head = model:FindFirstChild("Head")
         if head then
+            entry.srcHead = head
             entry.head.Size = Vector3.new(S.Hitbox.HeadSize, S.Hitbox.HeadSize, S.Hitbox.HeadSize)
             entry.head.CFrame = head.CFrame
             entry.head.Color = S.Hitbox.Color
             entry.head.Transparency = S.Hitbox.Transparency
         end
     elseif entry.head then
-        entry.head:Destroy(); entry.head = nil
+        entry.head:Destroy(); entry.head = nil; entry.srcHead = nil
     end
 
     if S.Hitbox.BodyEnabled then
@@ -1591,13 +1627,14 @@ function ApplyNPCHitbox(model)
             or model:FindFirstChild("Torso")
             or model:FindFirstChild("HumanoidRootPart")
         if torso then
+            entry.srcTorso = torso
             entry.body.Size = Vector3.new(S.Hitbox.BodySize, S.Hitbox.BodySize, S.Hitbox.BodySize)
             entry.body.CFrame = torso.CFrame
             entry.body.Color = S.Hitbox.Color
             entry.body.Transparency = S.Hitbox.Transparency
         end
     elseif entry.body then
-        entry.body:Destroy(); entry.body = nil
+        entry.body:Destroy(); entry.body = nil; entry.srcTorso = nil
     end
 end
 
@@ -2012,15 +2049,20 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- PC FLY + TROLL/FUN RENDER LOOP
+-- PC FLY + ESP SYNC + HITBOX SYNC + EFFECTS
+-- ESP — на каждом кадре (плавность)
+-- Эффекты Troll/Fun — throttled 30 fps
 -- ============================================================
 local FlyBV, FlyBG
 local SpinBV, DiscoLight, FireEmitter
+local effectAccum = 0
+local EFFECT_INTERVAL = 1/30
 
 RunService.RenderStepped:Connect(function(dt)
     local ch = LP.Character
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
 
+    -- PC Fly каждый кадр
     if S.Player.Fly and not XneoState.nowe and hrp then
         if not FlyBV then
             FlyBV = Instance.new("BodyVelocity")
@@ -2046,43 +2088,39 @@ RunService.RenderStepped:Connect(function(dt)
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
     end
 
+    -- Hitbox sync — только кэш-ссылки, без FindFirstChild
     if S.Hitbox.Enabled then
-        for pl, e in pairs(HitboxParts) do
-            local c = pl.Character
-            if c then
-                if e.head then
-                    local h = c:FindFirstChild("Head")
-                    if h then e.head.CFrame = h.CFrame end
-                end
-                if e.body then
-                    local t = c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso")
-                    if t then e.body.CFrame = t.CFrame end
-                end
+        for _, e in pairs(HitboxParts) do
+            if e.head and e.srcHead and e.srcHead.Parent then
+                e.head.CFrame = e.srcHead.CFrame
+            end
+            if e.body and e.srcTorso and e.srcTorso.Parent then
+                e.body.CFrame = e.srcTorso.CFrame
             end
         end
     end
 
+    -- NPC hitbox sync
     if S.Hitbox.NPCSupport then
-        for model, e in pairs(NPCHitboxes) do
-            if model.Parent then
-                if e.head then
-                    local h = model:FindFirstChild("Head")
-                    if h then e.head.CFrame = h.CFrame end
-                end
-                if e.body then
-                    local t = model:FindFirstChild("UpperTorso")
-                        or model:FindFirstChild("Torso")
-                        or model:FindFirstChild("HumanoidRootPart")
-                    if t then e.body.CFrame = t.CFrame end
-                end
+        for _, e in pairs(NPCHitboxes) do
+            if e.head and e.srcHead and e.srcHead.Parent then
+                e.head.CFrame = e.srcHead.CFrame
+            end
+            if e.body and e.srcTorso and e.srcTorso.Parent then
+                e.body.CFrame = e.srcTorso.CFrame
             end
         end
     end
 
+    -- ESP — каждый кадр, кэш ссылок
     if S.ESP.Enabled then
-        for pl, d in pairs(ESPObjs) do
-            local c = pl.Character
-            if not c then
+        for _, d in pairs(ESPObjs) do
+            local c = d.player.Character
+            if c ~= d.cacheChar then
+                refreshEspCache(d)
+                if d.hl and c then d.hl.Adornee = c end
+            end
+            if not c or not d.cacheHead or not d.cacheRoot then
                 d.name.Visible = false; d.dist.Visible = false
                 if d.hl then d.hl.Enabled = false end
                 continue
@@ -2091,31 +2129,30 @@ RunService.RenderStepped:Connect(function(dt)
                 d.hl.Enabled = true
                 if d.hl.Adornee ~= c then d.hl.Adornee = c end
             end
-            local head = c:FindFirstChild("Head")
-            local root = c:FindFirstChild("HumanoidRootPart")
-            if not head or not root then
-                d.name.Visible = false; d.dist.Visible = false
-                continue
-            end
-            local top = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 1, 0))
+            local top = Camera:WorldToViewportPoint(d.cacheHead.Position + Vector3.new(0, 1, 0))
             if top.Z < 0 then
                 d.name.Visible = false; d.dist.Visible = false
                 continue
             end
             if S.ESP.ShowName then
-                d.name.Text = pl.Name
+                d.name.Text = d.player.Name
                 d.name.Position = Vector2.new(top.X, top.Y - 20)
                 d.name.Color = S.ESP.OutlineColor
                 d.name.Visible = true
             else d.name.Visible = false end
             if S.ESP.ShowDistance then
-                local dist = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+                local dist = math.floor((Camera.CFrame.Position - d.cacheRoot.Position).Magnitude)
                 d.dist.Text = dist .. "m"
                 d.dist.Position = Vector2.new(top.X, top.Y - 4)
                 d.dist.Visible = true
             else d.dist.Visible = false end
         end
     end
+
+    -- ==== Throttled эффекты (30 fps) ====
+    effectAccum = effectAccum + dt
+    if effectAccum < EFFECT_INTERVAL then return end
+    effectAccum = 0
 
     if S.Troll.Spin and hrp then
         if not SpinBV or not SpinBV.Parent then
@@ -2237,7 +2274,7 @@ Actions.AntiFling = function()
 end
 
 -- ============================================================
--- INPUT
+-- INPUT — AimbotHold первым (не зависит от gp)
 -- ============================================================
 UIS.InputBegan:Connect(function(input, gp)
     if getgenv().TIMON_LISTENING then
@@ -2251,14 +2288,18 @@ UIS.InputBegan:Connect(function(input, gp)
         end
         return
     end
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.LeftAlt then
-        Main.Visible = not Main.Visible; return
-    end
+
+    -- AimbotHold ставим ДО проверки gp
     if S.Binds.AimbotHold and input.KeyCode == S.Binds.AimbotHold then
         aimHoldDown = true
         return
     end
+
+    if input.KeyCode == Enum.KeyCode.LeftAlt and not gp then
+        Main.Visible = not Main.Visible; return
+    end
+    if gp then return end
+
     for action, key in pairs(S.Binds) do
         if action ~= "AimbotHold" and input.KeyCode == key and Actions[action] then
             Actions[action]()
@@ -2274,7 +2315,7 @@ UIS.InputEnded:Connect(function(input, gp)
 end)
 
 -- ============================================================
--- MOBILE FLOATING BUTTONS — lock-aware + persistant
+-- MOBILE FLOATING BUTTONS
 -- ============================================================
 local MobileButtons = {}
 local MOBILE_POS_INDEX = 0
@@ -2303,9 +2344,7 @@ function ToggleMobileBtn(action, show)
     b.BorderSizePixel = 0
     b.Parent = ScreenGui; corner(b, 29)
     local s = stroke(b, COL.accent2, 2)
-    if S.FloatingLock then
-        s.Color = Color3.fromRGB(120, 255, 160)
-    end
+    if S.FloatingLock then s.Color = Color3.fromRGB(120, 255, 160) end
     MakeDraggableLockable(b, b, action, defaultPos)
     local function activeState()
         if action == "Aimbot" then return S.Aimbot.Enabled
@@ -2336,7 +2375,6 @@ function ToggleMobileBtn(action, show)
     MobileButtons[action] = b
 end
 
--- ⚡ OpenBtn — тоже floating, тоже под локом
 OpenBtn = Instance.new("TextButton")
 OpenBtn.Size = UDim2.new(0,52,0,52)
 local openDefault = UDim2.new(0,20,1,-80)
@@ -2383,6 +2421,10 @@ getgenv().TIMON_UNLOAD = function()
     pcall(function() closeXneoFlyGUI() end)
     pcall(function() ScreenGui:Destroy() end)
     for p in pairs(ESPObjs) do RemoveESP(p) end
+    for pl, conn in pairs(espCharConn) do
+        pcall(function() conn:Disconnect() end)
+    end
+    espCharConn = {}
     ClearAllHitboxes()
     ClearAllNPCHitboxes()
     pcall(function() fovCircle:Remove() end)
@@ -2398,4 +2440,4 @@ getgenv().TIMON_UNLOAD = function()
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v3.3 · Fix Floating Buttons")
+Notify("⚡ Timon Hub v3.4 · AimbotHold fix + ESP optimized")
