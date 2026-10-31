@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v3.8 — ESP respawn fix + nick/HP bar + NPC ESP + palette
+-- TIMON HUB v4.0 — Jitter + Anti-AFK + ZeroG-Ragdoll + Lazy + FPS Booster
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -27,7 +27,13 @@ local S = {
         Enabled = false, Mode = "Cursor", Smooth = 0.25,
         CameraFOV = 200, MobileFOV = 200,
         Part = "Head", ShowFOV = true, StickyLock = true,
-        DistanceWeight = 1.0, WallCheck = false
+        DistanceWeight = 1.0, WallCheck = false,
+        PredictLead = false, BulletSpeed = 1000,
+        LeadMultiplier = 1.0, HitscanMode = false,
+        TargetNPCs = false,
+        -- Jitter
+        JitterEnabled = false,
+        Jitter = 1.5,
     },
     ESP = {
         Enabled = false,
@@ -43,7 +49,6 @@ local S = {
         HPBarHeight = 5,
         HPDynamicColor = true,
         HPBarColor = Color3.fromRGB(0, 255, 100),
-        -- NPC ESP
         NPCEnabled = false,
         NPCName = true,
         NPCDistance = false,
@@ -61,7 +66,11 @@ local S = {
         Fly = false, MobileFly = false, FlySpeed = 50,
         ZeroGravity = false,
         WalkSpeed = 16, JumpPower = 50,
-        InfiniteJump = false, Noclip = false
+        InfiniteJump = false, Noclip = false,
+        -- New
+        AntiAFK = false,
+        LazyMode = false,
+        FPSBooster = false,
     },
     Troll = {
         Spin = false, Invisible = false,
@@ -74,15 +83,13 @@ local S = {
 }
 getgenv().TIMON_SETTINGS = S
 
--- ============================================================
--- COLORS + HELPERS
--- ============================================================
 local COL = {
     bg = Color3.fromRGB(18,12,24), bg2 = Color3.fromRGB(28,18,38),
     elem = Color3.fromRGB(52,36,68), elemHover = Color3.fromRGB(72,48,92),
     accent = Color3.fromRGB(180,60,255), accent2 = Color3.fromRGB(255,60,180),
     text = Color3.fromRGB(250,240,255), sub = Color3.fromRGB(200,180,220),
-    stroke = Color3.fromRGB(130,80,170), off = Color3.fromRGB(80,68,90)
+    stroke = Color3.fromRGB(130,80,170), off = Color3.fromRGB(80,68,90),
+    green = Color3.fromRGB(120, 255, 160)
 }
 local function corner(o, r)
     local c = Instance.new("UICorner")
@@ -114,9 +121,6 @@ local function MakeDraggable(frame, dragBar)
     end)
 end
 
--- ============================================================
--- CONFIG SYSTEM
--- ============================================================
 local CONFIG_DIR = "TimonHub"
 local AUTOSAVE_FILE = "autosave"
 local function ensureDir() pcall(function()
@@ -216,9 +220,6 @@ if fileExists(CONFIG_DIR.."/"..AUTOSAVE_FILE..".json") then
     pcall(function() loadConfigFile(AUTOSAVE_FILE) end)
 end
 
--- ============================================================
--- GUI BASE
--- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "TimonHub_GUI"
 ScreenGui.ResetOnSpawn = false
@@ -574,7 +575,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v3.8"
+TitleLbl.Text = "⚡ TIMON HUB · v4.0"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -662,30 +663,35 @@ local XneoGui = nil
 local launchXneoFlyGUI, closeXneoFlyGUI
 local OpenBtn
 -- ============================================================
--- TAB: AIMBOT
+-- TAB: COMBAT (бывший Aimbot)
 -- ============================================================
-local A = Tab("🎯 Aimbot")
+local A = Tab("🎯 Combat")
 Section(A, "🎮 Основное")
-Toggle(A, "⚡ Enable Aimbot",
+Toggle(A, "⚡ Enable Aim",
     function() return S.Aimbot.Enabled end,
     function(v) S.Aimbot.Enabled = v end)
 Toggle(A, "🔒 Sticky Lock",
     function() return S.Aimbot.StickyLock end,
     function(v) S.Aimbot.StickyLock = v end)
-Toggle(A, "🧱 Wall Check (не наводить сквозь стены)",
+Toggle(A, "🧱 Wall Check",
     function() return S.Aimbot.WallCheck end,
     function(v) S.Aimbot.WallCheck = v end)
+Toggle(A, "🤖 Target NPCs (aim на NPC)",
+    function() return S.Aimbot.TargetNPCs end,
+    function(v) S.Aimbot.TargetNPCs = v end)
 Dropdown(A, "🎯 Aim Mode", {"Cursor","Camera","Mobile"},
     function() return S.Aimbot.Mode end,
     function(v) S.Aimbot.Mode = v end)
 Slider(A, "💨 Smoothness", 0.01, 1,
     function() return S.Aimbot.Smooth end,
     function(v) S.Aimbot.Smooth = v end)
+
 Section(A, "🎯 Targeting")
 Slider(A, "📏 Distance Weight", 0, 5,
     function() return S.Aimbot.DistanceWeight end,
     function(v) S.Aimbot.DistanceWeight = v end)
-Section(A, "📐 FOV (не для Cursor)")
+
+Section(A, "📐 FOV")
 Slider(A, "📷 Camera FOV", 30, 800,
     function() return S.Aimbot.CameraFOV end,
     function(v) S.Aimbot.CameraFOV = v end)
@@ -695,11 +701,34 @@ Slider(A, "📱 Mobile FOV", 30, 800,
 Toggle(A, "⭕ Show FOV Circle",
     function() return S.Aimbot.ShowFOV end,
     function(v) S.Aimbot.ShowFOV = v end)
-Section(A, "🎯 Target")
-Dropdown(A, "🎯 Target Part",
+
+Section(A, "🎯 Target Part")
+Dropdown(A, "🎯 Aim Part",
     {"Head","HumanoidRootPart","Torso","UpperTorso","LowerTorso"},
     function() return S.Aimbot.Part end,
     function(v) S.Aimbot.Part = v end)
+
+Section(A, "🧠 Prediction (Lead)")
+Toggle(A, "🧠 Predict Lead",
+    function() return S.Aimbot.PredictLead end,
+    function(v) S.Aimbot.PredictLead = v end)
+Toggle(A, "⚡ Hitscan Mode (вырубает prediction)",
+    function() return S.Aimbot.HitscanMode end,
+    function(v) S.Aimbot.HitscanMode = v end)
+Slider(A, "💨 Bullet Speed", 100, 5000,
+    function() return S.Aimbot.BulletSpeed end,
+    function(v) S.Aimbot.BulletSpeed = math.floor(v + 0.5) end)
+Slider(A, "🎯 Lead Multiplier", 0.3, 2.0,
+    function() return S.Aimbot.LeadMultiplier end,
+    function(v) S.Aimbot.LeadMultiplier = v end)
+
+Section(A, "🎯 Aim Smooth Jitter")
+Toggle(A, "🌊 Enable Jitter",
+    function() return S.Aimbot.JitterEnabled end,
+    function(v) S.Aimbot.JitterEnabled = v end)
+Slider(A, "📏 Jitter Amount (px)", 0, 5,
+    function() return S.Aimbot.Jitter end,
+    function(v) S.Aimbot.Jitter = v end)
 
 -- ============================================================
 -- TAB: ESP
@@ -867,9 +896,25 @@ Slider(P, "🚀 Fly Speed (PC)", 10, 300,
     function() return S.Player.FlySpeed end,
     function(v) S.Player.FlySpeed = v end)
 Section(P, "🪐 Gravity")
-Toggle(P, "🪐 Zero Gravity",
+Toggle(P, "🪐 Zero Gravity (левитация в ragdoll)",
     function() return S.Player.ZeroGravity end,
     function(v) S.Player.ZeroGravity = v; applyGravityState() end)
+Section(P, "🛠 Utility")
+Toggle(P, "🛡 Anti-AFK",
+    function() return S.Player.AntiAFK end,
+    function(v)
+        S.Player.AntiAFK = v
+        if v then startAntiAFK() else stopAntiAFK() end
+    end)
+Toggle(P, "🌙 Lazy Mode (ESP каждый 2-й кадр)",
+    function() return S.Player.LazyMode end,
+    function(v) S.Player.LazyMode = v end)
+Toggle(P, "🚀 FPS Booster (Quality 1 + no shadows)",
+    function() return S.Player.FPSBooster end,
+    function(v)
+        S.Player.FPSBooster = v
+        if v then enableFPSBooster() else disableFPSBooster() end
+    end)
 -- ============================================================
 -- TAB: TROLL
 -- ============================================================
@@ -923,13 +968,20 @@ Toggle(T, "🛡 Anti Fling",
 local B = Tab("🔗 Binds")
 Section(B, "⌨ Key Binds (ПК)")
 BindButton(B, "Aimbot", "🎯 Aimbot Toggle")
-BindButton(B, "AimbotHold", "🎯 Cursor Aim (hold)")
+BindButton(B, "AimbotHold", "🎯 Aim Hold")
 BindButton(B, "ESP", "👁 ESP")
 BindButton(B, "Hitbox", "📦 Hitbox")
 BindButton(B, "Fly", "✈ Fly")
 BindButton(B, "Noclip", "👻 Noclip")
 BindButton(B, "InfiniteJump", "♾ Infinite Jump")
 BindButton(B, "ZeroGravity", "🪐 Zero Gravity")
+Button(B, "🗑 Сбросить все бинды", function()
+    S.Binds = {}
+    for action, fn in pairs(BindRefreshers) do pcall(fn) end
+    MarkDirty()
+    Notify("🗑 Все бинды сброшены")
+end, {textColor = COL.accent2})
+
 Section(B, "📌 Floating Lock")
 Toggle(B, "🔒 Fix Floating Buttons",
     function() return S.FloatingLock end,
@@ -945,6 +997,7 @@ Button(B, "🔄 Сбросить позиции кнопок", function()
     MarkDirty()
     Notify("🔄 Позиции сброшены")
 end, {textColor = COL.accent2})
+
 Section(B, "📱 Floating Buttons (Mobile)")
 Toggle(B, "🎯 Aimbot Button",
     function() return S.MobileBtns.Aimbot == true end,
@@ -964,6 +1017,12 @@ Toggle(B, "👻 Noclip Button",
 Toggle(B, "🛡 Anti Fling Button",
     function() return S.MobileBtns.AntiFling == true end,
     function(v) S.MobileBtns.AntiFling = v; ToggleMobileBtn("AntiFling", v) end)
+Toggle(B, "👁 ESP Button",
+    function() return S.MobileBtns.ESP == true end,
+    function(v) S.MobileBtns.ESP = v; ToggleMobileBtn("ESP", v) end)
+Toggle(B, "📦 Hitbox Button",
+    function() return S.MobileBtns.Hitbox == true end,
+    function(v) S.MobileBtns.Hitbox = v; ToggleMobileBtn("Hitbox", v) end)
 
 -- ============================================================
 -- TAB: HAMSTER
@@ -1047,12 +1106,15 @@ Button(ST, "🔄 Сбросить настройки", function()
     S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25
     S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
     S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
+    S.Aimbot.JitterEnabled=false; S.Aimbot.Jitter=1.5
     S.ESP.Enabled=false; S.ESP.NPCEnabled=false
     S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
     S.Player.Fly=false
     if XneoGui then closeXneoFlyGUI() end
     S.Player.Noclip=false; S.Player.InfiniteJump=false
     S.Player.ZeroGravity=false
+    S.Player.AntiAFK=false; stopAntiAFK()
+    S.Player.FPSBooster=false; disableFPSBooster()
     S.Troll.AntiFling=false
     S.FloatingLock=false
     S.FloatingPos={}
@@ -1107,6 +1169,8 @@ local function applyLoadedSettings()
     RepositionAllFloatingBtns()
     ApplyFloatingLock()
     applyGravityState()
+    if S.Player.AntiAFK then startAntiAFK() else stopAntiAFK() end
+    if S.Player.FPSBooster then enableFPSBooster() else disableFPSBooster() end
     if S.Player.MobileFly then
         if not XneoGui then launchXneoFlyGUI() end
     else
@@ -1155,18 +1219,117 @@ end
 RefreshCfgList()
 
 -- ============================================================
--- GRAVITY STATE
+-- GRAVITY STATE (ZeroG + Ragdoll)
 -- ============================================================
+local origStateEnabled = nil
+
 function applyGravityState()
+    local chr = LP.Character
+    local hum = chr and chr:FindFirstChildOfClass("Humanoid")
     if S.Player.ZeroGravity then
         Workspace.Gravity = 0
+        if hum then
+            -- Ragdoll-подобное состояние: PlatformStanding + Ragdoll разрешён
+            pcall(function() hum:ChangeState(Enum.HumanoidStateType.Ragdoll) end)
+            pcall(function() hum:ChangeState(Enum.HumanoidStateType.PlatformStanding) end)
+            hum.PlatformStand = true
+            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+            hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
+            hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Running, false)
+        end
     else
         Workspace.Gravity = DEFAULT_GRAVITY
+        if hum then
+            hum.PlatformStand = false
+            pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true) end)
+            pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Landed, true) end)
+            pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Running, true) end)
+            pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+            pcall(function() hum:ChangeState(Enum.HumanoidStateType.Running) end)
+        end
+    end
+end
+
+LP.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    if S.Player.ZeroGravity then applyGravityState() end
+end)
+
+-- ============================================================
+-- ANTI-AFK
+-- ============================================================
+local antiAFKConn = nil
+local antiAFKThread = nil
+
+function startAntiAFK()
+    stopAntiAFK()
+    pcall(function()
+        if typeof(hookfunction) == "function"
+           and typeof(getconnections) == "function" then
+            for _, c in ipairs(getconnections(LP.Idled)) do
+                if c and typeof(c.Disable) == "function" then c:Disable() end
+            end
+        end
+    end)
+    antiAFKThread = task.spawn(function()
+        while S.Player.AntiAFK do
+            task.wait(60)
+            pcall(function()
+                local vu = game:GetService("VirtualUser")
+                vu:CaptureController()
+                vu:ClickButton2(Vector2.new())
+            end)
+        end
+    end)
+end
+
+function stopAntiAFK()
+    if antiAFKThread then
+        pcall(function() task.cancel(antiAFKThread) end)
+        antiAFKThread = nil
     end
 end
 
 -- ============================================================
--- FLOATING DRAG LAYER
+-- FPS BOOSTER
+-- ============================================================
+local fpsBackup = nil
+
+function enableFPSBooster()
+    if fpsBackup then return end
+    fpsBackup = {}
+    pcall(function()
+        local lighting = game:GetService("Lighting")
+        local rs = game:GetService("RenderSettings")
+        fpsBackup.Quality = rs.QualityLevel
+        rs.QualityLevel = 1
+        fpsBackup.GlobalShadows = lighting.GlobalShadows
+        lighting.GlobalShadows = false
+        fpsBackup.FogEnd = lighting.FogEnd
+        lighting.FogEnd = 1e6
+        fpsBackup.Technology = lighting.Technology
+        fpsBackup.ShadowSoftness = lighting.ShadowSoftness
+        lighting.ShadowSoftness = 0
+    end)
+end
+
+function disableFPSBooster()
+    if not fpsBackup then return end
+    pcall(function()
+        local lighting = game:GetService("Lighting")
+        local rs = game:GetService("RenderSettings")
+        if fpsBackup.Quality then rs.QualityLevel = fpsBackup.Quality end
+        if fpsBackup.GlobalShadows ~= nil then lighting.GlobalShadows = fpsBackup.GlobalShadows end
+        if fpsBackup.FogEnd then lighting.FogEnd = fpsBackup.FogEnd end
+        if fpsBackup.ShadowSoftness then lighting.ShadowSoftness = fpsBackup.ShadowSoftness end
+    end)
+    fpsBackup = nil
+end
+
+-- ============================================================
+-- FLOATING LAYER
 -- ============================================================
 local AllFloating = {}
 
@@ -1231,7 +1394,7 @@ function ApplyFloatingLock()
             local s = b:FindFirstChildOfClass("UIStroke")
             if s then
                 if S.FloatingLock then
-                    s.Color = Color3.fromRGB(120, 255, 160)
+                    s.Color = COL.green
                 else
                     s.Color = COL.accent2
                 end
@@ -1242,13 +1405,14 @@ function ApplyFloatingLock()
 end
 
 -- ============================================================
--- AIMBOT — wall check + off-screen filter + sticky hold
+-- AIMBOT — Jitter + Prediction + NPC
 -- ============================================================
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false; fovCircle.Thickness = 1
 fovCircle.Color = COL.accent; fovCircle.Transparency = 0.7
 
 local StickyTarget = nil
+local StickyTargetIsNPC = false
 local aimHoldDown = false
 local aimHoldAvailable = false
 local wasHoldActive = false
@@ -1267,7 +1431,7 @@ local function IsCursorAimActive()
     if not S.Binds.AimbotHold then return true end
     if aimHoldAvailable then
         local ok, isDown = pcall(function()
-            return UIS:IsKeyDown(S.Binds.AimbotHold)
+            return UIS:IsKeyDown(S.Aimbot.HoldBind or S.Binds.AimbotHold)
         end)
         if ok then return isDown == true end
     end
@@ -1277,15 +1441,12 @@ end
 local function IsVisible(part)
     if not part then return false end
     local origin = Camera.CFrame.Position
-    local targetPos = part.Position
-    local dir = (targetPos - origin)
+    local dir = (part.Position - origin)
     local dist = dir.Magnitude
     if dist < 1 then return true end
-
     local ignore = {Camera}
     if LP.Character then table.insert(ignore, LP.Character) end
     wallCheckRayParams.FilterDescendantsInstances = ignore
-
     local res = Workspace:Raycast(origin, dir, wallCheckRayParams)
     if not res then return true end
     local hit = res.Instance
@@ -1304,44 +1465,83 @@ local function IsOnScreen(part)
     return onScreen and sp.Z > 0
 end
 
-local function IsPlayerValid(pl, requireVisible, requireOnScreen)
-    if not pl or pl.Parent ~= Players then return false end
-    local ch = pl.Character; if not ch then return false end
-    local hum = ch:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return false end
-    local part = ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")
-    if not part then return false end
-    if requireOnScreen ~= false and not IsOnScreen(part) then return false end
-    if requireVisible and not IsVisible(part) then return false end
-    return true
+-- Prediction
+local function GetLeadPos(part, origin)
+    if not S.Aimbot.PredictLead or S.Aimbot.HitscanMode then
+        return part.Position
+    end
+    local ch = part.Parent
+    local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+    if not hum then return part.Position end
+
+    local md = hum.MoveDirection
+    local walkSpeed = hum.WalkSpeed
+    local vel = Vector3.new(
+        md.X * walkSpeed,
+        part.Velocity.Y,
+        md.Z * walkSpeed
+    )
+    -- clamp скорости для защиты от лагов
+    if vel.Magnitude > 500 then vel = vel.Unit * 500 end
+
+    local bs = math.max(S.Aimbot.BulletSpeed, 1)
+    local mult = S.Aimbot.LeadMultiplier or 1.0
+    local aimPos = part.Position
+    for i = 1, 3 do
+        local t = (aimPos - origin).Magnitude / bs * mult
+        aimPos = part.Position + vel * t
+    end
+    return aimPos
+end
+
+-- Валидация игрока (с NPC)
+local function IsTargetValid(target, isNPC, requireVisible, requireOnScreen)
+    if not target then return false end
+    if isNPC then
+        if not target.Parent or not target:IsA("Model") then return false end
+        local hum = target:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then return false end
+        local part = target:FindFirstChild(S.Aimbot.Part) or target:FindFirstChild("Head")
+        if not part then return false end
+        if requireOnScreen ~= false and not IsOnScreen(part) then return false end
+        if requireVisible and not IsVisible(part) then return false end
+        return true, part
+    else
+        local pl = target
+        if not pl or pl.Parent ~= Players then return false end
+        local ch = pl.Character; if not ch then return false end
+        local hum = ch:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then return false end
+        local part = ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")
+        if not part then return false end
+        if requireOnScreen ~= false and not IsOnScreen(part) then return false end
+        if requireVisible and not IsVisible(part) then return false end
+        return true, part
+    end
 end
 
 local function FindTarget()
     local isCursor = (S.Aimbot.Mode == "Cursor")
     local holdActive = isCursor and S.Binds.AimbotHold and IsCursorAimActive()
 
+    -- Sticky (учитываем и NPC)
     if S.Aimbot.StickyLock and StickyTarget then
+        local ok, part = IsTargetValid(StickyTarget, StickyTargetIsNPC, false, true)
         if holdActive and wasHoldActive then
-            if IsPlayerValid(StickyTarget, false, true) then
-                local ch = StickyTarget.Character
-                return ch and (ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")) or nil
-            else
-                StickyTarget = nil
-            end
+            if ok then return part end
+            StickyTarget = nil; StickyTargetIsNPC = false
         elseif isCursor and S.Binds.AimbotHold and not holdActive then
-            StickyTarget = nil
+            StickyTarget = nil; StickyTargetIsNPC = false
             return nil
         else
-            if IsPlayerValid(StickyTarget, S.Aimbot.WallCheck, true) then
-                local ch = StickyTarget.Character
-                return ch and (ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")) or nil
-            else
-                StickyTarget = nil
-            end
+            local ok2, part2 = IsTargetValid(StickyTarget, StickyTargetIsNPC,
+                S.Aimbot.WallCheck, true)
+            if ok2 then return part2 end
+            StickyTarget = nil; StickyTargetIsNPC = false
         end
     end
 
-    local target, targetPlayer, bestScore = nil, nil, math.huge
+    local target, targetIsNPC, bestScore = nil, false, math.huge
     local cmpPos, fovLimit
     if S.Aimbot.Mode == "Cursor" then
         cmpPos = UIS:GetMouseLocation(); fovLimit = math.huge
@@ -1352,10 +1552,10 @@ local function FindTarget()
         cmpPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
         fovLimit = S.Aimbot.CameraFOV
     end
-
     local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     local myPos = myHRP and myHRP.Position or Vector3.zero
 
+    -- Игроки
     for _, pl in ipairs(Players:GetPlayers()) do
         if pl == LP then continue end
         local ch = pl.Character
@@ -1364,24 +1564,61 @@ local function FindTarget()
         if not hum or hum.Health <= 0 then continue end
         local part = ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")
         if not part then continue end
-
         local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
         if not onScreen or sp.Z <= 0 then continue end
-
-        local pixelDist = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
-        if pixelDist > fovLimit then continue end
-
+        local pixDist = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
+        if pixDist > fovLimit then continue end
         if S.Aimbot.WallCheck and not IsVisible(part) then continue end
-
         local worldDist = (part.Position - myPos).Magnitude
-        local score = pixelDist + worldDist * S.Aimbot.DistanceWeight
-
+        local score = pixDist + worldDist * S.Aimbot.DistanceWeight
         if score < bestScore then
-            bestScore = score; target = part; targetPlayer = pl
+            bestScore = score; target = pl; targetIsNPC = false
         end
     end
-    if S.Aimbot.StickyLock then StickyTarget = targetPlayer end
-    return target
+
+    -- NPC
+    if S.Aimbot.TargetNPCs then
+        refreshNPCCache()
+        for model in pairs(NPCCache) do
+            if not isPlayerCharacter(model) then
+                local hum = model:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local part = model:FindFirstChild(S.Aimbot.Part) or model:FindFirstChild("Head")
+                    if part then
+                        local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
+                        if onScreen and sp.Z > 0 then
+                            local pixDist = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
+                            if pixDist <= fovLimit then
+                                if not S.Aimbot.WallCheck or IsVisible(part) then
+                                    local worldDist = (part.Position - myPos).Magnitude
+                                    local score = pixDist + worldDist * S.Aimbot.DistanceWeight
+                                    if score < bestScore then
+                                        bestScore = score
+                                        target = model
+                                        targetIsNPC = true
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if S.Aimbot.StickyLock then
+        StickyTarget = target
+        StickyTargetIsNPC = targetIsNPC
+    end
+    if target then
+        if targetIsNPC then
+            return target:FindFirstChild(S.Aimbot.Part) or target:FindFirstChild("Head")
+        else
+            local ch = target.Character
+            return ch and (ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")) or nil
+        end
+    end
+    return nil
 end
 
 local function tryMouse(dx, dy)
@@ -1416,22 +1653,29 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
     wasHoldActive = true
     if not t then return end
 
-    local sp, onScreen = Camera:WorldToViewportPoint(t.Position)
+    local aimPos = GetLeadPos(t, Camera.CFrame.Position)
+
+    local sp, onScreen = Camera:WorldToViewportPoint(aimPos)
     if not onScreen or sp.Z <= 0 then return end
 
     if S.Aimbot.Mode == "Cursor" then
         local mp = UIS:GetMouseLocation()
         local dx = (sp.X - mp.X) * S.Aimbot.Smooth
         local dy = (sp.Y - mp.Y) * S.Aimbot.Smooth
+        -- Jitter
+        if S.Aimbot.JitterEnabled and S.Aimbot.Jitter > 0 then
+            dx += (math.random() * 2 - 1) * S.Aimbot.Jitter
+            dy += (math.random() * 2 - 1) * S.Aimbot.Jitter
+        end
         if tryMouse(dx, dy) then return end
     end
 
-    local lookCF = CFrame.new(Camera.CFrame.Position, t.Position)
+    local lookCF = CFrame.new(Camera.CFrame.Position, aimPos)
     Camera.CFrame = Camera.CFrame:Lerp(lookCF, S.Aimbot.Smooth)
 end)
 
 -- ============================================================
--- ESP — Player + NPC helpers
+-- ESP helpers — Player + NPC
 -- ============================================================
 ESPObjs = {}
 NPCESPObjs = {}
@@ -1457,18 +1701,13 @@ end
 
 local function makeNickText()
     local t = Drawing.new("Text")
-    t.Visible = false
-    t.Center = true
-    t.Outline = true
+    t.Visible = false; t.Center = true; t.Outline = true
     t.OutlineColor = Color3.fromRGB(0, 0, 0)
     t.Size = S.ESP.NickSize or 15
     t.Color = S.ESP.NickColor or Color3.new(1,1,1)
     pcall(function()
-        if Drawing.Fonts then
-            t.Font = Drawing.Fonts.System or 1
-        else
-            t.Font = 1
-        end
+        if Drawing.Fonts then t.Font = Drawing.Fonts.System or 1
+        else t.Font = 1 end
     end)
     return t
 end
@@ -1478,12 +1717,10 @@ local function makeHPBar()
     bg.Visible = false; bg.Filled = true
     bg.Thickness = 1; bg.Color = Color3.fromRGB(0,0,0)
     bg.Transparency = 0.35
-
     local fill = Drawing.new("Square")
     fill.Visible = false; fill.Filled = true
     fill.Thickness = 0; fill.Color = Color3.fromRGB(0,255,0)
     fill.Transparency = 1
-
     return bg, fill
 end
 
@@ -1497,7 +1734,6 @@ end
 
 function CreateESP(pl)
     if pl == LP or ESPObjs[pl] then return end
-
     local hl = Instance.new("Highlight")
     hl.Name = "TimonHub_HL_" .. pl.Name
     applyHighlight(hl)
@@ -1505,7 +1741,6 @@ function CreateESP(pl)
     hl.Parent = ScreenGui
 
     local nm = makeNickText()
-
     local ds = Drawing.new("Text")
     ds.Visible = false; ds.Center = true; ds.Outline = true
     ds.OutlineColor = Color3.fromRGB(0,0,0)
@@ -1513,11 +1748,8 @@ function CreateESP(pl)
 
     local hpBg, hpFill = makeHPBar()
 
-    local d = {
-        hl = hl, name = nm, dist = ds,
-        hpBg = hpBg, hpFill = hpFill,
-        player = pl,
-    }
+    local d = {hl = hl, name = nm, dist = ds,
+        hpBg = hpBg, hpFill = hpFill, player = pl}
     refreshEspCache(d)
     ESPObjs[pl] = d
 
@@ -1529,10 +1761,7 @@ function CreateESP(pl)
         local e = ESPObjs[pl]
         if not e then return end
         local c = pl.Character
-        if c and e.hl then
-            e.hl.Adornee = c
-            e.hl.Enabled = true
-        end
+        if c and e.hl then e.hl.Adornee = c; e.hl.Enabled = true end
         refreshEspCache(e)
     end)
     pcall(function()
@@ -1541,10 +1770,7 @@ function CreateESP(pl)
             local e = ESPObjs[pl]
             if not e then return end
             local c = pl.Character
-            if c and e.hl then
-                e.hl.Adornee = c
-                e.hl.Enabled = true
-            end
+            if c and e.hl then e.hl.Adornee = c; e.hl.Enabled = true end
             refreshEspCache(e)
         end)
     end)
@@ -1566,7 +1792,6 @@ function RemoveESP(pl)
     end
 end
 
--- ---------- NPC ESP (отдельная функция) ----------
 local function refreshNPCEspCache(d)
     local m = d.model
     if not m or not m.Parent then
@@ -1581,7 +1806,6 @@ end
 function CreateNPCESP(model)
     if not model or NPCESPObjs[model] then return end
     if isPlayerCharacter(model) then return end
-
     local hl = Instance.new("Highlight")
     hl.Name = "TimonHub_NPC_HL"
     applyHighlight(hl)
@@ -1589,19 +1813,14 @@ function CreateNPCESP(model)
     hl.Parent = ScreenGui
 
     local nm = makeNickText()
-
     local ds = Drawing.new("Text")
     ds.Visible = false; ds.Center = true; ds.Outline = true
     ds.OutlineColor = Color3.fromRGB(0,0,0)
     ds.Size = 12; ds.Color = Color3.fromRGB(230, 230, 230)
-
     local hpBg, hpFill = makeHPBar()
 
-    local d = {
-        hl = hl, name = nm, dist = ds,
-        hpBg = hpBg, hpFill = hpFill,
-        model = model,
-    }
+    local d = {hl = hl, name = nm, dist = ds,
+        hpBg = hpBg, hpFill = hpFill, model = model}
     refreshNPCEspCache(d)
     NPCESPObjs[model] = d
 end
@@ -1722,12 +1941,12 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- NPC HITBOX
+-- NPC HITBOX + NPC CACHE
 -- ============================================================
 NPCCache = {}
 NPCHitboxes = {}
 
-local function isPlayerCharacter(model)
+function isPlayerCharacter(model)
     return Players:GetPlayerFromCharacter(model) ~= nil
 end
 
@@ -1831,20 +2050,16 @@ task.spawn(function()
     end
 end)
 
--- ============================================================
--- NPC ESP SCANNER (создание/удаление для нового/ушедшего NPC)
--- ============================================================
+-- NPC ESP scanner
 task.spawn(function()
     while task.wait(1) do
         if S.ESP.NPCEnabled then
             refreshNPCCache()
-            -- создать для новых
             for model in pairs(NPCCache) do
                 if not isPlayerCharacter(model) and not NPCESPObjs[model] then
                     pcall(CreateNPCESP, model)
                 end
             end
-            -- удалить для исчезнувших
             for model in pairs(NPCESPObjs) do
                 if not model.Parent or not NPCCache[model] then
                     RemoveNPCESP(model)
@@ -2000,17 +2215,17 @@ function launchXneoFlyGUI()
     onof.Text = "fly"; onof.TextColor3 = Color3.fromRGB(0,0,0); onof.TextSize = 14
     corner(onof, 6)
 
-    local TextLabel = Instance.new("TextLabel")
-    TextLabel.Parent = Frame
-    TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
-    TextLabel.Position = UDim2.new(0.469, 0, 0, 0)
-    TextLabel.Size = UDim2.new(0, 100, 0, 28)
-    TextLabel.Font = Enum.Font.SourceSans
-    TextLabel.Text = "FLY GUI V3"; TextLabel.TextColor3 = Color3.fromRGB(0,0,0)
-    TextLabel.TextScaled = true; TextLabel.TextSize = 14; TextLabel.TextWrapped = true
+    local title = Instance.new("TextLabel")
+    title.Parent = Frame
+    title.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
+    title.Position = UDim2.new(0.469, 0, 0, 0)
+    title.Size = UDim2.new(0, 100, 0, 28)
+    title.Font = Enum.Font.SourceSans
+    title.Text = "FLY GUI V3"; title.TextColor3 = Color3.fromRGB(0,0,0)
+    title.TextScaled = true
 
     local plus = Instance.new("TextButton")
-    plus.Name = "plus"; plus.Parent = Frame
+    plus.Parent = Frame
     plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
     plus.Position = UDim2.new(0.231, 0, 0, 0)
     plus.Size = UDim2.new(0, 45, 0, 28)
@@ -2019,7 +2234,7 @@ function launchXneoFlyGUI()
     corner(plus, 6)
 
     local speedLbl = Instance.new("TextLabel")
-    speedLbl.Name = "speed"; speedLbl.Parent = Frame
+    speedLbl.Parent = Frame
     speedLbl.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
     speedLbl.Position = UDim2.new(0.468, 0, 0.491, 0)
     speedLbl.Size = UDim2.new(0, 44, 0, 28)
@@ -2028,7 +2243,7 @@ function launchXneoFlyGUI()
     speedLbl.TextScaled = true
 
     local mine = Instance.new("TextButton")
-    mine.Name = "mine"; mine.Parent = Frame
+    mine.Parent = Frame
     mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
     mine.Position = UDim2.new(0.231, 0, 0.491, 0)
     mine.Size = UDim2.new(0, 45, 0, 29)
@@ -2037,7 +2252,7 @@ function launchXneoFlyGUI()
     corner(mine, 6)
 
     local closebutton = Instance.new("TextButton")
-    closebutton.Name = "Close"; closebutton.Parent = Frame
+    closebutton.Parent = Frame
     closebutton.BackgroundColor3 = Color3.fromRGB(225, 25, 0)
     closebutton.Font = Enum.Font.SourceSans
     closebutton.Size = UDim2.new(0, 45, 0, 28)
@@ -2047,7 +2262,7 @@ function launchXneoFlyGUI()
     corner(closebutton, 6)
 
     local mini = Instance.new("TextButton")
-    mini.Name = "minimize"; mini.Parent = Frame
+    mini.Parent = Frame
     mini.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
     mini.Font = Enum.Font.SourceSans
     mini.Size = UDim2.new(0, 45, 0, 28)
@@ -2057,7 +2272,7 @@ function launchXneoFlyGUI()
     corner(mini, 6)
 
     local mini2 = Instance.new("TextButton")
-    mini2.Name = "minimize2"; mini2.Parent = Frame
+    mini2.Parent = Frame
     mini2.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
     mini2.Font = Enum.Font.SourceSans
     mini2.Size = UDim2.new(0, 45, 0, 28)
@@ -2082,8 +2297,8 @@ function launchXneoFlyGUI()
             end
         end)
     end)
-    local function upRelease() upHeld = false end
-    up.MouseButton1Up:Connect(upRelease); up.MouseLeave:Connect(upRelease)
+    local function upRel() upHeld = false end
+    up.MouseButton1Up:Connect(upRel); up.MouseLeave:Connect(upRel)
 
     local downHeld = false
     down.MouseButton1Down:Connect(function()
@@ -2096,8 +2311,8 @@ function launchXneoFlyGUI()
             end
         end)
     end)
-    local function downRelease() downHeld = false end
-    down.MouseButton1Up:Connect(downRelease); down.MouseLeave:Connect(downRelease)
+    local function downRel() downHeld = false end
+    down.MouseButton1Up:Connect(downRel); down.MouseLeave:Connect(downRel)
 
     plus.MouseButton1Click:Connect(function()
         XneoState.speeds = XneoState.speeds + 1
@@ -2105,8 +2320,7 @@ function launchXneoFlyGUI()
     end)
     mine.MouseButton1Click:Connect(function()
         if XneoState.speeds <= 1 then
-            speedLbl.Text = "cannot be less than 1"
-            task.wait(1)
+            speedLbl.Text = "min 1"; task.wait(1)
             speedLbl.Text = tostring(XneoState.speeds)
         else
             XneoState.speeds = XneoState.speeds - 1
@@ -2179,7 +2393,6 @@ end)
 local ANTI_FLING_PARTS = {
     "BodyVelocity","BodyAngularVelocity","BodyGyro","BodyThrust","BodyForce"
 }
-
 task.spawn(function()
     while task.wait(0.1) do
         if S.Troll.AntiFling and LP.Character then
@@ -2209,38 +2422,35 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- RENDER LOOP — PC Fly + Hitbox sync + ESP (Player+NPC) + Troll
+-- HP BAR helper
 -- ============================================================
-local FlyBV, FlyBG
-local SpinBV
-local effectAccum = 0
-local EFFECT_INTERVAL = 1/30
-
--- helper: HP bar рисование
-local function drawHPBar(hpBg, hpFill, viewportPos, maxHP, curHP, barW, barH)
-    if not viewportPos then
-        hpBg.Visible = false; hpFill.Visible = false
-        return
+local function drawHPBar(hpBg, hpFill, vpPos, maxHP, curHP, barW, barH)
+    if not vpPos then
+        hpBg.Visible = false; hpFill.Visible = false; return
     end
-    local x = viewportPos.X - barW / 2
-    local y = viewportPos.Y
-    hpBg.Position = Vector2.new(x, y)
-    hpBg.Size = Vector2.new(barW, barH)
+    local x = vpPos.X - barW/2
+    local y = vpPos.Y
+    hpBg.Position = Vector2.new(x, y); hpBg.Size = Vector2.new(barW, barH)
     hpBg.Visible = true
-
     local pct = math.clamp(curHP / math.max(maxHP, 1), 0, 1)
     hpFill.Position = Vector2.new(x + 1, y + 1)
     hpFill.Size = Vector2.new(math.max(0, (barW - 2) * pct), math.max(1, barH - 2))
-
     if S.ESP.HPDynamicColor then
-        -- red (0 HP) → green (max HP)
-        local h = (1/3) * pct
-        hpFill.Color = Color3.fromHSV(h, 1, 1)
+        hpFill.Color = Color3.fromHSV((1/3) * pct, 1, 1)
     else
         hpFill.Color = S.ESP.HPBarColor
     end
     hpFill.Visible = true
 end
+
+-- ============================================================
+-- RENDER LOOP — PC Fly + Hitbox sync + ESP (Lazy Mode)
+-- ============================================================
+local FlyBV, FlyBG
+local SpinBV
+local effectAccum = 0
+local EFFECT_INTERVAL = 1/30
+local lazyFrame = 0
 
 RunService.RenderStepped:Connect(function(dt)
     local ch = LP.Character
@@ -2272,7 +2482,7 @@ RunService.RenderStepped:Connect(function(dt)
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
     end
 
-    -- Hitbox sync
+    -- Hitbox sync (каждый кадр — критично)
     if S.Hitbox.Enabled then
         for _, e in pairs(HitboxParts) do
             if e.head and e.srcHead and e.srcHead.Parent then
@@ -2283,8 +2493,6 @@ RunService.RenderStepped:Connect(function(dt)
             end
         end
     end
-
-    -- NPC hitbox sync
     if S.Hitbox.NPCSupport then
         for _, e in pairs(NPCHitboxes) do
             if e.head and e.srcHead and e.srcHead.Parent then
@@ -2296,140 +2504,114 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- ====================================================
-    -- ESP PLAYER
-    -- ====================================================
-    if S.ESP.Enabled then
-        for _, d in pairs(ESPObjs) do
-            local c = d.player.Character
-            if c ~= d.cacheChar then
-                refreshEspCache(d)
-                if d.hl and c then d.hl.Adornee = c end
+    -- Lazy Mode: пропускаем ESP update каждый 2-й кадр
+    lazyFrame = lazyFrame + 1
+    local skipESP = S.Player.LazyMode and (lazyFrame % 2 == 0)
+
+    if not skipESP then
+        -- ESP PLAYER
+        if S.ESP.Enabled then
+            for _, d in pairs(ESPObjs) do
+                local c = d.player.Character
+                if c ~= d.cacheChar then
+                    refreshEspCache(d)
+                    if d.hl and c then d.hl.Adornee = c end
+                end
+                if not c or not d.cacheHead or not d.cacheRoot then
+                    d.name.Visible = false; d.dist.Visible = false
+                    d.hpBg.Visible = false; d.hpFill.Visible = false
+                    if d.hl then d.hl.Enabled = false end
+                    if c then refreshEspCache(d) end
+                    continue
+                end
+                if d.hl then
+                    d.hl.Enabled = true
+                    if d.hl.Adornee ~= c then d.hl.Adornee = c end
+                end
+                local top = Camera:WorldToViewportPoint(d.cacheHead.Position + Vector3.new(0, 1, 0))
+                if top.Z <= 0 then
+                    d.name.Visible = false; d.dist.Visible = false
+                    d.hpBg.Visible = false; d.hpFill.Visible = false
+                    continue
+                end
+                if S.ESP.ShowName then
+                    d.name.Text = d.player.Name
+                    d.name.Size = S.ESP.NickSize
+                    d.name.Color = S.ESP.NickColor
+                    d.name.Position = Vector2.new(top.X, top.Y - 24)
+                    d.name.Visible = true
+                else d.name.Visible = false end
+                if S.ESP.ShowHPBar and d.cacheHum then
+                    drawHPBar(d.hpBg, d.hpFill,
+                        Vector2.new(top.X, top.Y - 34 - S.ESP.HPBarHeight),
+                        d.cacheHum.MaxHealth, d.cacheHum.Health,
+                        S.ESP.HPBarWidth, S.ESP.HPBarHeight)
+                else
+                    d.hpBg.Visible = false; d.hpFill.Visible = false
+                end
+                if S.ESP.ShowDistance then
+                    local dist = math.floor((Camera.CFrame.Position - d.cacheRoot.Position).Magnitude)
+                    d.dist.Text = dist .. "m"
+                    d.dist.Position = Vector2.new(top.X, top.Y - 6)
+                    d.dist.Visible = true
+                else d.dist.Visible = false end
             end
-            if not c or not d.cacheHead or not d.cacheRoot then
-                d.name.Visible = false
-                d.dist.Visible = false
-                d.hpBg.Visible = false
-                d.hpFill.Visible = false
-                if d.hl then d.hl.Enabled = false end
-                -- fallback: попытка заново
-                if c then refreshEspCache(d) end
-                continue
-            end
-            if d.hl then
-                d.hl.Enabled = true
-                if d.hl.Adornee ~= c then d.hl.Adornee = c end
-            end
-            local headPos = d.cacheHead.Position
-            local top = Camera:WorldToViewportPoint(headPos + Vector3.new(0, 1, 0))
-            if top.Z <= 0 then
-                d.name.Visible = false
-                d.dist.Visible = false
-                d.hpBg.Visible = false
-                d.hpFill.Visible = false
-                continue
-            end
-            -- Nick
-            if S.ESP.ShowName then
-                d.name.Text = d.player.Name
-                d.name.Size = S.ESP.NickSize
-                d.name.Color = S.ESP.NickColor
-                d.name.Position = Vector2.new(top.X, top.Y - 24)
-                d.name.Visible = true
-            else
-                d.name.Visible = false
-            end
-            -- HP Bar (выше ника)
-            if S.ESP.ShowHPBar and d.cacheHum then
-                local hpBarPos = Vector2.new(top.X, top.Y - 34 - S.ESP.HPBarHeight)
-                drawHPBar(d.hpBg, d.hpFill, hpBarPos,
-                    d.cacheHum.MaxHealth, d.cacheHum.Health,
-                    S.ESP.HPBarWidth, S.ESP.HPBarHeight)
-            else
-                d.hpBg.Visible = false
-                d.hpFill.Visible = false
-            end
-            -- Distance
-            if S.ESP.ShowDistance then
-                local dist = math.floor((Camera.CFrame.Position - d.cacheRoot.Position).Magnitude)
-                d.dist.Text = dist .. "m"
-                d.dist.Position = Vector2.new(top.X, top.Y - 6)
-                d.dist.Visible = true
-            else
-                d.dist.Visible = false
+        end
+
+        -- ESP NPC
+        if S.ESP.NPCEnabled then
+            for model, d in pairs(NPCESPObjs) do
+                if not model.Parent then
+                    d.name.Visible = false; d.dist.Visible = false
+                    d.hpBg.Visible = false; d.hpFill.Visible = false
+                    if d.hl then d.hl.Enabled = false end
+                    continue
+                end
+                if not d.cacheHead or not d.cacheHead.Parent then
+                    refreshNPCEspCache(d)
+                end
+                if not d.cacheHead or not d.cacheRoot then
+                    d.name.Visible = false; d.dist.Visible = false
+                    d.hpBg.Visible = false; d.hpFill.Visible = false
+                    if d.hl then d.hl.Enabled = false end
+                    continue
+                end
+                if d.hl then
+                    d.hl.Enabled = true
+                    if d.hl.Adornee ~= model then d.hl.Adornee = model end
+                end
+                local top = Camera:WorldToViewportPoint(d.cacheHead.Position + Vector3.new(0, 1, 0))
+                if top.Z <= 0 then
+                    d.name.Visible = false; d.dist.Visible = false
+                    d.hpBg.Visible = false; d.hpFill.Visible = false
+                    continue
+                end
+                if S.ESP.NPCName then
+                    d.name.Text = model.Name
+                    d.name.Size = S.ESP.NickSize
+                    d.name.Color = S.ESP.NickColor
+                    d.name.Position = Vector2.new(top.X, top.Y - 24)
+                    d.name.Visible = true
+                else d.name.Visible = false end
+                if S.ESP.NPCHPBar and d.cacheHum then
+                    drawHPBar(d.hpBg, d.hpFill,
+                        Vector2.new(top.X, top.Y - 34 - S.ESP.HPBarHeight),
+                        d.cacheHum.MaxHealth, d.cacheHum.Health,
+                        S.ESP.HPBarWidth, S.ESP.HPBarHeight)
+                else
+                    d.hpBg.Visible = false; d.hpFill.Visible = false
+                end
+                if S.ESP.NPCDistance then
+                    local dist = math.floor((Camera.CFrame.Position - d.cacheRoot.Position).Magnitude)
+                    d.dist.Text = dist .. "m"
+                    d.dist.Position = Vector2.new(top.X, top.Y - 6)
+                    d.dist.Visible = true
+                else d.dist.Visible = false end
             end
         end
     end
 
-    -- ====================================================
-    -- ESP NPC
-    -- ====================================================
-    if S.ESP.NPCEnabled then
-        for model, d in pairs(NPCESPObjs) do
-            if not model.Parent then
-                d.name.Visible = false
-                d.dist.Visible = false
-                d.hpBg.Visible = false
-                d.hpFill.Visible = false
-                if d.hl then d.hl.Enabled = false end
-                continue
-            end
-            if not d.cacheHead or not d.cacheHead.Parent then
-                refreshNPCEspCache(d)
-            end
-            if not d.cacheHead or not d.cacheRoot then
-                d.name.Visible = false
-                d.dist.Visible = false
-                d.hpBg.Visible = false
-                d.hpFill.Visible = false
-                if d.hl then d.hl.Enabled = false end
-                continue
-            end
-            if d.hl then
-                d.hl.Enabled = true
-                if d.hl.Adornee ~= model then d.hl.Adornee = model end
-            end
-            local headPos = d.cacheHead.Position
-            local top = Camera:WorldToViewportPoint(headPos + Vector3.new(0, 1, 0))
-            if top.Z <= 0 then
-                d.name.Visible = false
-                d.dist.Visible = false
-                d.hpBg.Visible = false
-                d.hpFill.Visible = false
-                continue
-            end
-            if S.ESP.NPCName then
-                d.name.Text = model.Name
-                d.name.Size = S.ESP.NickSize
-                d.name.Color = S.ESP.NickColor
-                d.name.Position = Vector2.new(top.X, top.Y - 24)
-                d.name.Visible = true
-            else
-                d.name.Visible = false
-            end
-            if S.ESP.NPCHPBar and d.cacheHum then
-                local hpBarPos = Vector2.new(top.X, top.Y - 34 - S.ESP.HPBarHeight)
-                drawHPBar(d.hpBg, d.hpFill, hpBarPos,
-                    d.cacheHum.MaxHealth, d.cacheHum.Health,
-                    S.ESP.HPBarWidth, S.ESP.HPBarHeight)
-            else
-                d.hpBg.Visible = false
-                d.hpFill.Visible = false
-            end
-            if S.ESP.NPCDistance then
-                local dist = math.floor((Camera.CFrame.Position - d.cacheRoot.Position).Magnitude)
-                d.dist.Text = dist .. "m"
-                d.dist.Position = Vector2.new(top.X, top.Y - 6)
-                d.dist.Visible = true
-            else
-                d.dist.Visible = false
-            end
-        end
-    end
-
-    -- ====================================================
-    -- Throttled troll-эффекты
-    -- ====================================================
+    -- Throttled troll-эффекты (30 fps)
     effectAccum = effectAccum + dt
     if effectAccum < EFFECT_INTERVAL then return end
     effectAccum = 0
@@ -2486,16 +2668,13 @@ Actions.Fly = function()
     Notify("✈ Fly: "..tostring(S.Player.Fly))
 end
 Actions.MobileFly = function()
-    if XneoState.gui then
-        closeXneoFlyGUI(); Notify("📱 XNEO Fly: OFF")
-    else
-        launchXneoFlyGUI(); Notify("📱 XNEO Fly: ON")
-    end
+    if XneoState.gui then closeXneoFlyGUI(); Notify("📱 XNEO: OFF")
+    else launchXneoFlyGUI(); Notify("📱 XNEO: ON") end
 end
 Actions.ZeroGravity = function()
     S.Player.ZeroGravity = not S.Player.ZeroGravity
     applyGravityState(); RefreshAll(); MarkDirty()
-    Notify("🪐 ZeroG: "..tostring(S.Player.ZeroGravity))
+    Notify("🪐 ZeroG+Ragdoll: "..tostring(S.Player.ZeroGravity))
 end
 Actions.Noclip = function()
     S.Player.Noclip = not S.Player.Noclip; RefreshAll(); MarkDirty()
@@ -2579,16 +2758,19 @@ function ToggleMobileBtn(action, show)
     local LABEL = {
         Aimbot = "AIM", Fly = "FLY", MobileFly = "XNEO",
         ZeroGravity = "GRAV", Noclip = "NOCLIP",
-        AntiFling = "AFLNG", InfiniteJump = "IJMP"
+        AntiFling = "AFLNG", InfiniteJump = "IJMP",
+        ESP = "ESP", Hitbox = "HITBX"
     }
     b.Text = LABEL[action] or action
     b.BorderSizePixel = 0
     b.Parent = ScreenGui; corner(b, 29)
     local s = stroke(b, COL.accent2, 2)
-    if S.FloatingLock then s.Color = Color3.fromRGB(120, 255, 160) end
+    if S.FloatingLock then s.Color = COL.green end
     MakeDraggableLockable(b, b, action, defaultPos)
     local function activeState()
         if action == "Aimbot" then return S.Aimbot.Enabled
+        elseif action == "ESP" then return S.ESP.Enabled
+        elseif action == "Hitbox" then return S.Hitbox.Enabled
         elseif action == "Fly" then return S.Player.Fly
         elseif action == "MobileFly" then return XneoState.gui ~= nil
         elseif action == "ZeroGravity" then return S.Player.ZeroGravity
@@ -2607,8 +2789,7 @@ function ToggleMobileBtn(action, show)
             b.TextColor3 = COL.accent2
         end
     end
-    paint()
-    AddRefresh(paint)
+    paint(); AddRefresh(paint)
     b.MouseButton1Click:Connect(function()
         if Actions[action] then Actions[action]() end
         paint()
@@ -2634,8 +2815,8 @@ OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end
 for _, t in pairs(TabScrolls) do
     t.scroll.Visible = false; t.btn.BackgroundColor3 = COL.elem
 end
-TabScrolls["🎯 Aimbot"].scroll.Visible = true
-TabScrolls["🎯 Aimbot"].btn.BackgroundColor3 = COL.accent
+TabScrolls["🎯 Combat"].scroll.Visible = true
+TabScrolls["🎯 Combat"].btn.BackgroundColor3 = COL.accent
 
 task.spawn(function()
     while task.wait(2) do
@@ -2663,9 +2844,13 @@ end
 applyGravityState()
 ApplyFloatingLock()
 RepositionAllFloatingBtns()
+if S.Player.AntiAFK then startAntiAFK() end
+if S.Player.FPSBooster then enableFPSBooster() end
 
 getgenv().TIMON_UNLOAD = function()
     pcall(function() closeXneoFlyGUI() end)
+    pcall(function() stopAntiAFK() end)
+    pcall(function() disableFPSBooster() end)
     pcall(function() ScreenGui:Destroy() end)
     for p in pairs(ESPObjs) do RemoveESP(p) end
     for m in pairs(NPCESPObjs) do RemoveNPCESP(m) end
@@ -2681,10 +2866,9 @@ getgenv().TIMON_UNLOAD = function()
     if FlyBV then pcall(function() FlyBV:Destroy() end) end
     if FlyBG then pcall(function() FlyBG:Destroy() end) end
     Workspace.Gravity = DEFAULT_GRAVITY
-    StickyTarget = nil
-    aimHoldDown = false
-    wasHoldActive = false
+    StickyTarget = nil; StickyTargetIsNPC = false
+    aimHoldDown = false; wasHoldActive = false
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v3.8 · Loaded!")
+Notify("⚡ Timon Hub v4.0 · Loaded!")
