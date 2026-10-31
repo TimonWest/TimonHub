@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v3.5 — StickyHold fix + Wall Check + ESP optimization
+-- TIMON HUB v3.6 — no Fun tab + no ChatSpam + CursorAim screen-bound fix
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -52,12 +52,8 @@ local S = {
         InfiniteJump = false, Noclip = false
     },
     Troll = {
-        Spin = false, Invisible = false, ChatSpam = false,
-        AntiFling = false, SpamMsg = nil
-    },
-    Fun = {
-        Rainbow = false, Disco = false, LowGravity = false,
-        RandomEmote = false, FireTrail = false
+        Spin = false, Invisible = false,
+        AntiFling = false
     },
     Hamster = { Coins = 0 },
     Binds = {}, MobileBtns = {},
@@ -123,7 +119,7 @@ local function unpackC3(t) return Color3.fromRGB(t[1] or 128, t[2] or 128, t[3] 
 local function packSettings()
     local d = {
         Aimbot = {}, ESP = {}, Hitbox = {}, Player = {},
-        Troll = {}, Fun = {},
+        Troll = {},
         Hamster = { Coins = S.Hamster.Coins },
         Binds = {}, MobileBtns = {}, AutoSave = S.AutoSave,
         FloatingLock = S.FloatingLock, FloatingPos = S.FloatingPos,
@@ -139,7 +135,6 @@ local function packSettings()
     end
     for k, v in pairs(S.Player) do d.Player[k] = v end
     for k, v in pairs(S.Troll) do d.Troll[k] = v end
-    for k, v in pairs(S.Fun) do d.Fun[k] = v end
     for action, key in pairs(S.Binds) do
         d.Binds[action] = tostring(key):gsub("Enum.KeyCode.","")
     end
@@ -159,7 +154,6 @@ local function applySettings(d)
     end end
     if d.Player then for k,v in pairs(d.Player) do if S.Player[k] ~= nil then S.Player[k]=v end end end
     if d.Troll then for k,v in pairs(d.Troll) do if S.Troll[k] ~= nil then S.Troll[k]=v end end end
-    if d.Fun then for k,v in pairs(d.Fun) do if S.Fun[k] ~= nil then S.Fun[k]=v end end end
     if d.Hamster and d.Hamster.Coins then S.Hamster.Coins = d.Hamster.Coins end
     if d.Binds then
         S.Binds = {}
@@ -578,7 +572,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v3.5"
+TitleLbl.Text = "⚡ TIMON HUB · v3.6"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -670,7 +664,7 @@ local launchXneoFlyGUI, closeXneoFlyGUI
 local OpenBtn
 
 -- ============================================================
--- TAB: AIMBOT (+ Wall Check)
+-- TAB: AIMBOT
 -- ============================================================
 local A = Tab("🎯 Aimbot")
 Section(A, "🎮 Основное")
@@ -828,7 +822,7 @@ Toggle(P, "🪐 Zero Gravity",
     function() return S.Player.ZeroGravity end,
     function(v) S.Player.ZeroGravity = v; applyGravityState() end)
 -- ============================================================
--- TAB: TROLL
+-- TAB: TROLL (без ChatSpam, без Strip Accessories)
 -- ============================================================
 local T = Tab("😈 Troll")
 
@@ -861,16 +855,6 @@ Toggle(T, "👻 Invisible Self",
             end
         end
     end)
-Button(T, "🥷 Strip Accessories", function()
-    if LP.Character then
-        for _, acc in ipairs(LP.Character:GetDescendants()) do
-            if acc:IsA("Accessory") or acc:IsA("Hat") then
-                pcall(function() acc:Destroy() end)
-            end
-        end
-        Notify("🥷 Аксессуары сняты")
-    end
-end)
 
 Section(T, "🛡 Anti Fling")
 Toggle(T, "🛡 Anti Fling",
@@ -883,50 +867,6 @@ Toggle(T, "🛡 Anti Fling",
             end
         end
     end)
-
-Section(T, "💬 Чат")
-Toggle(T, "💬 Chat Spam",
-    function() return S.Troll.ChatSpam end,
-    function(v) S.Troll.ChatSpam = v end)
-TextBox(T, "📝 Сообщение", "Timon Hub on top 🔥",
-    function() return S.Troll.SpamMsg or "Timon Hub on top 🔥" end,
-    function(v) S.Troll.SpamMsg = v end)
-
--- ============================================================
--- TAB: FUN
--- ============================================================
-local FN = Tab("🎉 Fun")
-Section(FN, "✨ Внешность")
-Toggle(FN, "🌈 Rainbow Character",
-    function() return S.Fun.Rainbow end,
-    function(v)
-        S.Fun.Rainbow = v
-        if not v and LP.Character then
-            for _, p in ipairs(LP.Character:GetDescendants()) do
-                if p:IsA("BasePart") then
-                    p.Material = Enum.Material.Plastic
-                    p.Color = Color3.fromRGB(163,162,165)
-                end
-            end
-        end
-    end)
-Toggle(FN, "🎆 Disco Lights",
-    function() return S.Fun.Disco end,
-    function(v) S.Fun.Disco = v end)
-Toggle(FN, "🔥 Fire Trail",
-    function() return S.Fun.FireTrail end,
-    function(v) S.Fun.FireTrail = v end)
-Section(FN, "🌌 Мир")
-Toggle(FN, "🪐 Low Gravity",
-    function() return S.Fun.LowGravity end,
-    function(v)
-        S.Fun.LowGravity = v
-        applyGravityState()
-    end)
-Section(FN, "🎭 Анимации")
-Toggle(FN, "🎵 Random Emote Loop",
-    function() return S.Fun.RandomEmote end,
-    function(v) S.Fun.RandomEmote = v end)
 
 -- ============================================================
 -- TAB: BINDS
@@ -1159,13 +1099,11 @@ end
 RefreshCfgList()
 
 -- ============================================================
--- GRAVITY STATE
+-- GRAVITY STATE (без LowGravity — Fun убран)
 -- ============================================================
 function applyGravityState()
     if S.Player.ZeroGravity then
         Workspace.Gravity = 0
-    elseif S.Fun.LowGravity then
-        Workspace.Gravity = 50
     else
         Workspace.Gravity = DEFAULT_GRAVITY
     end
@@ -1248,7 +1186,7 @@ function ApplyFloatingLock()
 end
 
 -- ============================================================
--- AIMBOT — Wall Check + правильный StickyHold
+-- AIMBOT — wall check + off-screen filter + sticky hold
 -- ============================================================
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false; fovCircle.Thickness = 1
@@ -1257,9 +1195,8 @@ fovCircle.Color = COL.accent; fovCircle.Transparency = 0.7
 local StickyTarget = nil
 local aimHoldDown = false
 local aimHoldAvailable = false
--- флаг: hold на предыдущем кадре был зажат (для детекта re-press)
 local wasHoldActive = false
--- кэш коллизий: результат wall check на кадр
+
 local wallCheckRayParams = RaycastParams.new()
 wallCheckRayParams.FilterType = Enum.RaycastFilterType.Exclude
 wallCheckRayParams.IgnoreWater = true
@@ -1281,7 +1218,6 @@ local function IsCursorAimActive()
     return aimHoldDown
 end
 
--- Проверка прямой видимости от камеры до part
 local function IsVisible(part)
     if not part then return false end
     local origin = Camera.CFrame.Position
@@ -1290,15 +1226,12 @@ local function IsVisible(part)
     local dist = dir.Magnitude
     if dist < 1 then return true end
 
-    -- обновляем фильтр: игнорируем самого игрока и его персонажа
-    local myChar = LP.Character
     local ignore = {Camera}
-    if myChar then table.insert(ignore, myChar) end
+    if LP.Character then table.insert(ignore, LP.Character) end
     wallCheckRayParams.FilterDescendantsInstances = ignore
 
     local res = Workspace:Raycast(origin, dir, wallCheckRayParams)
     if not res then return true end
-    -- допуск: если первое попадание — сама цель или её предок, видна
     local hit = res.Instance
     if hit == part then return true end
     local cur = hit
@@ -1306,48 +1239,49 @@ local function IsVisible(part)
         if cur == part or cur == part.Parent then return true end
         cur = cur.Parent
     end
-    -- иначе — стена перед целью
     return false
 end
 
-local function IsPlayerValid(pl, requireVisible)
+-- 🔧 Проверка "цель на экране"
+local function IsOnScreen(part)
+    if not part then return false end
+    local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
+    return onScreen and sp.Z > 0
+end
+
+local function IsPlayerValid(pl, requireVisible, requireOnScreen)
     if not pl or pl.Parent ~= Players then return false end
     local ch = pl.Character; if not ch then return false end
     local hum = ch:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return false end
     local part = ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")
     if not part then return false end
+    if requireOnScreen ~= false and not IsOnScreen(part) then return false end
     if requireVisible and not IsVisible(part) then return false end
     return true
 end
 
--- sticky: пока бинд зажат — не переключаемся, если цель валидна в расширенных условиях
--- (не сбрасываем из-за FOV или стены — sticky держится).
--- при отпускании hold → sticky сбрасывается.
--- повторное зажатие → новый поиск ближайшего по прицелу+дистанции.
 local function FindTarget()
     local isCursor = (S.Aimbot.Mode == "Cursor")
     local holdActive = isCursor and S.Binds.AimbotHold and IsCursorAimActive()
 
-    -- === STICKY HOLD: пока бинд зажат — не переключаемся с текущей цели ===
-    -- Пока зажато: sticky держится, даже если цель ушла из FOV / за стену.
-    -- Отпустил → сброс. Снова зажал → новый поиск.
+    -- === STICKY HOLD: пока бинд зажат — держим цель, но если она ушла за экран — сброс ===
     if S.Aimbot.StickyLock and StickyTarget then
         if holdActive and wasHoldActive then
-            -- продолжаем держать ту же цель, не проверяя FOV/стену
-            if IsPlayerValid(StickyTarget, false) then
+            -- держим цель, НО проверяем что она всё ещё на экране (иначе off-screen aim)
+            if IsPlayerValid(StickyTarget, false, true) then
                 local ch = StickyTarget.Character
                 return ch and (ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")) or nil
             else
                 StickyTarget = nil
+                -- упала с экрана → провалимся ниже к новому поиску
             end
         elseif isCursor and S.Binds.AimbotHold and not holdActive then
-            -- бинд отпущен → sticky сброшен, цель не ищем
             StickyTarget = nil
             return nil
         else
-            -- бинд не назначен (aim всегда активен) — старое поведение: sticky валидируется по стенке
-            if IsPlayerValid(StickyTarget, S.Aimbot.WallCheck) then
+            -- бинд не назначен, aim всегда активен
+            if IsPlayerValid(StickyTarget, S.Aimbot.WallCheck, true) then
                 local ch = StickyTarget.Character
                 return ch and (ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")) or nil
             else
@@ -1356,7 +1290,7 @@ local function FindTarget()
         end
     end
 
-    -- === ПОИСК НОВОЙ ЦЕЛИ ===
+    -- === ПОИСК НОВОЙ ЦЕЛИ (только on-screen) ===
     local target, targetPlayer, bestScore = nil, nil, math.huge
     local cmpPos, fovLimit
     if S.Aimbot.Mode == "Cursor" then
@@ -1380,13 +1314,14 @@ local function FindTarget()
         if not hum or hum.Health <= 0 then continue end
         local part = ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")
         if not part then continue end
+
+        -- 🔧 только on-screen (не наводиться за экран)
         local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
-        if not onScreen or sp.Z < 0 then continue end
+        if not onScreen or sp.Z <= 0 then continue end
 
         local pixelDist = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
         if pixelDist > fovLimit then continue end
 
-        -- wall check: если включён — пропускаем цели за стеной
         if S.Aimbot.WallCheck and not IsVisible(part) then continue end
 
         local worldDist = (part.Position - myPos).Magnitude
@@ -1426,29 +1361,26 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
     end
 
     if not S.Aimbot.Enabled then StickyTarget = nil; wasHoldActive = false; return end
-    if not IsCursorAimActive() then
-        wasHoldActive = false
-        return
-    end
+    if not IsCursorAimActive() then wasHoldActive = false; return end
 
     local t = FindTarget()
     wasHoldActive = true
     if not t then return end
 
+    -- 🔧 финальный guard: если цель ушла за экран — не двигаем курсор
+    local sp, onScreen = Camera:WorldToViewportPoint(t.Position)
+    if not onScreen or sp.Z <= 0 then return end
+
     if S.Aimbot.Mode == "Cursor" then
-        local sp, onScreen = Camera:WorldToViewportPoint(t.Position)
-        if onScreen and sp.Z > 0 then
-            local mp = UIS:GetMouseLocation()
-            local dx = (sp.X - mp.X) * S.Aimbot.Smooth
-            local dy = (sp.Y - mp.Y) * S.Aimbot.Smooth
-            if tryMouse(dx, dy) then return end
-        end
+        local mp = UIS:GetMouseLocation()
+        local dx = (sp.X - mp.X) * S.Aimbot.Smooth
+        local dy = (sp.Y - mp.Y) * S.Aimbot.Smooth
+        if tryMouse(dx, dy) then return end
     end
 
     local lookCF = CFrame.new(Camera.CFrame.Position, t.Position)
     Camera.CFrame = Camera.CFrame:Lerp(lookCF, S.Aimbot.Smooth)
 end)
-
 -- ============================================================
 -- ESP
 -- ============================================================
@@ -2057,30 +1989,6 @@ task.spawn(function()
     end
 end)
 
-task.spawn(function()
-    while task.wait(2) do
-        if S.Troll.ChatSpam then
-            pcall(function()
-                game:GetService("ReplicatedStorage")
-                    .DefaultChatSystemChatEvents
-                    .SayMessageRequest:FireServer(S.Troll.SpamMsg or "Timon Hub on top 🔥", "All")
-            end)
-        end
-    end
-end)
-
-task.spawn(function()
-    while task.wait(3) do
-        if S.Fun.RandomEmote then
-            local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                local emotes = {"wave", "dance", "point", "laugh", "cheer"}
-                pcall(function() hum:PlayEmote(emotes[math.random(#emotes)]) end)
-            end
-        end
-    end
-end)
-
 -- ============================================================
 -- ANTI FLING
 -- ============================================================
@@ -2117,10 +2025,10 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- PC FLY + ESP SYNC + EFFECTS
+-- PC FLY + ESP SYNC + TROLL EFFECTS (без Fun)
 -- ============================================================
 local FlyBV, FlyBG
-local SpinBV, DiscoLight, FireEmitter
+local SpinBV
 local effectAccum = 0
 local EFFECT_INTERVAL = 1/30
 
@@ -2154,7 +2062,7 @@ RunService.RenderStepped:Connect(function(dt)
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
     end
 
-    -- Hitbox sync — кэш-ссылки
+    -- Hitbox sync
     if S.Hitbox.Enabled then
         for _, e in pairs(HitboxParts) do
             if e.head and e.srcHead and e.srcHead.Parent then
@@ -2215,7 +2123,7 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- ==== Throttled эффекты (30 fps) ====
+    -- Throttled troll-эффекты
     effectAccum = effectAccum + dt
     if effectAccum < EFFECT_INTERVAL then return end
     effectAccum = 0
@@ -2236,44 +2144,6 @@ RunService.RenderStepped:Connect(function(dt)
             if p:IsA("BasePart") then p.LocalTransparencyModifier = 1
             elseif p:IsA("Decal") then p.Transparency = 1 end
         end
-    end
-
-    if S.Fun.Rainbow and ch then
-        local hue = tick() % 1
-        for _, p in ipairs(ch:GetDescendants()) do
-            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
-                p.Color = Color3.fromHSV(hue, 1, 1)
-                p.Material = Enum.Material.Neon
-            end
-        end
-    end
-
-    if S.Fun.Disco and hrp then
-        if not DiscoLight or not DiscoLight.Parent then
-            DiscoLight = Instance.new("PointLight")
-            DiscoLight.Brightness = 5
-            DiscoLight.Range = 30
-            DiscoLight.Parent = hrp
-        end
-        DiscoLight.Color = Color3.fromHSV(tick() % 1, 1, 1)
-    elseif DiscoLight then
-        DiscoLight:Destroy(); DiscoLight = nil
-    end
-
-    if S.Fun.FireTrail and hrp then
-        if not FireEmitter or not FireEmitter.Parent then
-            FireEmitter = Instance.new("ParticleEmitter")
-            FireEmitter.Texture = "rbxasset://textures/particles/fire_main.dds"
-            FireEmitter.Rate = 50
-            FireEmitter.Lifetime = NumberRange.new(0.5, 1)
-            FireEmitter.Speed = NumberRange.new(2, 5)
-            FireEmitter.Size = NumberSequence.new(1, 0)
-            FireEmitter.Color = ColorSequence.new(Color3.fromRGB(255, 100, 0),
-                Color3.fromRGB(255, 200, 0))
-            FireEmitter.Parent = hrp
-        end
-    elseif FireEmitter then
-        FireEmitter:Destroy(); FireEmitter = nil
     end
 end)
 
@@ -2495,8 +2365,6 @@ getgenv().TIMON_UNLOAD = function()
     pcall(function() fovCircle:Remove() end)
     pcall(function() RunService:UnbindFromRenderStep("TIMON_AIM") end)
     if SpinBV then pcall(function() SpinBV:Destroy() end) end
-    if DiscoLight then pcall(function() DiscoLight:Destroy() end) end
-    if FireEmitter then pcall(function() FireEmitter:Destroy() end) end
     if FlyBV then pcall(function() FlyBV:Destroy() end) end
     if FlyBG then pcall(function() FlyBG:Destroy() end) end
     Workspace.Gravity = DEFAULT_GRAVITY
@@ -2506,4 +2374,4 @@ getgenv().TIMON_UNLOAD = function()
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v3.5 · StickyHold fix + WallCheck")
+Notify("⚡ Timon Hub v3.6 · no Fun · no ChatSpam · off-screen aim fix")
