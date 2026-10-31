@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v4.2 — Silent Aim PC/Mobile + TargetPlayers/NPCs + optimization
+-- TIMON HUB v4.3 — TargetPlayers/NPCs + optimization (NO Silent Aim)
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -16,6 +16,10 @@ local HttpService = game:GetService("HttpService")
 
 local LP = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+if not Camera then
+    repeat task.wait() until Workspace.CurrentCamera
+    Camera = Workspace.CurrentCamera
+end
 local DEFAULT_GRAVITY = Workspace.Gravity
 getgenv().TIMON_LOADED = true
 
@@ -34,11 +38,6 @@ local S = {
         TargetNPCs = false,
         JitterEnabled = false,
         Jitter = 1.5,
-        -- Silent Aim
-        SilentPC = false,
-        SilentMobile = false,
-        SilentFOV = 15,
-        SilentWallCheck = false,
     },
     ESP = {
         Enabled = false,
@@ -579,7 +578,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v4.2"
+TitleLbl.Text = "⚡ TIMON HUB · v4.3"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -741,24 +740,7 @@ Slider(A, "📏 Jitter Amount (px)", 0, 5,
     function(v) S.Aimbot.Jitter = v end)
 
 -- ============================================================
--- SILENT AIM
--- ============================================================
-Section(A, "🔇 Silent Aim (test)")
-Toggle(A, "🖥 Silent Aim — PC",
-    function() return S.Aimbot.SilentPC end,
-    function(v) S.Aimbot.SilentPC = v; InstallSilentHook() end)
-Toggle(A, "📱 Silent Aim — Mobile",
-    function() return S.Aimbot.SilentMobile end,
-    function(v) S.Aimbot.SilentMobile = v; InstallSilentHook() end)
-Slider(A, "🎯 Silent FOV (градусы)", 1, 90,
-    function() return S.Aimbot.SilentFOV end,
-    function(v) S.Aimbot.SilentFOV = v end)
-Toggle(A, "🧱 Silent Wall Check",
-    function() return S.Aimbot.SilentWallCheck end,
-    function(v) S.Aimbot.SilentWallCheck = v end)
-
--- ============================================================
--- TAB: ESP (не тронут)
+-- TAB: ESP
 -- ============================================================
 local E = Tab("👁 ESP")
 Section(E, "🔘 Toggle")
@@ -1134,8 +1116,6 @@ Button(ST, "🔄 Сбросить настройки", function()
     S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
     S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
     S.Aimbot.JitterEnabled=false; S.Aimbot.Jitter=1.5
-    S.Aimbot.SilentPC=false; S.Aimbot.SilentMobile=false
-    S.Aimbot.SilentFOV=15; S.Aimbot.SilentWallCheck=false
     S.ESP.Enabled=false; S.ESP.NPCEnabled=false
     S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
     S.Player.Fly=false
@@ -1429,7 +1409,7 @@ function ApplyFloatingLock()
 end
 
 -- ============================================================
--- AIMBOT — оптимизированный движок + Silent Hook
+-- AIMBOT — оптимизированный движок (БЕЗ SILENT AIM)
 -- ============================================================
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false; fovCircle.Thickness = 1
@@ -1462,7 +1442,6 @@ local function IsCursorAimActive()
     return aimHoldDown
 end
 
--- Оптимизация: параметры raycast переиспользуются, ignore заполняется один раз
 local function setupRayParams()
     local ignore = {Camera}
     if LP.Character then table.insert(ignore, LP.Character) end
@@ -1542,7 +1521,6 @@ local function IsTargetValid(target, isNPC, requireVisible, requireOnScreen)
     end
 end
 
--- Оптимизация: локальные кэши внутри FindTarget
 local function FindTarget()
     local targetPlayers = S.Aimbot.TargetPlayers
     local targetNPCs = S.Aimbot.TargetNPCs
@@ -1572,7 +1550,6 @@ local function FindTarget()
 
     local target, targetIsNPC, bestScore = nil, false, math.huge
 
-    -- Кэш параметров
     local mode = S.Aimbot.Mode
     local fovLimit, cmpPos
     if mode == "Cursor" then
@@ -1714,156 +1691,8 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
     local lookCF = CFrame.new(Camera.CFrame.Position, aimPos)
     Camera.CFrame = Camera.CFrame:Lerp(lookCF, S.Aimbot.Smooth)
 end)
-
 -- ============================================================
--- SILENT AIM — универсальный hook на Workspace/Camera Raycast
--- ============================================================
-local silentHookSupported = false
-pcall(function()
-    if type(hookmetamethod) == "function"
-       and type(getnamecallmethod) == "function"
-       and type(checkcaller) == "function"
-       and type(newcclosure) == "function" then
-        silentHookSupported = true
-    end
-end)
-
-local oldNamecall = nil
-local silentHooked = false
-
-local function SilentActive()
-    if not (S.Aimbot.SilentPC or S.Aimbot.SilentMobile) then return false end
-    if S.Aimbot.SilentPC and not S.Aimbot.SilentMobile then
-        -- PC only: только если клавиатура есть
-        if not UIS.KeyboardEnabled then return false end
-    elseif S.Aimbot.SilentMobile and not S.Aimbot.SilentPC then
-        -- Mobile only: только если тач
-        if not UIS.TouchEnabled then return false end
-    end
-    return true
-end
-
--- Найти ближайшую цель в SilentFOV относительно луча
-local function SilentFindTarget(origin, direction)
-    local targetPlayers = S.Aimbot.TargetPlayers
-    local targetNPCs = S.Aimbot.TargetNPCs
-    if not targetPlayers and not targetNPCs then return nil end
-
-    local fovDeg = math.rad(S.Aimbot.SilentFOV or 15)
-    local fovCos = math.cos(fovDeg)
-    local dirUnit = direction.Unit
-    local myPos = origin
-    local wallCheck = S.Aimbot.SilentWallCheck
-    local partName = S.Aimbot.Part
-
-    local best, bestScore, bestIsNPC = nil, math.huge, false
-
-    -- Игроки
-    if targetPlayers then
-        for _, pl in ipairs(Players:GetPlayers()) do
-            if pl == LP then continue end
-            local ch = pl.Character
-            if not ch then continue end
-            local hum = ch:FindFirstChildOfClass("Humanoid")
-            if not hum or hum.Health <= 0 then continue end
-            local part = ch:FindFirstChild(partName) or ch:FindFirstChild("Head")
-            if not part then continue end
-
-            local toPart = part.Position - myPos
-            local dist = toPart.Magnitude
-            if dist < 1 or dist > 1000 then continue end
-            local cosAngle = dirUnit:Dot(toPart.Unit)
-            if cosAngle < fovCos then continue end
-            if wallCheck and not IsVisible(part) then continue end
-
-            local score = dist
-            if score < bestScore then
-                bestScore = score
-                best = part.Position
-                bestIsNPC = false
-            end
-        end
-    end
-
-    -- NPC
-    if targetNPCs then
-        for model in pairs(NPCCache) do
-            if not isPlayerCharacter(model) then
-                local hum = model:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
-                    local part = model:FindFirstChild(partName) or model:FindFirstChild("Head")
-                    if part then
-                        local toPart = part.Position - myPos
-                        local dist = toPart.Magnitude
-                        if dist >= 1 and dist <= 1000 then
-                            local cosAngle = dirUnit:Dot(toPart.Unit)
-                            if cosAngle >= fovCos then
-                                if not wallCheck or IsVisible(part) then
-                                    if dist < bestScore then
-                                        bestScore = dist
-                                        best = part.Position
-                                        bestIsNPC = true
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    return best
-end
-
-function InstallSilentHook()
-    if not silentHookSupported then
-        Notify("⚠ Silent: executor без hookmetamethod")
-        return
-    end
-    if silentHooked then return end
-    pcall(function()
-        oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            if method == "Raycast" then
-                local isOurs = false
-                pcall(function() isOurs = checkcaller() end)
-                if not isOurs then
-                    local ok, res = pcall(function()
-                        if not SilentActive() then return nil end
-                        local origin, direction, params = ...
-                        if typeof(origin) ~= "Vector3"
-                        or typeof(direction) ~= "Vector3" then
-                            return nil
-                        end
-                        if direction.Magnitude < 0.001 then return nil end
-                        local targetPos = SilentFindTarget(origin, direction)
-                        if not targetPos then return nil end
-                        local newDir = (targetPos - origin)
-                        if newDir.Magnitude < 0.001 then return nil end
-                        return oldNamecall(self, origin, newDir, params)
-                    end)
-                    if ok and res ~= nil then
-                        return res
-                    end
-                end
-            end
-            return oldNamecall(self, ...)
-        end))
-        silentHooked = true
-    end)
-end
-
-function UninstallSilentHook()
-    if not silentHooked or not oldNamecall then return end
-    pcall(function()
-        hookmetamethod(game, "__namecall", oldNamecall)
-    end)
-    silentHooked = false
-    oldNamecall = nil
-end
--- ============================================================
--- ESP helpers — Player + NPC (не тронуты)
+-- ESP helpers — Player + NPC
 -- ============================================================
 ESPObjs = {}
 NPCESPObjs = {}
@@ -2239,7 +2068,7 @@ task.spawn(function()
     end
 end)
 
--- Оптимизация: NPC cache обновляется 1s в одном месте — используется и ESP, и Hitbox, и Aim
+-- NPC cache unified loop
 task.spawn(function()
     while task.wait(1) do
         if S.ESP.NPCEnabled or S.Hitbox.NPCSupport or S.Aimbot.TargetNPCs then
@@ -3036,7 +2865,6 @@ getgenv().TIMON_UNLOAD = function()
     pcall(function() closeXneoFlyGUI() end)
     pcall(function() stopAntiAFK() end)
     pcall(function() disableFPSBooster() end)
-    pcall(function() UninstallSilentHook() end)
     pcall(function() ScreenGui:Destroy() end)
     for p in pairs(ESPObjs) do RemoveESP(p) end
     for m in pairs(NPCESPObjs) do RemoveNPCESP(m) end
@@ -3056,8 +2884,5 @@ getgenv().TIMON_UNLOAD = function()
     aimHoldDown = false; wasHoldActive = false
     getgenv().TIMON_LOADED = false
 end
-if S.Aimbot.SilentPC or S.Aimbot.SilentMobile then
-    task.delay(1, function() pcall(InstallSilentHook) end)
-end
 
-Notify("⚡ Timon Hub v4.2 · Silent PC/Mobile + TargetPlayers/NPCs + optimized")
+Notify("⚡ Timon Hub v4.3 · Loaded!")
