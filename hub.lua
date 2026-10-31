@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Original Fly Integrated Edition v5.1)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Ultra-Optimized Edition v5.3)
 local Players, RunService, UserInputService, HttpService, TweenService, LocalPlayer, Camera = game:GetService("Players"), game:GetService("RunService"), game:GetService("UserInputService"), game:GetService("HttpService"), game:GetService("TweenService"), game:GetService("Players").LocalPlayer, workspace.CurrentCamera
 
 pcall(function()
@@ -11,7 +11,7 @@ local FOVCircle = nil
 pcall(function()
     if Drawing then
         FOVCircle = Drawing.new("Circle")
-        FOVCircle.Visible, FOVCircle.Thickness, FOVCircle.NumSides, FOVCircle.Filled, FOVCircle.Color = false, 1.5, 64, false, Color3.fromRGB(210, 110, 255)
+        FOVCircle.Visible, FOVCircle.Thickness, FOVCircle.NumSides, FOVCircle.Filled, FOVCircle.Color = false, 1.5, 32, false, Color3.fromRGB(240, 110, 255)
     end
 end)
 
@@ -22,19 +22,29 @@ local HitboxEnabled, HitboxSize, HitboxTransparency, HitboxTargetName, HitboxKey
 local InvisFlingEnabled, AntiFlingEnabled, HamsterCoins = false, false, 0
 local WalkSpeedEnabled, CustomWalkSpeed, JumpPowerEnabled, CustomJumpPower = false, 16, false, 50
 
--- Переменные оригинального Fly из скрипта
+-- Переменные Fly
 local FlyEnabled = false
 local FlyKey = Enum.KeyCode.F
 local nowe = false
 local tpwalking = false
 local speeds = 1
 
--- Новые Troll функции
+-- Troll функции
 local RainbowBodyEnabled = false
 local AutoClickerEnabled = false
 local VisualSpinEnabled = false
 local InvisibleEnabled = false
 local JitterEnabled = false
+
+pcall(function()
+    local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
+    if playerScripts then
+        local playerModule = playerScripts:FindFirstChild("PlayerModule")
+        if playerModule then
+            controlModule = require(playerModule:FindFirstChild("ControlModule"))
+        end
+    end
+end)
 
 local ConfigFolder, AutoLoadFileName, CurrentConfigName, AutoLoadEnabled = "TimonHub_Configs", "TimonHub_Configs/autoload.json", "default", false
 pcall(function() if makefolder and not isfolder(ConfigFolder) then makefolder(ConfigFolder) end end)
@@ -47,10 +57,10 @@ MobileGui.Name, MobileGui.ResetOnSpawn = "TimonHub_MobileButtons", false
 
 local function createMobileButton(pos, text)
     local btn = Instance.new("TextButton", MobileGui)
-    btn.Size, btn.Position, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text, btn.Active, btn.Draggable = UDim2.new(0, 115, 0, 42), pos, Color3.fromRGB(15, 8, 30), 0.15, Color3.fromRGB(240, 200, 255), 12, Enum.Font.GothamBold, text, true, true
+    btn.Size, btn.Position, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text, btn.Active, btn.Draggable = UDim2.new(0, 115, 0, 42), pos, Color3.fromRGB(25, 10, 45), 0.15, Color3.fromRGB(255, 210, 255), 12, Enum.Font.GothamBold, text, true, true
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
     local stroke = Instance.new("UIStroke", btn)
-    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(200, 90, 255), 0.2, 2
+    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(230, 90, 255), 0.15, 2
     return btn
 end
 
@@ -58,26 +68,25 @@ local ToggleUIMobileBtn = createMobileButton(UDim2.new(0, 20, 0, 20), "⚡ MENU"
 local MobileAimToggleBtn = createMobileButton(UDim2.new(0, 145, 0, 20), "Mob.Aim: OFF")
 local FlyMobileBtn = createMobileButton(UDim2.new(0, 270, 0, 20), "Fly: OFF")
 
--- Главное окно в стиле Glassmorphism
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size, MainFrame.Position, MainFrame.BackgroundColor3, MainFrame.BackgroundTransparency, MainFrame.Active, MainFrame.Draggable = UDim2.new(0, 680, 0, 450), UDim2.new(0.5, -340, 0.5, -225), Color3.fromRGB(10, 4, 18), 0.12, true, true
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 16)
+MainFrame.Size, MainFrame.Position, MainFrame.BackgroundColor3, MainFrame.BackgroundTransparency, MainFrame.Active, MainFrame.Draggable = UDim2.new(0, 680, 0, 450), UDim2.new(0.5, -340, 0.5, -225), Color3.fromRGB(15, 6, 28), 0.1, true, true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 18)
 local MainStroke = Instance.new("UIStroke", MainFrame)
-MainStroke.Color, MainStroke.Transparency, MainStroke.Thickness = Color3.fromRGB(190, 75, 255), 0.1, 2.2
+MainStroke.Color, MainStroke.Transparency, MainStroke.Thickness = Color3.fromRGB(220, 80, 255), 0.1, 2.5
 
 local NeonGlow = Instance.new("Frame", MainFrame)
-NeonGlow.Size, NeonGlow.BackgroundColor3, NeonGlow.BorderSizePixel = UDim2.new(1, 0, 0, 3), Color3.fromRGB(235, 140, 255), 0
+NeonGlow.Size, NeonGlow.BackgroundColor3, NeonGlow.BorderSizePixel = UDim2.new(1, 0, 0, 3), Color3.fromRGB(255, 130, 240), 0
 
 ToggleUIMobileBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
 local Header = Instance.new("Frame", MainFrame)
-Header.Size, Header.BackgroundColor3, Header.BackgroundTransparency, Header.BorderSizePixel = UDim2.new(1, 0, 0, 54), Color3.fromRGB(18, 10, 32), 0.25, 0
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 16)
+Header.Size, Header.BackgroundColor3, Header.BackgroundTransparency, Header.BorderSizePixel = UDim2.new(1, 0, 0, 54), Color3.fromRGB(28, 12, 50), 0.2, 0
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 18)
 local HeaderCover = Instance.new("Frame", Header)
-HeaderCover.Size, HeaderCover.Position, HeaderCover.BackgroundColor3, HeaderCover.BackgroundTransparency, HeaderCover.BorderSizePixel = UDim2.new(1, 0, 0, 10), UDim2.new(0, 0, 1, -10), Color3.fromRGB(18, 10, 32), 0.25, 0
+HeaderCover.Size, HeaderCover.Position, HeaderCover.BackgroundColor3, HeaderCover.BackgroundTransparency, HeaderCover.BorderSizePixel = UDim2.new(1, 0, 0, 10), UDim2.new(0, 0, 1, -10), Color3.fromRGB(28, 12, 50), 0.2, 0
 
 local Title = Instance.new("TextLabel", Header)
-Title.Size, Title.Position, Title.BackgroundTransparency, Title.Text, Title.TextColor3, Title.TextSize, Title.Font, Title.TextXAlignment = UDim2.new(1, -20, 1, 0), UDim2.new(0, 24, 0, 0), true, "TIMON HUB  ✦  ULTIMATE SUITE v5.1", Color3.fromRGB(255, 235, 255), 15, Enum.Font.GothamBold, Enum.TextXAlignment.Left
+Title.Size, Title.Position, Title.BackgroundTransparency, Title.Text, Title.TextColor3, Title.TextSize, Title.Font, Title.TextXAlignment = UDim2.new(1, -20, 1, 0), UDim2.new(0, 24, 0, 0), true, "TIMON HUB  ✦  ULTIMATE SUITE v5.3", Color3.fromRGB(255, 230, 255), 15, Enum.Font.GothamBold, Enum.TextXAlignment.Left
 
 local Sidebar = Instance.new("ScrollingFrame", MainFrame)
 Sidebar.Size, Sidebar.Position, Sidebar.BackgroundTransparency, Sidebar.BorderSizePixel, Sidebar.CanvasSize, Sidebar.ScrollBarThickness = UDim2.new(0, 175, 1, -70), UDim2.new(0, 12, 0, 62), true, 0, UDim2.new(0, 0, 0, 0), 2
@@ -100,10 +109,10 @@ CombatTab.Visible = true
 
 local function createTabButton(name, targetTab)
     local btn = Instance.new("TextButton", Sidebar)
-    btn.Size, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(20, 11, 35), 0.25, Color3.fromRGB(225, 190, 255), 13, Enum.Font.GothamMedium, name
+    btn.Size, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(30, 14, 52), 0.2, Color3.fromRGB(240, 200, 255), 13, Enum.Font.GothamMedium, name
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
     local stroke = Instance.new("UIStroke", btn)
-    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(130, 60, 185), 0.3, 1.2
+    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(180, 70, 230), 0.25, 1.4
     btn.MouseButton1Click:Connect(function()
         CombatTab.Visible, ESPTab.Visible, HitboxTab.Visible, PlayerTab.Visible, FlingTab.Visible, TrollTab.Visible, HamsterTab.Visible, SettingsTab.Visible = false, false, false, false, false, false, false, false
         targetTab.Visible = true
@@ -122,24 +131,24 @@ createTabButton("Settings", SettingsTab)
 
 local function createLabel(parent, text)
     local lbl = Instance.new("TextLabel", parent)
-    lbl.Size, lbl.BackgroundTransparency, lbl.Text, lbl.TextColor3, lbl.TextSize, lbl.Font, lbl.TextXAlignment = UDim2.new(1, 0, 0, 24), true, text, Color3.fromRGB(190, 150, 235), 11, Enum.Font.GothamBold, Enum.TextXAlignment.Left
+    lbl.Size, lbl.BackgroundTransparency, lbl.Text, lbl.TextColor3, lbl.TextSize, lbl.Font, lbl.TextXAlignment = UDim2.new(1, 0, 0, 24), true, text, Color3.fromRGB(210, 160, 255), 11, Enum.Font.GothamBold, Enum.TextXAlignment.Left
 end
 
 local function createActionBtn(parent, text)
     local btn = Instance.new("TextButton", parent)
-    btn.Size, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(20, 11, 35), 0.25, Color3.fromRGB(250, 225, 255), 13, Enum.Font.GothamMedium, text
+    btn.Size, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(30, 14, 52), 0.2, Color3.fromRGB(255, 230, 255), 13, Enum.Font.GothamMedium, text
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
     local stroke = Instance.new("UIStroke", btn)
-    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(130, 60, 185), 0.3, 1.2
+    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(180, 70, 230), 0.25, 1.4
     return btn
 end
 
 local function createInputBox(parent, placeholder)
     local box = Instance.new("TextBox", parent)
-    box.Size, box.BackgroundColor3, box.BackgroundTransparency, box.TextColor3, box.PlaceholderColor3, box.TextSize, box.Font, box.PlaceholderText, box.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(20, 11, 35), 0.25, Color3.fromRGB(250, 225, 255), Color3.fromRGB(155, 120, 200), 13, Enum.Font.GothamMedium, placeholder, ""
+    box.Size, box.BackgroundColor3, box.BackgroundTransparency, box.TextColor3, box.PlaceholderColor3, box.TextSize, box.Font, box.PlaceholderText, box.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(30, 14, 52), 0.2, Color3.fromRGB(255, 230, 255), Color3.fromRGB(180, 130, 220), 13, Enum.Font.GothamMedium, placeholder, ""
     Instance.new("UICorner", box).CornerRadius = UDim.new(0, 10)
     local stroke = Instance.new("UIStroke", box)
-    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(130, 60, 185), 0.3, 1.2
+    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(180, 70, 230), 0.25, 1.4
     return box
 end
 
@@ -154,7 +163,7 @@ local MobileAimFOVInput = createInputBox(CombatTab, "Mobile FOV (наприме�
 createLabel(CombatTab, "ВЫБОР ЧАСТИ ТЕЛА")
 local PartDropdownBtn = createActionBtn(CombatTab, "Target: Head")
 local PartFrame = Instance.new("Frame", CombatTab)
-PartFrame.Size, PartFrame.BackgroundColor3, PartFrame.BackgroundTransparency, PartFrame.Visible = UDim2.new(1, 0, 0, 140), Color3.fromRGB(14, 7, 25), 0.15, false
+PartFrame.Size, PartFrame.BackgroundColor3, PartFrame.BackgroundTransparency, PartFrame.Visible = UDim2.new(1, 0, 0, 140), Color3.fromRGB(22, 10, 38), 0.1, false
 Instance.new("UIListLayout", PartFrame).Padding = UDim.new(0, 5)
 
 for _, p in ipairs({{Name = "Голова (Head)", Part = "Head"}, {Name = "Торс (Torso)", Part = "UpperTorso"}, {Name = "Руки (Arms)", Part = "LeftLowerArm"}, {Name = "Ноги (Legs)", Part = "LeftLowerLeg"}}) do
@@ -198,7 +207,6 @@ local SpeedToggle = createActionBtn(PlayerTab, "WalkSpeed: OFF")
 local SpeedInput = createInputBox(PlayerTab, "Speed Value (например: 50)")
 local JumpToggle = createActionBtn(PlayerTab, "JumpPower: OFF")
 local JumpInput = createInputBox(PlayerTab, "Jump Value (например: 100)")
-
 createLabel(PlayerTab, "ПОЛЕТ (FLY)")
 local FlyToggle = createActionBtn(PlayerTab, "Fly: OFF")
 local FlyKeyBindBtn = createActionBtn(PlayerTab, "Fly Bind: F")
@@ -224,12 +232,14 @@ HamsterCounterLabel.Size, HamsterCounterLabel.Position, HamsterCounterLabel.Back
 local ClickerContainer = Instance.new("Frame", HamsterTab)
 ClickerContainer.Size, ClickerContainer.BackgroundTransparency = UDim2.new(1, 0, 1, -30), 1
 local HamsterClickBtn = Instance.new("TextButton", ClickerContainer)
-HamsterClickBtn.Size, HamsterClickBtn.Position, HamsterClickBtn.BackgroundColor3, HamsterClickBtn.BackgroundTransparency, HamsterClickBtn.Text, HamsterClickBtn.TextColor3, HamsterClickBtn.TextSize, HamsterClickBtn.Font = UDim2.new(0, 190, 0, 190), UDim2.new(0.5, -95, 0.5, -95), Color3.fromRGB(22, 12, 38), 0.2, "🐹", Color3.fromRGB(255, 255, 255), 68, Enum.Font.GothamBold
+HamsterClickBtn.Size, HamsterClickBtn.Position, HamsterClickBtn.BackgroundColor3, HamsterClickBtn.BackgroundTransparency, HamsterClickBtn.Text, HamsterClickBtn.TextColor3, HamsterClickBtn.TextSize, HamsterClickBtn.Font = UDim2.new(0, 190, 0, 190), UDim2.new(0.5, -95, 0.5, -95), Color3.fromRGB(35, 14, 60), 0.15, "🐹", Color3.fromRGB(255, 255, 255), 68, Enum.Font.GothamBold
 Instance.new("UICorner", HamsterClickBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", HamsterClickBtn).Color, Instance.new("UIStroke", HamsterClickBtn).Thickness = Color3.fromRGB(230, 140, 255), 3.5
+local hamsterStroke = Instance.new("UIStroke", HamsterClickBtn)
+hamsterStroke.Color, hamsterStroke.Thickness = Color3.fromRGB(255, 140, 255), 3.5
 
 local function tapHamster()
     HamsterCoins = HamsterCoins + 1
+    HamsterCounterLabel.Text = "Hamster Coins: " + HamsterCoins
     HamsterCounterLabel.Text = "Hamster Coins: " .. HamsterCoins
     TweenService:Create(HamsterClickBtn, TweenInfo.new(0.05, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 165, 0, 165), Position = UDim2.new(0.5, -82.5, 0.5, -82.5)}):Play()
     task.delay(0.06, function() TweenService:Create(HamsterClickBtn, TweenInfo.new(0.05, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 190, 0, 190), Position = UDim2.new(0.5, -95, 0.5, -95)}):Play() end)
@@ -324,7 +334,7 @@ KeyBindBtn.MouseButton1Click:Connect(function() bindingAimKey, bindingFlyKey, bi
 FlyKeyBindBtn.MouseButton1Click:Connect(function() bindingFlyKey, bindingAimKey, bindingHitboxKey, FlyKeyBindBtn.Text = true, false, false, "Press any key..." end)
 HitboxKeyBindBtn.MouseButton1Click:Connect(function() bindingHitboxKey, bindingAimKey, bindingFlyKey, HitboxKeyBindBtn.Text = true, false, false, "Press any key..." end)
 
--- Интеграция ТОЙ САМОЙ функции полета ИЗ ТВОЕГО ИСХОДНОГО СКРИПТА
+-- Оригинальный Fly
 local function toggleFlyFunc()
     FlyEnabled = not FlyEnabled
     nowe = FlyEnabled
@@ -645,7 +655,7 @@ RunService.RenderStepped:Connect(function(dt)
                     if not VisualsMap[player].Highlight or VisualsMap[player].Highlight.Parent ~= char then
                         if VisualsMap[player].Highlight then VisualsMap[player].Highlight:Destroy() end
                         local hl = Instance.new("Highlight", char)
-                        hl.Adornee, hl.FillColor, hl.OutlineColor, hl.FillTransparency, hl.OutlineTransparency = char, Color3.fromRGB(170, 90, 255), Color3.fromRGB(230, 180, 255), VisualsTransparency, 0.1
+                        hl.Adornee, hl.FillColor, hl.OutlineColor, hl.FillTransparency, hl.OutlineTransparency = char, Color3.fromRGB(190, 85, 255), Color3.fromRGB(240, 170, 255), VisualsTransparency, 0.1
                         VisualsMap[player].Highlight = hl
                     else VisualsMap[player].Highlight.FillTransparency = VisualsTransparency end
 
@@ -654,12 +664,12 @@ RunService.RenderStepped:Connect(function(dt)
                         local bb = Instance.new("BillboardGui", head)
                         bb.Name, bb.Size, bb.StudsOffset, bb.AlwaysOnTop, bb.Adornee = "TimonESP", UDim2.new(0, 120, 0, 50), Vector3.new(0, 2.5, 0), true, head
                         local nameLabel = Instance.new("TextLabel", bb)
-                        nameLabel.Size, nameLabel.BackgroundTransparency, nameLabel.Text, nameLabel.TextColor3, nameLabel.TextSize, nameLabel.Font, nameLabel.TextStrokeTransparency = UDim2.new(1, 0, 0, 20), true, player.Name, Color3.fromRGB(245, 230, 255), 12, Enum.Font.GothamBold, 0.5
+                        nameLabel.Size, nameLabel.BackgroundTransparency, nameLabel.Text, nameLabel.TextColor3, nameLabel.TextSize, nameLabel.Font, nameLabel.TextStrokeTransparency = UDim2.new(1, 0, 0, 20), true, player.Name, Color3.fromRGB(255, 230, 255), 12, Enum.Font.GothamBold, 0.5
                         local hpBg = Instance.new("Frame", bb)
-                        hpBg.Size, hpBg.Position, hpBg.BackgroundColor3, hpBg.BorderSizePixel = UDim2.new(0.8, 0, 0, 6), UDim2.new(0.1, 0, 0, 22), Color3.fromRGB(30, 20, 45), 0
+                        hpBg.Size, hpBg.Position, hpBg.BackgroundColor3, hpBg.BorderSizePixel = UDim2.new(0.8, 0, 0, 6), UDim2.new(0.1, 0, 0, 22), Color3.fromRGB(35, 18, 55), 0
                         Instance.new("UICorner", hpBg).CornerRadius = UDim.new(1, 0)
                         local hpBar = Instance.new("Frame", hpBg)
-                        hpBar.Size, hpBar.BackgroundColor3, hpBar.BorderSizePixel = UDim2.new(1, 0, 1, 0), Color3.fromRGB(120, 255, 120), 0
+                        hpBar.Size, hpBar.BackgroundColor3, hpBar.BorderSizePixel = UDim2.new(1, 0, 1, 0), Color3.fromRGB(140, 255, 140), 0
                         Instance.new("UICorner", hpBar).CornerRadius = UDim.new(1, 0)
                         VisualsMap[player].Billboard, VisualsMap[player].HpBar = bb, hpBar
                     else
