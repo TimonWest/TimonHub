@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v3.6 — no Fun tab + no ChatSpam + CursorAim screen-bound fix
+-- TIMON HUB v3.8 — ESP respawn fix + nick/HP bar + NPC ESP + palette
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -35,7 +35,19 @@ local S = {
         FillColor = Color3.fromRGB(180, 60, 255),
         FillTransparency = 0.7, OutlineTransparency = 0,
         ThroughWalls = true,
-        ShowName = true, ShowDistance = true
+        ShowName = true, ShowDistance = true,
+        NickColor = Color3.fromRGB(255, 255, 255),
+        NickSize = 15,
+        ShowHPBar = true,
+        HPBarWidth = 55,
+        HPBarHeight = 5,
+        HPDynamicColor = true,
+        HPBarColor = Color3.fromRGB(0, 255, 100),
+        -- NPC ESP
+        NPCEnabled = false,
+        NPCName = true,
+        NPCDistance = false,
+        NPCHPBar = true,
     },
     Hitbox = {
         Enabled = false,
@@ -126,7 +138,9 @@ local function packSettings()
     }
     for k, v in pairs(S.Aimbot) do d.Aimbot[k] = v end
     for k, v in pairs(S.ESP) do
-        if k == "OutlineColor" or k == "FillColor" then d.ESP[k] = packC3(v)
+        if k == "OutlineColor" or k == "FillColor"
+        or k == "NickColor" or k == "HPBarColor" then
+            d.ESP[k] = packC3(v)
         else d.ESP[k] = v end
     end
     for k, v in pairs(S.Hitbox) do
@@ -145,7 +159,8 @@ local function applySettings(d)
     if not d then return end
     if d.Aimbot then for k,v in pairs(d.Aimbot) do if S.Aimbot[k] ~= nil then S.Aimbot[k]=v end end end
     if d.ESP then for k,v in pairs(d.ESP) do
-        if k == "OutlineColor" or k == "FillColor" then S.ESP[k] = unpackC3(v)
+        if k == "OutlineColor" or k == "FillColor"
+        or k == "NickColor" or k == "HPBarColor" then S.ESP[k] = unpackC3(v)
         elseif S.ESP[k] ~= nil then S.ESP[k] = v end
     end end
     if d.Hitbox then for k,v in pairs(d.Hitbox) do
@@ -237,16 +252,10 @@ local function Notify(txt)
     end)
 end
 
--- ============================================================
--- REFRESHERS
--- ============================================================
 local Refreshers = {}
 local function AddRefresh(fn) table.insert(Refreshers, fn) end
 local function RefreshAll() for _, fn in ipairs(Refreshers) do pcall(fn) end end
 
--- ============================================================
--- WIDGETS
--- ============================================================
 local ORDER = 0
 local function NextOrder() ORDER = ORDER + 1; return ORDER end
 
@@ -520,11 +529,7 @@ local function BindButton(parent, action, name)
     end)
 end
 
--- ============================================================
--- ADAPTIVE MAIN FRAME
--- ============================================================
 local IsMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
-
 local Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.BackgroundColor3 = COL.bg
@@ -559,9 +564,6 @@ pcall(function()
     Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(ApplyMainSize)
 end)
 
--- ============================================================
--- TITLE BAR
--- ============================================================
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1,0,0,40)
 TitleBar.BackgroundColor3 = COL.bg2
@@ -572,7 +574,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v3.6"
+TitleLbl.Text = "⚡ TIMON HUB · v3.8"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -586,9 +588,6 @@ corner(CloseBtn, 8)
 CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
 MakeDraggable(Main, TitleBar)
 
--- ============================================================
--- SCROLLABLE LEFT TAB BAR
--- ============================================================
 local Left = Instance.new("ScrollingFrame")
 Left.Size = UDim2.new(0,150,1,-52)
 Left.Position = UDim2.new(0,10,0,48)
@@ -662,7 +661,6 @@ end
 local XneoGui = nil
 local launchXneoFlyGUI, closeXneoFlyGUI
 local OpenBtn
-
 -- ============================================================
 -- TAB: AIMBOT
 -- ============================================================
@@ -708,7 +706,7 @@ Dropdown(A, "🎯 Target Part",
 -- ============================================================
 local E = Tab("👁 ESP")
 Section(E, "🔘 Toggle")
-Toggle(E, "👁 Enable ESP",
+Toggle(E, "👁 Enable ESP (Players)",
     function() return S.ESP.Enabled end,
     function(v)
         S.ESP.Enabled = v
@@ -720,6 +718,7 @@ Toggle(E, "👁 Enable ESP",
             for p in pairs(ESPObjs or {}) do RemoveESP(p) end
         end
     end)
+
 Section(E, "✨ Highlight")
 ColorPicker(E, "🎨 Outline Color",
     function() return S.ESP.OutlineColor end,
@@ -736,13 +735,63 @@ Slider(E, "💧 Outline Transparency", 0, 1,
 Toggle(E, "🧱 Through Walls",
     function() return S.ESP.ThroughWalls end,
     function(v) S.ESP.ThroughWalls = v; RefreshESPColors() end)
-Section(E, "📝 Text")
+
+Section(E, "📝 Ники")
 Toggle(E, "👤 Show Name",
     function() return S.ESP.ShowName end,
     function(v) S.ESP.ShowName = v end)
+ColorPicker(E, "🎨 Nick Color",
+    function() return S.ESP.NickColor end,
+    function(v) S.ESP.NickColor = v end)
+Slider(E, "📏 Nick Size", 10, 24,
+    function() return S.ESP.NickSize end,
+    function(v) S.ESP.NickSize = math.floor(v + 0.5) end)
+
+Section(E, "❤️ HP Bar")
+Toggle(E, "❤️ Show HP Bar",
+    function() return S.ESP.ShowHPBar end,
+    function(v) S.ESP.ShowHPBar = v end)
+Toggle(E, "🌈 Dynamic HP Color",
+    function() return S.ESP.HPDynamicColor end,
+    function(v) S.ESP.HPDynamicColor = v end)
+ColorPicker(E, "🎨 HP Bar Color (static)",
+    function() return S.ESP.HPBarColor end,
+    function(v) S.ESP.HPBarColor = v end)
+Slider(E, "📏 HP Bar Width", 20, 120,
+    function() return S.ESP.HPBarWidth end,
+    function(v) S.ESP.HPBarWidth = math.floor(v + 0.5) end)
+Slider(E, "📏 HP Bar Height", 2, 12,
+    function() return S.ESP.HPBarHeight end,
+    function(v) S.ESP.HPBarHeight = math.floor(v + 0.5) end)
+
+Section(E, "📏 Дистанция")
 Toggle(E, "📏 Show Distance",
     function() return S.ESP.ShowDistance end,
     function(v) S.ESP.ShowDistance = v end)
+
+Section(E, "🤖 NPC ESP")
+Toggle(E, "🤖 Enable NPC ESP",
+    function() return S.ESP.NPCEnabled end,
+    function(v)
+        S.ESP.NPCEnabled = v
+        if v then
+            refreshNPCCache()
+            for model in pairs(NPCCache) do
+                if not isPlayerCharacter(model) then CreateNPCESP(model) end
+            end
+        else
+            for model in pairs(NPCESPObjs or {}) do RemoveNPCESP(model) end
+        end
+    end)
+Toggle(E, "👤 Show NPC Name",
+    function() return S.ESP.NPCName end,
+    function(v) S.ESP.NPCName = v end)
+Toggle(E, "📏 Show NPC Distance",
+    function() return S.ESP.NPCDistance end,
+    function(v) S.ESP.NPCDistance = v end)
+Toggle(E, "❤️ NPC HP Bar",
+    function() return S.ESP.NPCHPBar end,
+    function(v) S.ESP.NPCHPBar = v end)
 
 -- ============================================================
 -- TAB: HITBOX
@@ -822,7 +871,7 @@ Toggle(P, "🪐 Zero Gravity",
     function() return S.Player.ZeroGravity end,
     function(v) S.Player.ZeroGravity = v; applyGravityState() end)
 -- ============================================================
--- TAB: TROLL (без ChatSpam, без Strip Accessories)
+-- TAB: TROLL
 -- ============================================================
 local T = Tab("😈 Troll")
 
@@ -998,8 +1047,8 @@ Button(ST, "🔄 Сбросить настройки", function()
     S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25
     S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
     S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
-    S.ESP.Enabled=false; S.Hitbox.Enabled=false
-    S.Hitbox.NPCSupport=false
+    S.ESP.Enabled=false; S.ESP.NPCEnabled=false
+    S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
     S.Player.Fly=false
     if XneoGui then closeXneoFlyGUI() end
     S.Player.Noclip=false; S.Player.InfiniteJump=false
@@ -1031,9 +1080,16 @@ local function applyLoadedSettings()
     RefreshAll()
     for _, fn in pairs(BindRefreshers) do pcall(fn) end
     for p in pairs(ESPObjs) do RemoveESP(p) end
+    for m in pairs(NPCESPObjs) do RemoveNPCESP(m) end
     if S.ESP.Enabled then
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LP then CreateESP(p) end
+        end
+    end
+    if S.ESP.NPCEnabled then
+        refreshNPCCache()
+        for m in pairs(NPCCache) do
+            if not isPlayerCharacter(m) then CreateNPCESP(m) end
         end
     end
     ClearAllHitboxes()
@@ -1099,7 +1155,7 @@ end
 RefreshCfgList()
 
 -- ============================================================
--- GRAVITY STATE (без LowGravity — Fun убран)
+-- GRAVITY STATE
 -- ============================================================
 function applyGravityState()
     if S.Player.ZeroGravity then
@@ -1242,7 +1298,6 @@ local function IsVisible(part)
     return false
 end
 
--- 🔧 Проверка "цель на экране"
 local function IsOnScreen(part)
     if not part then return false end
     local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
@@ -1265,22 +1320,18 @@ local function FindTarget()
     local isCursor = (S.Aimbot.Mode == "Cursor")
     local holdActive = isCursor and S.Binds.AimbotHold and IsCursorAimActive()
 
-    -- === STICKY HOLD: пока бинд зажат — держим цель, но если она ушла за экран — сброс ===
     if S.Aimbot.StickyLock and StickyTarget then
         if holdActive and wasHoldActive then
-            -- держим цель, НО проверяем что она всё ещё на экране (иначе off-screen aim)
             if IsPlayerValid(StickyTarget, false, true) then
                 local ch = StickyTarget.Character
                 return ch and (ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")) or nil
             else
                 StickyTarget = nil
-                -- упала с экрана → провалимся ниже к новому поиску
             end
         elseif isCursor and S.Binds.AimbotHold and not holdActive then
             StickyTarget = nil
             return nil
         else
-            -- бинд не назначен, aim всегда активен
             if IsPlayerValid(StickyTarget, S.Aimbot.WallCheck, true) then
                 local ch = StickyTarget.Character
                 return ch and (ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")) or nil
@@ -1290,7 +1341,6 @@ local function FindTarget()
         end
     end
 
-    -- === ПОИСК НОВОЙ ЦЕЛИ (только on-screen) ===
     local target, targetPlayer, bestScore = nil, nil, math.huge
     local cmpPos, fovLimit
     if S.Aimbot.Mode == "Cursor" then
@@ -1315,7 +1365,6 @@ local function FindTarget()
         local part = ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")
         if not part then continue end
 
-        -- 🔧 только on-screen (не наводиться за экран)
         local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
         if not onScreen or sp.Z <= 0 then continue end
 
@@ -1367,7 +1416,6 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
     wasHoldActive = true
     if not t then return end
 
-    -- 🔧 финальный guard: если цель ушла за экран — не двигаем курсор
     local sp, onScreen = Camera:WorldToViewportPoint(t.Position)
     if not onScreen or sp.Z <= 0 then return end
 
@@ -1381,10 +1429,13 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
     local lookCF = CFrame.new(Camera.CFrame.Position, t.Position)
     Camera.CFrame = Camera.CFrame:Lerp(lookCF, S.Aimbot.Smooth)
 end)
+
 -- ============================================================
--- ESP
+-- ESP — Player + NPC helpers
 -- ============================================================
 ESPObjs = {}
+NPCESPObjs = {}
+local espCharConn = {}
 
 local function applyHighlight(hl)
     hl.FillColor = S.ESP.FillColor
@@ -1399,34 +1450,74 @@ function RefreshESPColors()
     for _, d in pairs(ESPObjs or {}) do
         if d.hl then applyHighlight(d.hl) end
     end
+    for _, d in pairs(NPCESPObjs or {}) do
+        if d.hl then applyHighlight(d.hl) end
+    end
 end
 
-local espCharConn = {}
+local function makeNickText()
+    local t = Drawing.new("Text")
+    t.Visible = false
+    t.Center = true
+    t.Outline = true
+    t.OutlineColor = Color3.fromRGB(0, 0, 0)
+    t.Size = S.ESP.NickSize or 15
+    t.Color = S.ESP.NickColor or Color3.new(1,1,1)
+    pcall(function()
+        if Drawing.Fonts then
+            t.Font = Drawing.Fonts.System or 1
+        else
+            t.Font = 1
+        end
+    end)
+    return t
+end
+
+local function makeHPBar()
+    local bg = Drawing.new("Square")
+    bg.Visible = false; bg.Filled = true
+    bg.Thickness = 1; bg.Color = Color3.fromRGB(0,0,0)
+    bg.Transparency = 0.35
+
+    local fill = Drawing.new("Square")
+    fill.Visible = false; fill.Filled = true
+    fill.Thickness = 0; fill.Color = Color3.fromRGB(0,255,0)
+    fill.Transparency = 1
+
+    return bg, fill
+end
 
 local function refreshEspCache(d)
     local c = d.player and d.player.Character
     d.cacheChar = c
     d.cacheHead = c and c:FindFirstChild("Head") or nil
     d.cacheRoot = c and c:FindFirstChild("HumanoidRootPart") or nil
+    d.cacheHum  = c and c:FindFirstChildOfClass("Humanoid") or nil
 end
 
 function CreateESP(pl)
     if pl == LP or ESPObjs[pl] then return end
+
     local hl = Instance.new("Highlight")
     hl.Name = "TimonHub_HL_" .. pl.Name
     applyHighlight(hl)
     if pl.Character then hl.Adornee = pl.Character end
     hl.Parent = ScreenGui
 
-    local nm = Drawing.new("Text")
-    nm.Visible = false; nm.Center = true; nm.Outline = true
-    nm.Size = 14; nm.Color = S.ESP.OutlineColor
+    local nm = makeNickText()
 
     local ds = Drawing.new("Text")
     ds.Visible = false; ds.Center = true; ds.Outline = true
-    ds.Size = 13; ds.Color = Color3.fromRGB(230,230,230)
+    ds.OutlineColor = Color3.fromRGB(0,0,0)
+    ds.Size = 12; ds.Color = Color3.fromRGB(230, 230, 230)
 
-    local d = {hl = hl, name = nm, dist = ds, player = pl}
+    local hpBg, hpFill = makeHPBar()
+
+    local d = {
+        hl = hl, name = nm, dist = ds,
+        hpBg = hpBg, hpFill = hpFill,
+        player = pl,
+    }
     refreshEspCache(d)
     ESPObjs[pl] = d
 
@@ -1434,11 +1525,28 @@ function CreateESP(pl)
         pcall(function() espCharConn[pl]:Disconnect() end)
     end
     espCharConn[pl] = pl.CharacterAdded:Connect(function()
-        task.wait(0.3)
+        task.wait(0.5)
         local e = ESPObjs[pl]
         if not e then return end
-        if e.hl then e.hl.Adornee = pl.Character end
+        local c = pl.Character
+        if c and e.hl then
+            e.hl.Adornee = c
+            e.hl.Enabled = true
+        end
         refreshEspCache(e)
+    end)
+    pcall(function()
+        pl.CharacterAppearanceLoaded:Connect(function()
+            task.wait(0.1)
+            local e = ESPObjs[pl]
+            if not e then return end
+            local c = pl.Character
+            if c and e.hl then
+                e.hl.Adornee = c
+                e.hl.Enabled = true
+            end
+            refreshEspCache(e)
+        end)
     end)
 end
 
@@ -1448,11 +1556,65 @@ function RemoveESP(pl)
         pcall(function() e.hl:Destroy() end)
         pcall(function() e.name:Remove() end)
         pcall(function() e.dist:Remove() end)
+        if e.hpBg then pcall(function() e.hpBg:Remove() end) end
+        if e.hpFill then pcall(function() e.hpFill:Remove() end) end
         ESPObjs[pl] = nil
     end
     if espCharConn[pl] then
         pcall(function() espCharConn[pl]:Disconnect() end)
         espCharConn[pl] = nil
+    end
+end
+
+-- ---------- NPC ESP (отдельная функция) ----------
+local function refreshNPCEspCache(d)
+    local m = d.model
+    if not m or not m.Parent then
+        d.cacheHead = nil; d.cacheRoot = nil; d.cacheHum = nil
+        return
+    end
+    d.cacheHead = m:FindFirstChild("Head")
+    d.cacheRoot = m:FindFirstChild("HumanoidRootPart") or m:FindFirstChild("Torso")
+    d.cacheHum  = m:FindFirstChildOfClass("Humanoid")
+end
+
+function CreateNPCESP(model)
+    if not model or NPCESPObjs[model] then return end
+    if isPlayerCharacter(model) then return end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = "TimonHub_NPC_HL"
+    applyHighlight(hl)
+    hl.Adornee = model
+    hl.Parent = ScreenGui
+
+    local nm = makeNickText()
+
+    local ds = Drawing.new("Text")
+    ds.Visible = false; ds.Center = true; ds.Outline = true
+    ds.OutlineColor = Color3.fromRGB(0,0,0)
+    ds.Size = 12; ds.Color = Color3.fromRGB(230, 230, 230)
+
+    local hpBg, hpFill = makeHPBar()
+
+    local d = {
+        hl = hl, name = nm, dist = ds,
+        hpBg = hpBg, hpFill = hpFill,
+        model = model,
+    }
+    refreshNPCEspCache(d)
+    NPCESPObjs[model] = d
+end
+
+function RemoveNPCESP(model)
+    local e = NPCESPObjs[model]
+    if e then
+        pcall(function() e.hl:Destroy() end)
+        pcall(function() e.name:Remove() end)
+        pcall(function() e.dist:Remove() end)
+        if e.hpBg then pcall(function() e.hpBg:Remove() end) end
+        if e.hpFill then pcall(function() e.hpFill:Remove() end) end
+        NPCESPObjs[model] = nil
     end
 end
 
@@ -1466,7 +1628,6 @@ Players.PlayerRemoving:Connect(function(pl)
     RemoveESP(pl)
     RemoveHitboxFor(pl)
 end)
-
 -- ============================================================
 -- HITBOX (Players)
 -- ============================================================
@@ -1664,6 +1825,29 @@ task.spawn(function()
             for model in pairs(NPCHitboxes) do
                 if not model.Parent or not NPCCache[model] then
                     RemoveNPCHitbox(model)
+                end
+            end
+        end
+    end
+end)
+
+-- ============================================================
+-- NPC ESP SCANNER (создание/удаление для нового/ушедшего NPC)
+-- ============================================================
+task.spawn(function()
+    while task.wait(1) do
+        if S.ESP.NPCEnabled then
+            refreshNPCCache()
+            -- создать для новых
+            for model in pairs(NPCCache) do
+                if not isPlayerCharacter(model) and not NPCESPObjs[model] then
+                    pcall(CreateNPCESP, model)
+                end
+            end
+            -- удалить для исчезнувших
+            for model in pairs(NPCESPObjs) do
+                if not model.Parent or not NPCCache[model] then
+                    RemoveNPCESP(model)
                 end
             end
         end
@@ -2025,18 +2209,44 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- PC FLY + ESP SYNC + TROLL EFFECTS (без Fun)
+-- RENDER LOOP — PC Fly + Hitbox sync + ESP (Player+NPC) + Troll
 -- ============================================================
 local FlyBV, FlyBG
 local SpinBV
 local effectAccum = 0
 local EFFECT_INTERVAL = 1/30
 
+-- helper: HP bar рисование
+local function drawHPBar(hpBg, hpFill, viewportPos, maxHP, curHP, barW, barH)
+    if not viewportPos then
+        hpBg.Visible = false; hpFill.Visible = false
+        return
+    end
+    local x = viewportPos.X - barW / 2
+    local y = viewportPos.Y
+    hpBg.Position = Vector2.new(x, y)
+    hpBg.Size = Vector2.new(barW, barH)
+    hpBg.Visible = true
+
+    local pct = math.clamp(curHP / math.max(maxHP, 1), 0, 1)
+    hpFill.Position = Vector2.new(x + 1, y + 1)
+    hpFill.Size = Vector2.new(math.max(0, (barW - 2) * pct), math.max(1, barH - 2))
+
+    if S.ESP.HPDynamicColor then
+        -- red (0 HP) → green (max HP)
+        local h = (1/3) * pct
+        hpFill.Color = Color3.fromHSV(h, 1, 1)
+    else
+        hpFill.Color = S.ESP.HPBarColor
+    end
+    hpFill.Visible = true
+end
+
 RunService.RenderStepped:Connect(function(dt)
     local ch = LP.Character
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
 
-    -- PC Fly каждый кадр
+    -- PC Fly
     if S.Player.Fly and not XneoState.nowe and hrp then
         if not FlyBV then
             FlyBV = Instance.new("BodyVelocity")
@@ -2086,7 +2296,9 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- ESP — каждый кадр
+    -- ====================================================
+    -- ESP PLAYER
+    -- ====================================================
     if S.ESP.Enabled then
         for _, d in pairs(ESPObjs) do
             local c = d.player.Character
@@ -2095,35 +2307,129 @@ RunService.RenderStepped:Connect(function(dt)
                 if d.hl and c then d.hl.Adornee = c end
             end
             if not c or not d.cacheHead or not d.cacheRoot then
-                d.name.Visible = false; d.dist.Visible = false
+                d.name.Visible = false
+                d.dist.Visible = false
+                d.hpBg.Visible = false
+                d.hpFill.Visible = false
                 if d.hl then d.hl.Enabled = false end
+                -- fallback: попытка заново
+                if c then refreshEspCache(d) end
                 continue
             end
             if d.hl then
                 d.hl.Enabled = true
                 if d.hl.Adornee ~= c then d.hl.Adornee = c end
             end
-            local top = Camera:WorldToViewportPoint(d.cacheHead.Position + Vector3.new(0, 1, 0))
-            if top.Z < 0 then
-                d.name.Visible = false; d.dist.Visible = false
+            local headPos = d.cacheHead.Position
+            local top = Camera:WorldToViewportPoint(headPos + Vector3.new(0, 1, 0))
+            if top.Z <= 0 then
+                d.name.Visible = false
+                d.dist.Visible = false
+                d.hpBg.Visible = false
+                d.hpFill.Visible = false
                 continue
             end
+            -- Nick
             if S.ESP.ShowName then
                 d.name.Text = d.player.Name
-                d.name.Position = Vector2.new(top.X, top.Y - 20)
-                d.name.Color = S.ESP.OutlineColor
+                d.name.Size = S.ESP.NickSize
+                d.name.Color = S.ESP.NickColor
+                d.name.Position = Vector2.new(top.X, top.Y - 24)
                 d.name.Visible = true
-            else d.name.Visible = false end
+            else
+                d.name.Visible = false
+            end
+            -- HP Bar (выше ника)
+            if S.ESP.ShowHPBar and d.cacheHum then
+                local hpBarPos = Vector2.new(top.X, top.Y - 34 - S.ESP.HPBarHeight)
+                drawHPBar(d.hpBg, d.hpFill, hpBarPos,
+                    d.cacheHum.MaxHealth, d.cacheHum.Health,
+                    S.ESP.HPBarWidth, S.ESP.HPBarHeight)
+            else
+                d.hpBg.Visible = false
+                d.hpFill.Visible = false
+            end
+            -- Distance
             if S.ESP.ShowDistance then
                 local dist = math.floor((Camera.CFrame.Position - d.cacheRoot.Position).Magnitude)
                 d.dist.Text = dist .. "m"
-                d.dist.Position = Vector2.new(top.X, top.Y - 4)
+                d.dist.Position = Vector2.new(top.X, top.Y - 6)
                 d.dist.Visible = true
-            else d.dist.Visible = false end
+            else
+                d.dist.Visible = false
+            end
         end
     end
 
+    -- ====================================================
+    -- ESP NPC
+    -- ====================================================
+    if S.ESP.NPCEnabled then
+        for model, d in pairs(NPCESPObjs) do
+            if not model.Parent then
+                d.name.Visible = false
+                d.dist.Visible = false
+                d.hpBg.Visible = false
+                d.hpFill.Visible = false
+                if d.hl then d.hl.Enabled = false end
+                continue
+            end
+            if not d.cacheHead or not d.cacheHead.Parent then
+                refreshNPCEspCache(d)
+            end
+            if not d.cacheHead or not d.cacheRoot then
+                d.name.Visible = false
+                d.dist.Visible = false
+                d.hpBg.Visible = false
+                d.hpFill.Visible = false
+                if d.hl then d.hl.Enabled = false end
+                continue
+            end
+            if d.hl then
+                d.hl.Enabled = true
+                if d.hl.Adornee ~= model then d.hl.Adornee = model end
+            end
+            local headPos = d.cacheHead.Position
+            local top = Camera:WorldToViewportPoint(headPos + Vector3.new(0, 1, 0))
+            if top.Z <= 0 then
+                d.name.Visible = false
+                d.dist.Visible = false
+                d.hpBg.Visible = false
+                d.hpFill.Visible = false
+                continue
+            end
+            if S.ESP.NPCName then
+                d.name.Text = model.Name
+                d.name.Size = S.ESP.NickSize
+                d.name.Color = S.ESP.NickColor
+                d.name.Position = Vector2.new(top.X, top.Y - 24)
+                d.name.Visible = true
+            else
+                d.name.Visible = false
+            end
+            if S.ESP.NPCHPBar and d.cacheHum then
+                local hpBarPos = Vector2.new(top.X, top.Y - 34 - S.ESP.HPBarHeight)
+                drawHPBar(d.hpBg, d.hpFill, hpBarPos,
+                    d.cacheHum.MaxHealth, d.cacheHum.Health,
+                    S.ESP.HPBarWidth, S.ESP.HPBarHeight)
+            else
+                d.hpBg.Visible = false
+                d.hpFill.Visible = false
+            end
+            if S.ESP.NPCDistance then
+                local dist = math.floor((Camera.CFrame.Position - d.cacheRoot.Position).Magnitude)
+                d.dist.Text = dist .. "m"
+                d.dist.Position = Vector2.new(top.X, top.Y - 6)
+                d.dist.Visible = true
+            else
+                d.dist.Visible = false
+            end
+        end
+    end
+
+    -- ====================================================
     -- Throttled troll-эффекты
+    -- ====================================================
     effectAccum = effectAccum + dt
     if effectAccum < EFFECT_INTERVAL then return end
     effectAccum = 0
@@ -2345,6 +2651,12 @@ if S.ESP.Enabled then
         if p ~= LP then CreateESP(p) end
     end
 end
+if S.ESP.NPCEnabled then
+    refreshNPCCache()
+    for m in pairs(NPCCache) do
+        if not isPlayerCharacter(m) then pcall(CreateNPCESP, m) end
+    end
+end
 for action, state in pairs(S.MobileBtns) do
     if state then ToggleMobileBtn(action, true) end
 end
@@ -2356,6 +2668,7 @@ getgenv().TIMON_UNLOAD = function()
     pcall(function() closeXneoFlyGUI() end)
     pcall(function() ScreenGui:Destroy() end)
     for p in pairs(ESPObjs) do RemoveESP(p) end
+    for m in pairs(NPCESPObjs) do RemoveNPCESP(m) end
     for pl, conn in pairs(espCharConn) do
         pcall(function() conn:Disconnect() end)
     end
@@ -2374,4 +2687,4 @@ getgenv().TIMON_UNLOAD = function()
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v3.6 · Loaded")
+Notify("⚡ Timon Hub v3.8 · Loaded!")
