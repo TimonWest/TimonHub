@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v4.0.1 — Sticky fix on AimbotHold release
+-- TIMON HUB v4.2 — Silent Aim PC/Mobile + TargetPlayers/NPCs + optimization
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -30,9 +30,15 @@ local S = {
         DistanceWeight = 1.0, WallCheck = false,
         PredictLead = false, BulletSpeed = 1000,
         LeadMultiplier = 1.0, HitscanMode = false,
+        TargetPlayers = true,
         TargetNPCs = false,
         JitterEnabled = false,
         Jitter = 1.5,
+        -- Silent Aim
+        SilentPC = false,
+        SilentMobile = false,
+        SilentFOV = 15,
+        SilentWallCheck = false,
     },
     ESP = {
         Enabled = false,
@@ -573,7 +579,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v4.0.1"
+TitleLbl.Text = "⚡ TIMON HUB · v4.2"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -664,27 +670,33 @@ local OpenBtn
 -- TAB: COMBAT
 -- ============================================================
 local A = Tab("🎯 Combat")
+
 Section(A, "🎮 Основное")
 Toggle(A, "⚡ Enable Aim",
     function() return S.Aimbot.Enabled end,
     function(v) S.Aimbot.Enabled = v end)
+
+Section(A, "🎯 Кого наводить")
+Toggle(A, "👤 Target Players (наводить на игроков)",
+    function() return S.Aimbot.TargetPlayers end,
+    function(v) S.Aimbot.TargetPlayers = v end)
+Toggle(A, "🤖 Target NPCs (наводить на NPC)",
+    function() return S.Aimbot.TargetNPCs end,
+    function(v) S.Aimbot.TargetNPCs = v end)
+
+Section(A, "⚙ Aim поведение")
 Toggle(A, "🔒 Sticky Lock",
     function() return S.Aimbot.StickyLock end,
     function(v) S.Aimbot.StickyLock = v end)
 Toggle(A, "🧱 Wall Check",
     function() return S.Aimbot.WallCheck end,
     function(v) S.Aimbot.WallCheck = v end)
-Toggle(A, "🤖 Target NPCs (aim на NPC)",
-    function() return S.Aimbot.TargetNPCs end,
-    function(v) S.Aimbot.TargetNPCs = v end)
 Dropdown(A, "🎯 Aim Mode", {"Cursor","Camera","Mobile"},
     function() return S.Aimbot.Mode end,
     function(v) S.Aimbot.Mode = v end)
 Slider(A, "💨 Smoothness", 0.01, 1,
     function() return S.Aimbot.Smooth end,
     function(v) S.Aimbot.Smooth = v end)
-
-Section(A, "🎯 Targeting")
 Slider(A, "📏 Distance Weight", 0, 5,
     function() return S.Aimbot.DistanceWeight end,
     function(v) S.Aimbot.DistanceWeight = v end)
@@ -710,7 +722,7 @@ Section(A, "🧠 Prediction (Lead)")
 Toggle(A, "🧠 Predict Lead",
     function() return S.Aimbot.PredictLead end,
     function(v) S.Aimbot.PredictLead = v end)
-Toggle(A, "⚡ Hitscan Mode (вырубает prediction)",
+Toggle(A, "⚡ Hitscan Mode",
     function() return S.Aimbot.HitscanMode end,
     function(v) S.Aimbot.HitscanMode = v end)
 Slider(A, "💨 Bullet Speed", 100, 5000,
@@ -720,7 +732,7 @@ Slider(A, "🎯 Lead Multiplier", 0.3, 2.0,
     function() return S.Aimbot.LeadMultiplier end,
     function(v) S.Aimbot.LeadMultiplier = v end)
 
-Section(A, "🎯 Aim Smooth Jitter")
+Section(A, "🌊 Aim Smooth Jitter")
 Toggle(A, "🌊 Enable Jitter",
     function() return S.Aimbot.JitterEnabled end,
     function(v) S.Aimbot.JitterEnabled = v end)
@@ -729,7 +741,24 @@ Slider(A, "📏 Jitter Amount (px)", 0, 5,
     function(v) S.Aimbot.Jitter = v end)
 
 -- ============================================================
--- TAB: ESP
+-- SILENT AIM
+-- ============================================================
+Section(A, "🔇 Silent Aim (test)")
+Toggle(A, "🖥 Silent Aim — PC",
+    function() return S.Aimbot.SilentPC end,
+    function(v) S.Aimbot.SilentPC = v; InstallSilentHook() end)
+Toggle(A, "📱 Silent Aim — Mobile",
+    function() return S.Aimbot.SilentMobile end,
+    function(v) S.Aimbot.SilentMobile = v; InstallSilentHook() end)
+Slider(A, "🎯 Silent FOV (градусы)", 1, 90,
+    function() return S.Aimbot.SilentFOV end,
+    function(v) S.Aimbot.SilentFOV = v end)
+Toggle(A, "🧱 Silent Wall Check",
+    function() return S.Aimbot.SilentWallCheck end,
+    function(v) S.Aimbot.SilentWallCheck = v end)
+
+-- ============================================================
+-- TAB: ESP (не тронут)
 -- ============================================================
 local E = Tab("👁 ESP")
 Section(E, "🔘 Toggle")
@@ -894,7 +923,7 @@ Slider(P, "🚀 Fly Speed (PC)", 10, 300,
     function() return S.Player.FlySpeed end,
     function(v) S.Player.FlySpeed = v end)
 Section(P, "🪐 Gravity")
-Toggle(P, "🪐 Zero Gravity (левитация в ragdoll)",
+Toggle(P, "🪐 Zero Gravity (ragdoll)",
     function() return S.Player.ZeroGravity end,
     function(v) S.Player.ZeroGravity = v; applyGravityState() end)
 Section(P, "🛠 Utility")
@@ -907,7 +936,7 @@ Toggle(P, "🛡 Anti-AFK",
 Toggle(P, "🌙 Lazy Mode (ESP каждый 2-й кадр)",
     function() return S.Player.LazyMode end,
     function(v) S.Player.LazyMode = v end)
-Toggle(P, "🚀 FPS Booster (Quality 1 + no shadows)",
+Toggle(P, "🚀 FPS Booster",
     function() return S.Player.FPSBooster end,
     function(v)
         S.Player.FPSBooster = v
@@ -1105,6 +1134,8 @@ Button(ST, "🔄 Сбросить настройки", function()
     S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
     S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
     S.Aimbot.JitterEnabled=false; S.Aimbot.Jitter=1.5
+    S.Aimbot.SilentPC=false; S.Aimbot.SilentMobile=false
+    S.Aimbot.SilentFOV=15; S.Aimbot.SilentWallCheck=false
     S.ESP.Enabled=false; S.ESP.NPCEnabled=false
     S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
     S.Player.Fly=false
@@ -1398,7 +1429,7 @@ function ApplyFloatingLock()
 end
 
 -- ============================================================
--- AIMBOT — Jitter + Prediction + NPC + Sticky fix
+-- AIMBOT — оптимизированный движок + Silent Hook
 -- ============================================================
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false; fovCircle.Thickness = 1
@@ -1431,15 +1462,20 @@ local function IsCursorAimActive()
     return aimHoldDown
 end
 
+-- Оптимизация: параметры raycast переиспользуются, ignore заполняется один раз
+local function setupRayParams()
+    local ignore = {Camera}
+    if LP.Character then table.insert(ignore, LP.Character) end
+    wallCheckRayParams.FilterDescendantsInstances = ignore
+end
+
 local function IsVisible(part)
     if not part then return false end
     local origin = Camera.CFrame.Position
     local dir = (part.Position - origin)
     local dist = dir.Magnitude
     if dist < 1 then return true end
-    local ignore = {Camera}
-    if LP.Character then table.insert(ignore, LP.Character) end
-    wallCheckRayParams.FilterDescendantsInstances = ignore
+    setupRayParams()
     local res = Workspace:Raycast(origin, dir, wallCheckRayParams)
     if not res then return true end
     local hit = res.Instance
@@ -1468,11 +1504,7 @@ local function GetLeadPos(part, origin)
 
     local md = hum.MoveDirection
     local walkSpeed = hum.WalkSpeed
-    local vel = Vector3.new(
-        md.X * walkSpeed,
-        part.Velocity.Y,
-        md.Z * walkSpeed
-    )
+    local vel = Vector3.new(md.X * walkSpeed, part.Velocity.Y, md.Z * walkSpeed)
     if vel.Magnitude > 500 then vel = vel.Unit * 500 end
 
     local bs = math.max(S.Aimbot.BulletSpeed, 1)
@@ -1510,7 +1542,12 @@ local function IsTargetValid(target, isNPC, requireVisible, requireOnScreen)
     end
 end
 
+-- Оптимизация: локальные кэши внутри FindTarget
 local function FindTarget()
+    local targetPlayers = S.Aimbot.TargetPlayers
+    local targetNPCs = S.Aimbot.TargetNPCs
+    if not targetPlayers and not targetNPCs then return nil end
+
     local isCursor = (S.Aimbot.Mode == "Cursor")
     local holdActive = isCursor and S.Binds.AimbotHold and IsCursorAimActive()
 
@@ -1518,7 +1555,6 @@ local function FindTarget()
     if S.Aimbot.StickyLock and StickyTarget then
         local isCursorBind = isCursor and S.Binds.AimbotHold
         if isCursorBind then
-            -- Cursor + bind: держим только пока зажато + цель на экране
             if holdActive and wasHoldActive then
                 local ok, part = IsTargetValid(StickyTarget, StickyTargetIsNPC, false, true)
                 if ok then return part end
@@ -1527,7 +1563,6 @@ local function FindTarget()
                 StickyTarget = nil; StickyTargetIsNPC = false
             end
         else
-            -- Cursor без бина / Camera / Mobile: перепроверка каждый кадр
             local ok2, part2 = IsTargetValid(StickyTarget, StickyTargetIsNPC,
                 S.Aimbot.WallCheck, true)
             if ok2 then return part2 end
@@ -1536,10 +1571,13 @@ local function FindTarget()
     end
 
     local target, targetIsNPC, bestScore = nil, false, math.huge
-    local cmpPos, fovLimit
-    if S.Aimbot.Mode == "Cursor" then
+
+    -- Кэш параметров
+    local mode = S.Aimbot.Mode
+    local fovLimit, cmpPos
+    if mode == "Cursor" then
         cmpPos = UIS:GetMouseLocation(); fovLimit = math.huge
-    elseif S.Aimbot.Mode == "Mobile" then
+    elseif mode == "Mobile" then
         cmpPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
         fovLimit = S.Aimbot.MobileFOV
     else
@@ -1548,42 +1586,46 @@ local function FindTarget()
     end
     local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     local myPos = myHRP and myHRP.Position or Vector3.zero
+    local distWeight = S.Aimbot.DistanceWeight
+    local wallCheck = S.Aimbot.WallCheck
+    local partName = S.Aimbot.Part
 
-    for _, pl in ipairs(Players:GetPlayers()) do
-        if pl == LP then continue end
-        local ch = pl.Character
-        if not ch then continue end
-        local hum = ch:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then continue end
-        local part = ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")
-        if not part then continue end
-        local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
-        if not onScreen or sp.Z <= 0 then continue end
-        local pixDist = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
-        if pixDist > fovLimit then continue end
-        if S.Aimbot.WallCheck and not IsVisible(part) then continue end
-        local worldDist = (part.Position - myPos).Magnitude
-        local score = pixDist + worldDist * S.Aimbot.DistanceWeight
-        if score < bestScore then
-            bestScore = score; target = pl; targetIsNPC = false
+    if targetPlayers then
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl == LP then continue end
+            local ch = pl.Character
+            if not ch then continue end
+            local hum = ch:FindFirstChildOfClass("Humanoid")
+            if not hum or hum.Health <= 0 then continue end
+            local part = ch:FindFirstChild(partName) or ch:FindFirstChild("Head")
+            if not part then continue end
+            local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
+            if not onScreen or sp.Z <= 0 then continue end
+            local pixDist = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
+            if pixDist > fovLimit then continue end
+            if wallCheck and not IsVisible(part) then continue end
+            local worldDist = (part.Position - myPos).Magnitude
+            local score = pixDist + worldDist * distWeight
+            if score < bestScore then
+                bestScore = score; target = pl; targetIsNPC = false
+            end
         end
     end
 
-    if S.Aimbot.TargetNPCs then
-        refreshNPCCache()
+    if targetNPCs then
         for model in pairs(NPCCache) do
             if not isPlayerCharacter(model) then
                 local hum = model:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
-                    local part = model:FindFirstChild(S.Aimbot.Part) or model:FindFirstChild("Head")
+                    local part = model:FindFirstChild(partName) or model:FindFirstChild("Head")
                     if part then
                         local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
                         if onScreen and sp.Z > 0 then
                             local pixDist = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
                             if pixDist <= fovLimit then
-                                if not S.Aimbot.WallCheck or IsVisible(part) then
+                                if not wallCheck or IsVisible(part) then
                                     local worldDist = (part.Position - myPos).Magnitude
-                                    local score = pixDist + worldDist * S.Aimbot.DistanceWeight
+                                    local score = pixDist + worldDist * distWeight
                                     if score < bestScore then
                                         bestScore = score
                                         target = model
@@ -1604,10 +1646,10 @@ local function FindTarget()
     end
     if target then
         if targetIsNPC then
-            return target:FindFirstChild(S.Aimbot.Part) or target:FindFirstChild("Head")
+            return target:FindFirstChild(partName) or target:FindFirstChild("Head")
         else
             local ch = target.Character
-            return ch and (ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")) or nil
+            return ch and (ch:FindFirstChild(partName) or ch:FindFirstChild("Head")) or nil
         end
     end
     return nil
@@ -1638,7 +1680,6 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
         fovCircle.Visible = false
     end
 
-    -- FIX: при отпускании бинда / выключении aim — сбрасываем sticky полностью
     if not S.Aimbot.Enabled then
         StickyTarget = nil; StickyTargetIsNPC = false
         wasHoldActive = false
@@ -1673,8 +1714,156 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
     local lookCF = CFrame.new(Camera.CFrame.Position, aimPos)
     Camera.CFrame = Camera.CFrame:Lerp(lookCF, S.Aimbot.Smooth)
 end)
+
 -- ============================================================
--- ESP helpers — Player + NPC
+-- SILENT AIM — универсальный hook на Workspace/Camera Raycast
+-- ============================================================
+local silentHookSupported = false
+pcall(function()
+    if type(hookmetamethod) == "function"
+       and type(getnamecallmethod) == "function"
+       and type(checkcaller) == "function"
+       and type(newcclosure) == "function" then
+        silentHookSupported = true
+    end
+end)
+
+local oldNamecall = nil
+local silentHooked = false
+
+local function SilentActive()
+    if not (S.Aimbot.SilentPC or S.Aimbot.SilentMobile) then return false end
+    if S.Aimbot.SilentPC and not S.Aimbot.SilentMobile then
+        -- PC only: только если клавиатура есть
+        if not UIS.KeyboardEnabled then return false end
+    elseif S.Aimbot.SilentMobile and not S.Aimbot.SilentPC then
+        -- Mobile only: только если тач
+        if not UIS.TouchEnabled then return false end
+    end
+    return true
+end
+
+-- Найти ближайшую цель в SilentFOV относительно луча
+local function SilentFindTarget(origin, direction)
+    local targetPlayers = S.Aimbot.TargetPlayers
+    local targetNPCs = S.Aimbot.TargetNPCs
+    if not targetPlayers and not targetNPCs then return nil end
+
+    local fovDeg = math.rad(S.Aimbot.SilentFOV or 15)
+    local fovCos = math.cos(fovDeg)
+    local dirUnit = direction.Unit
+    local myPos = origin
+    local wallCheck = S.Aimbot.SilentWallCheck
+    local partName = S.Aimbot.Part
+
+    local best, bestScore, bestIsNPC = nil, math.huge, false
+
+    -- Игроки
+    if targetPlayers then
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl == LP then continue end
+            local ch = pl.Character
+            if not ch then continue end
+            local hum = ch:FindFirstChildOfClass("Humanoid")
+            if not hum or hum.Health <= 0 then continue end
+            local part = ch:FindFirstChild(partName) or ch:FindFirstChild("Head")
+            if not part then continue end
+
+            local toPart = part.Position - myPos
+            local dist = toPart.Magnitude
+            if dist < 1 or dist > 1000 then continue end
+            local cosAngle = dirUnit:Dot(toPart.Unit)
+            if cosAngle < fovCos then continue end
+            if wallCheck and not IsVisible(part) then continue end
+
+            local score = dist
+            if score < bestScore then
+                bestScore = score
+                best = part.Position
+                bestIsNPC = false
+            end
+        end
+    end
+
+    -- NPC
+    if targetNPCs then
+        for model in pairs(NPCCache) do
+            if not isPlayerCharacter(model) then
+                local hum = model:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local part = model:FindFirstChild(partName) or model:FindFirstChild("Head")
+                    if part then
+                        local toPart = part.Position - myPos
+                        local dist = toPart.Magnitude
+                        if dist >= 1 and dist <= 1000 then
+                            local cosAngle = dirUnit:Dot(toPart.Unit)
+                            if cosAngle >= fovCos then
+                                if not wallCheck or IsVisible(part) then
+                                    if dist < bestScore then
+                                        bestScore = dist
+                                        best = part.Position
+                                        bestIsNPC = true
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return best
+end
+
+function InstallSilentHook()
+    if not silentHookSupported then
+        Notify("⚠ Silent: executor без hookmetamethod")
+        return
+    end
+    if silentHooked then return end
+    pcall(function()
+        oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if method == "Raycast" then
+                local isOurs = false
+                pcall(function() isOurs = checkcaller() end)
+                if not isOurs then
+                    local ok, res = pcall(function()
+                        if not SilentActive() then return nil end
+                        local origin, direction, params = ...
+                        if typeof(origin) ~= "Vector3"
+                        or typeof(direction) ~= "Vector3" then
+                            return nil
+                        end
+                        if direction.Magnitude < 0.001 then return nil end
+                        local targetPos = SilentFindTarget(origin, direction)
+                        if not targetPos then return nil end
+                        local newDir = (targetPos - origin)
+                        if newDir.Magnitude < 0.001 then return nil end
+                        return oldNamecall(self, origin, newDir, params)
+                    end)
+                    if ok and res ~= nil then
+                        return res
+                    end
+                end
+            end
+            return oldNamecall(self, ...)
+        end))
+        silentHooked = true
+    end)
+end
+
+function UninstallSilentHook()
+    if not silentHooked or not oldNamecall then return end
+    pcall(function()
+        hookmetamethod(game, "__namecall", oldNamecall)
+    end)
+    silentHooked = false
+    oldNamecall = nil
+end
+-- ============================================================
+-- ESP helpers — Player + NPC (не тронуты)
 -- ============================================================
 ESPObjs = {}
 NPCESPObjs = {}
@@ -2050,19 +2239,21 @@ task.spawn(function()
     end
 end)
 
--- NPC ESP scanner
+-- Оптимизация: NPC cache обновляется 1s в одном месте — используется и ESP, и Hitbox, и Aim
 task.spawn(function()
     while task.wait(1) do
-        if S.ESP.NPCEnabled then
+        if S.ESP.NPCEnabled or S.Hitbox.NPCSupport or S.Aimbot.TargetNPCs then
             refreshNPCCache()
-            for model in pairs(NPCCache) do
-                if not isPlayerCharacter(model) and not NPCESPObjs[model] then
-                    pcall(CreateNPCESP, model)
+            if S.ESP.NPCEnabled then
+                for model in pairs(NPCCache) do
+                    if not isPlayerCharacter(model) and not NPCESPObjs[model] then
+                        pcall(CreateNPCESP, model)
+                    end
                 end
-            end
-            for model in pairs(NPCESPObjs) do
-                if not model.Parent or not NPCCache[model] then
-                    RemoveNPCESP(model)
+                for model in pairs(NPCESPObjs) do
+                    if not model.Parent or not NPCCache[model] then
+                        RemoveNPCESP(model)
+                    end
                 end
             end
         end
@@ -2845,6 +3036,7 @@ getgenv().TIMON_UNLOAD = function()
     pcall(function() closeXneoFlyGUI() end)
     pcall(function() stopAntiAFK() end)
     pcall(function() disableFPSBooster() end)
+    pcall(function() UninstallSilentHook() end)
     pcall(function() ScreenGui:Destroy() end)
     for p in pairs(ESPObjs) do RemoveESP(p) end
     for m in pairs(NPCESPObjs) do RemoveNPCESP(m) end
@@ -2864,5 +3056,8 @@ getgenv().TIMON_UNLOAD = function()
     aimHoldDown = false; wasHoldActive = false
     getgenv().TIMON_LOADED = false
 end
+if S.Aimbot.SilentPC or S.Aimbot.SilentMobile then
+    task.delay(1, function() pcall(InstallSilentHook) end)
+end
 
-Notify("⚡ Timon Hub v4.0.1 · Loaded!")
+Notify("⚡ Timon Hub v4.2 · Silent PC/Mobile + TargetPlayers/NPCs + optimized")
