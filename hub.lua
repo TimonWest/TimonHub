@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v2.7 — Frame Highlight + Troll & Fun Tabs
+-- TIMON HUB v2.8 — Adaptive UI + NPC Hitbox + Frame Highlight
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -41,7 +41,8 @@ local S = {
         HeadEnabled = true, BodyEnabled = true,
         HeadSize = 3, BodySize = 5,
         Transparency = 0.7,
-        Color = Color3.fromRGB(128,128,128)
+        Color = Color3.fromRGB(128,128,128),
+        NPCSupport = false
     },
     Player = {
         Fly = false, FlySpeed = 50,
@@ -118,6 +119,7 @@ local function unpackC3(t) return Color3.fromRGB(t[1] or 128, t[2] or 128, t[3] 
 local function packSettings()
     local d = {
         Aimbot = {}, ESP = {}, Hitbox = {}, Player = {},
+        Troll = {}, Fun = {},
         Hamster = { Coins = S.Hamster.Coins },
         Binds = {}, MobileBtns = {}, AutoSave = S.AutoSave,
     }
@@ -131,6 +133,8 @@ local function packSettings()
         else d.Hitbox[k] = v end
     end
     for k, v in pairs(S.Player) do d.Player[k] = v end
+    for k, v in pairs(S.Troll) do d.Troll[k] = v end
+    for k, v in pairs(S.Fun) do d.Fun[k] = v end
     for action, key in pairs(S.Binds) do
         d.Binds[action] = tostring(key):gsub("Enum.KeyCode.","")
     end
@@ -149,6 +153,8 @@ local function applySettings(d)
         elseif S.Hitbox[k] ~= nil then S.Hitbox[k] = v end
     end end
     if d.Player then for k,v in pairs(d.Player) do if S.Player[k] ~= nil then S.Player[k]=v end end end
+    if d.Troll then for k,v in pairs(d.Troll) do if S.Troll[k] ~= nil then S.Troll[k]=v end end end
+    if d.Fun then for k,v in pairs(d.Fun) do if S.Fun[k] ~= nil then S.Fun[k]=v end end end
     if d.Hamster and d.Hamster.Coins then S.Hamster.Coins = d.Hamster.Coins end
     if d.Binds then
         S.Binds = {}
@@ -514,18 +520,47 @@ local function BindButton(parent, action, name)
 end
 
 -- ============================================================
--- MAIN + TABS
+-- ADAPTIVE MAIN FRAME (PC / Mobile)
 -- ============================================================
+local IsMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.new(0, 640, 0, 460)
-Main.Position = UDim2.new(0.5,-320,0.5,-230)
 Main.BackgroundColor3 = COL.bg
 Main.BackgroundTransparency = 0.05
-Main.BorderSizePixel = 0; Main.ClipsDescendants = true
+Main.BorderSizePixel = 0
+Main.ClipsDescendants = true
 Main.Parent = ScreenGui
 corner(Main, 16); stroke(Main, COL.accent, 2)
 
+local UIScale = Instance.new("UIScale")
+UIScale.Parent = Main
+
+local function ApplyMainSize()
+    local vp = Workspace.CurrentCamera.ViewportSize
+    local baseW, baseH, scale
+    if IsMobile then
+        baseW, baseH, scale = 560, 420, 0.85
+    else
+        baseW, baseH, scale = 720, 520, 1.0
+    end
+    local maxW = vp.X * (IsMobile and 0.95 or 0.82)
+    local maxH = vp.Y * (IsMobile and 0.85 or 0.82)
+    local finalW = math.min(baseW, maxW / scale)
+    local finalH = math.min(baseH, maxH / scale)
+    Main.Size = UDim2.new(0, finalW, 0, finalH)
+    Main.Position = UDim2.new(0.5, -finalW * scale / 2, 0.5, -finalH * scale / 2)
+    UIScale.Scale = scale
+end
+
+ApplyMainSize()
+pcall(function()
+    Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(ApplyMainSize)
+end)
+
+-- ============================================================
+-- TITLE BAR + TABS LAYOUT
+-- ============================================================
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1,0,0,40)
 TitleBar.BackgroundColor3 = COL.bg2
@@ -536,7 +571,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v2.7"
+TitleLbl.Text = "⚡ TIMON HUB · v2.8"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -716,6 +751,13 @@ Slider(H, "💧 Transparency", 0, 1,
 ColorPicker(H, "🎨 Hitbox Color",
     function() return S.Hitbox.Color end,
     function(v) S.Hitbox.Color = v; RefreshHitboxes() end)
+Section(H, "🎯 NPC Hitbox")
+Toggle(H, "🎯 Enable NPC Hitbox",
+    function() return S.Hitbox.NPCSupport end,
+    function(v)
+        S.Hitbox.NPCSupport = v
+        if not v then ClearAllNPCHitboxes() end
+    end)
 
 local P = Tab("🏃 Player")
 Section(P, "🏃 Movement")
@@ -815,7 +857,6 @@ Toggle(FN, "🎆 Disco Lights",
 Toggle(FN, "🔥 Fire Trail",
     function() return S.Fun.FireTrail end,
     function(v) S.Fun.FireTrail = v end)
-
 Section(FN, "🌌 Мир")
 Toggle(FN, "🪐 Low Gravity",
     function() return S.Fun.LowGravity end,
@@ -823,7 +864,6 @@ Toggle(FN, "🪐 Low Gravity",
         S.Fun.LowGravity = v
         Workspace.Gravity = v and 50 or DEFAULT_GRAVITY
     end)
-
 Section(FN, "🎭 Анимации")
 Toggle(FN, "🎵 Random Emote Loop",
     function() return S.Fun.RandomEmote end,
@@ -931,6 +971,7 @@ Button(ST, "🔄 Сбросить настройки", function()
     S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
     S.Aimbot.DistanceWeight=1
     S.ESP.Enabled=false; S.Hitbox.Enabled=false
+    S.Hitbox.NPCSupport=false
     S.Player.Fly=false; S.Player.Noclip=false; S.Player.InfiniteJump=false
     RefreshAll(); MarkDirty(); Notify("⚙ Настройки сброшены")
 end)
@@ -960,8 +1001,15 @@ local function applyLoadedSettings()
         end
     end
     ClearAllHitboxes()
+    ClearAllNPCHitboxes()
     if S.Hitbox.Enabled then
         for _, pl in ipairs(Players:GetPlayers()) do pcall(ApplyHitbox, pl) end
+    end
+    if S.Hitbox.NPCSupport then
+        refreshNPCCache()
+        for model in pairs(NPCCache) do
+            pcall(ApplyNPCHitbox, model)
+        end
     end
     for action, state in pairs(S.MobileBtns) do
         ToggleMobileBtn(action, state)
@@ -1183,7 +1231,7 @@ end)
 Players.PlayerRemoving:Connect(RemoveESP)
 
 -- ============================================================
--- HITBOX
+-- HITBOX (Players)
 -- ============================================================
 local HitboxParts = {}
 
@@ -1276,6 +1324,116 @@ task.spawn(function()
 end)
 
 -- ============================================================
+-- NPC HITBOX
+-- ============================================================
+local NPCCache = {}
+local NPCHitboxes = {}
+
+local function isPlayerCharacter(model)
+    return Players:GetPlayerFromCharacter(model) ~= nil
+end
+
+local function isNPC(model)
+    if not model or not model.Parent then return false end
+    if not model:IsA("Model") then return false end
+    if isPlayerCharacter(model) then return false end
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
+    if not model:FindFirstChild("HumanoidRootPart")
+       and not model:FindFirstChild("Torso") then return false end
+    return true
+end
+
+function refreshNPCCache()
+    local newCache = {}
+    local function scanFolder(folder)
+        for _, child in ipairs(folder:GetChildren()) do
+            if child:IsA("Model") and isNPC(child) then
+                newCache[child] = true
+            elseif child:IsA("Folder") then
+                scanFolder(child)
+            end
+        end
+    end
+    scanFolder(Workspace)
+    NPCCache = newCache
+end
+
+function ApplyNPCHitbox(model)
+    if not model or not model.Parent then return end
+    if isPlayerCharacter(model) then return end
+
+    local entry = NPCHitboxes[model]
+    if not entry then entry = {head = nil, body = nil}; NPCHitboxes[model] = entry end
+
+    if S.Hitbox.HeadEnabled then
+        if not entry.head or not entry.head.Parent then
+            entry.head = createHitboxPart("NPCHead")
+        end
+        local head = model:FindFirstChild("Head")
+        if head then
+            entry.head.Size = Vector3.new(S.Hitbox.HeadSize, S.Hitbox.HeadSize, S.Hitbox.HeadSize)
+            entry.head.CFrame = head.CFrame
+            entry.head.Color = S.Hitbox.Color
+            entry.head.Transparency = S.Hitbox.Transparency
+        end
+    elseif entry.head then
+        entry.head:Destroy(); entry.head = nil
+    end
+
+    if S.Hitbox.BodyEnabled then
+        if not entry.body or not entry.body.Parent then
+            entry.body = createHitboxPart("NPCBody")
+        end
+        local torso = model:FindFirstChild("UpperTorso")
+            or model:FindFirstChild("Torso")
+            or model:FindFirstChild("HumanoidRootPart")
+        if torso then
+            entry.body.Size = Vector3.new(S.Hitbox.BodySize, S.Hitbox.BodySize, S.Hitbox.BodySize)
+            entry.body.CFrame = torso.CFrame
+            entry.body.Color = S.Hitbox.Color
+            entry.body.Transparency = S.Hitbox.Transparency
+        end
+    elseif entry.body then
+        entry.body:Destroy(); entry.body = nil
+    end
+end
+
+function ClearAllNPCHitboxes()
+    for model, e in pairs(NPCHitboxes) do
+        if e.head and e.head.Parent then e.head:Destroy() end
+        if e.body and e.body.Parent then e.body:Destroy() end
+    end
+    NPCHitboxes = {}
+    NPCCache = {}
+end
+
+local function RemoveNPCHitbox(model)
+    local e = NPCHitboxes[model]
+    if e then
+        if e.head and e.head.Parent then e.head:Destroy() end
+        if e.body and e.body.Parent then e.body:Destroy() end
+        NPCHitboxes[model] = nil
+    end
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if S.Hitbox.NPCSupport then
+            refreshNPCCache()
+            for model in pairs(NPCCache) do
+                pcall(ApplyNPCHitbox, model)
+            end
+            for model in pairs(NPCHitboxes) do
+                if not model.Parent or not NPCCache[model] then
+                    RemoveNPCHitbox(model)
+                end
+            end
+        end
+    end
+end)
+
+-- ============================================================
 -- PLAYER MODS
 -- ============================================================
 RunService.Heartbeat:Connect(function()
@@ -1332,7 +1490,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- RENDER LOOP (Fly + Hitbox sync + ESP per-frame + Troll/Fun)
+-- RENDER LOOP (Fly + Hitbox sync + ESP + NPC Hitbox + Troll/Fun)
 -- ============================================================
 local FlyBV, FlyBG
 local SpinBV, DiscoLight, FireEmitter
@@ -1367,7 +1525,7 @@ RunService.RenderStepped:Connect(function(dt)
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
     end
 
-    -- Hitbox CFrame sync
+    -- Hitbox CFrame sync (Players)
     if S.Hitbox.Enabled then
         for pl, e in pairs(HitboxParts) do
             local c = pl.Character
@@ -1384,7 +1542,25 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- ESP — КАЖДЫЙ КАДР
+    -- NPC hitbox CFrame sync
+    if S.Hitbox.NPCSupport then
+        for model, e in pairs(NPCHitboxes) do
+            if model.Parent then
+                if e.head then
+                    local h = model:FindFirstChild("Head")
+                    if h then e.head.CFrame = h.CFrame end
+                end
+                if e.body then
+                    local t = model:FindFirstChild("UpperTorso")
+                        or model:FindFirstChild("Torso")
+                        or model:FindFirstChild("HumanoidRootPart")
+                    if t then e.body.CFrame = t.CFrame end
+                end
+            end
+        end
+    end
+
+    -- ESP — каждый кадр
     if S.ESP.Enabled then
         for pl, d in pairs(ESPObjs) do
             local c = pl.Character
@@ -1618,6 +1794,7 @@ getgenv().TIMON_UNLOAD = function()
     pcall(function() ScreenGui:Destroy() end)
     for p in pairs(ESPObjs) do RemoveESP(p) end
     ClearAllHitboxes()
+    ClearAllNPCHitboxes()
     pcall(function() fovCircle:Remove() end)
     pcall(function() RunService:UnbindFromRenderStep("TIMON_AIM") end)
     if SpinBV then pcall(function() SpinBV:Destroy() end) end
@@ -1628,4 +1805,4 @@ getgenv().TIMON_UNLOAD = function()
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v2.7 · Troll & Fun готовы")
+Notify("⚡ Timon Hub v2.8 · Adaptive UI + NPC Hitbox")
