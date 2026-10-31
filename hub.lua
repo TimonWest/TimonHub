@@ -1,10 +1,12 @@
 -- ============================================================================
--- TWKS HUB v2 — Universal Roblox Script (PC & Mobile)
+-- TWKS HUB v2.1 — Cursor Aim + Mobile Aim + Full Binds
 -- ============================================================================
 
 if getgenv().TWKS_LOADED then
     pcall(function() getgenv().TWKS_UNLOAD() end)
 end
+
+getgenv().TWKS_LISTENING = nil
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -23,17 +25,20 @@ getgenv().TWKS_LOADED = true
 -- ============================================================
 local S = {
     Aimbot = {
-        Enabled = false, Mode = "Cursor",
-        Smooth = 0.2, FOV = 150,
-        Part = "Head", TeamCheck = true,
-        VisibleCheck = true, ShowFOV = true,
-        MobileBtn = false
+        Enabled = false,
+        Mode = "Cursor",      -- Cursor / Camera / Mobile
+        Smooth = 0.25,
+        FOV = 200,
+        Part = "Head",
+        TeamCheck = true,
+        VisibleCheck = false,
+        ShowFOV = true,
+        UseMouseMove = true   -- пробовать mousemoverel
     },
     ESP = {
         Enabled = false, Boxes = true, Names = true,
         Distance = true, Health = true,
-        Color = Color3.fromRGB(255, 20, 147),
-        Thickness = 1
+        Color = Color3.fromRGB(255, 20, 147), Thickness = 1
     },
     Hitbox = {
         Enabled = false, Size = 5, Transparency = 0.6,
@@ -45,7 +50,8 @@ local S = {
         WalkSpeed = 16, JumpPower = 50,
         InfiniteJump = false, Noclip = false
     },
-    Binds = {}, MobileBtns = {}
+    Binds = {},
+    MobileBtns = {}
 }
 getgenv().TWKS_SETTINGS = S
 
@@ -64,13 +70,11 @@ local function corner(o, r)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, r or 6); c.Parent = o; return c
 end
-
 local function stroke(o, col, t)
     local s = Instance.new("UIStroke")
     s.Color = col or COL.stroke; s.Thickness = t or 1
     s.Parent = o; return s
 end
-
 local function MakeDraggable(frame, dragBar)
     local dragging, dragStart, startPos
     dragBar.InputBegan:Connect(function(input)
@@ -106,14 +110,11 @@ ScreenGui.IgnoreGuiInset = true
 pcall(function() ScreenGui.Parent = CoreGui end)
 if not ScreenGui.Parent then ScreenGui.Parent = LP:WaitForChild("PlayerGui") end
 
--- ============================================================
--- NOTIFICATIONS
--- ============================================================
 local function Notify(txt)
     task.spawn(function()
         local n = Instance.new("Frame")
-        n.Size = UDim2.new(0, 240, 0, 42)
-        n.Position = UDim2.new(1, -260, 1, -80)
+        n.Size = UDim2.new(0, 250, 0, 42)
+        n.Position = UDim2.new(1, -270, 1, -80)
         n.BackgroundColor3 = COL.bg2
         n.BackgroundTransparency = 0.1
         n.BorderSizePixel = 0
@@ -125,17 +126,17 @@ local function Notify(txt)
         l.TextColor3 = COL.text; l.Font = Enum.Font.Gotham
         l.TextSize = 13; l.TextXAlignment = Enum.TextXAlignment.Left
         l.Parent = n
-        Tween:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(1,-260,1,-100)}):Play()
+        Tween:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(1,-270,1,-100)}):Play()
         task.wait(2.5)
         Tween:Create(n, TweenInfo.new(0.3),
-            {Position = UDim2.new(1,-260,1,-40), BackgroundTransparency = 1}):Play()
+            {Position = UDim2.new(1,-270,1,-40), BackgroundTransparency = 1}):Play()
         Tween:Create(l, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
         task.wait(0.35); n:Destroy()
     end)
 end
 
 -- ============================================================
--- REFRESHERS (для синхронизации UI с биндами)
+-- REFRESHERS
 -- ============================================================
 local Refreshers = {}
 local function AddRefresh(fn) table.insert(Refreshers, fn) end
@@ -158,9 +159,8 @@ local function Section(parent, text)
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(1,0,1,0); l.BackgroundTransparency = 1
     l.Text = string.upper(text)
-    l.TextColor3 = COL.accent2
-    l.Font = Enum.Font.GothamBold; l.TextSize = 12
-    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.TextColor3 = COL.accent2; l.Font = Enum.Font.GothamBold
+    l.TextSize = 12; l.TextXAlignment = Enum.TextXAlignment.Left
     l.Parent = f
 end
 
@@ -170,24 +170,20 @@ local function Toggle(parent, name, getter, setter)
     f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.15
     f.BorderSizePixel = 0; f.LayoutOrder = NextOrder()
     f.Parent = parent; corner(f, 6)
-
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1,-70,1,0); lbl.Position = UDim2.new(0,12,0,0)
     lbl.BackgroundTransparency = 1; lbl.Text = name
     lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham
     lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = f
-
     local track = Instance.new("Frame")
     track.Size = UDim2.new(0,38,0,18); track.Position = UDim2.new(1,-50,0.5,-9)
     track.BackgroundColor3 = COL.off; track.BorderSizePixel = 0
     track.Parent = f; corner(track, 9)
-
     local knob = Instance.new("Frame")
     knob.Size = UDim2.new(0,14,0,14); knob.Position = UDim2.new(0,2,0.5,-7)
     knob.BackgroundColor3 = Color3.new(1,1,1); knob.BorderSizePixel = 0
     knob.Parent = track; corner(knob, 7)
-
     local function render()
         if getter() then
             track.BackgroundColor3 = COL.accent2
@@ -200,7 +196,6 @@ local function Toggle(parent, name, getter, setter)
         end
     end
     render(); AddRefresh(render)
-
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1
     btn.Text = ""; btn.Parent = f
@@ -215,23 +210,19 @@ local function Slider(parent, name, minV, maxV, getter, setter)
     f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.15
     f.BorderSizePixel = 0; f.LayoutOrder = NextOrder()
     f.Parent = parent; corner(f, 6)
-
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1,-20,0,18); lbl.Position = UDim2.new(0,12,0,6)
     lbl.BackgroundTransparency = 1
     lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham
     lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = f
-
     local bar = Instance.new("Frame")
     bar.Size = UDim2.new(1,-24,0,6); bar.Position = UDim2.new(0,12,0,32)
     bar.BackgroundColor3 = Color3.fromRGB(15,10,20); bar.BorderSizePixel = 0
     bar.Parent = f; corner(bar, 3)
-
     local fill = Instance.new("Frame")
     fill.BackgroundColor3 = COL.accent; fill.BorderSizePixel = 0
     fill.Parent = bar; corner(fill, 3)
-
     local function render()
         local v = getter()
         local rel = math.clamp((v - minV) / (maxV - minV), 0, 1)
@@ -239,16 +230,13 @@ local function Slider(parent, name, minV, maxV, getter, setter)
         lbl.Text = name .. ": " .. tostring(math.floor(v*100+0.5)/100)
     end
     render(); AddRefresh(render)
-
     local ca = Instance.new("TextButton")
     ca.Size = UDim2.new(1,12,1,24); ca.Position = UDim2.new(0,-6,0,-9)
     ca.BackgroundTransparency = 1; ca.Text = ""; ca.Parent = bar
-
     local drag = false
     local function setX(px)
         local rel = math.clamp((px - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-        setter(minV + rel * (maxV - minV))
-        render()
+        setter(minV + rel * (maxV - minV)); render()
     end
     ca.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1
@@ -272,25 +260,19 @@ local function Dropdown(parent, name, options, getter, setter)
     f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.15
     f.BorderSizePixel = 0; f.LayoutOrder = NextOrder()
     f.Parent = parent; corner(f, 6)
-
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1,-30,1,0); lbl.Position = UDim2.new(0,12,0,0)
     lbl.BackgroundTransparency = 1
     lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham
     lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = f
-
     local arrow = Instance.new("TextLabel")
     arrow.Size = UDim2.new(0,20,1,0); arrow.Position = UDim2.new(1,-24,0,0)
     arrow.BackgroundTransparency = 1; arrow.Text = "▾"
     arrow.TextColor3 = COL.sub; arrow.Font = Enum.Font.GothamBold
     arrow.TextSize = 14; arrow.Parent = f
-
-    local function render()
-        lbl.Text = name .. ": " .. tostring(getter())
-    end
+    local function render() lbl.Text = name .. ": " .. tostring(getter()) end
     render(); AddRefresh(render)
-
     local popup
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1
@@ -304,7 +286,6 @@ local function Dropdown(parent, name, options, getter, setter)
         popup.BackgroundColor3 = COL.bg2; popup.BorderSizePixel = 0
         popup.ZIndex = 50; popup.Parent = ScreenGui
         corner(popup, 6); stroke(popup, COL.accent, 1)
-
         for i, opt in ipairs(options) do
             local ob = Instance.new("TextButton")
             ob.Size = UDim2.new(1,-8,0,22); ob.Position = UDim2.new(0,4,0,(i-1)*26+4)
@@ -335,18 +316,15 @@ local function ColorPicker(parent, name, getter, setter)
     f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.15
     f.BorderSizePixel = 0; f.LayoutOrder = NextOrder()
     f.Parent = parent; corner(f, 6)
-
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1,-20,0,16); lbl.Position = UDim2.new(0,12,0,6)
     lbl.BackgroundTransparency = 1; lbl.Text = name
     lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham
     lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = f
-
     local swatches = {}
     for i, c in ipairs(PALETTE) do
-        local row = math.floor((i-1)/6)
-        local col = (i-1) % 6
+        local row = math.floor((i-1)/6); local col = (i-1) % 6
         local b = Instance.new("TextButton")
         b.Size = UDim2.new(0,30,0,22); b.Position = UDim2.new(0,12+col*34,0,26+row*24)
         b.BackgroundColor3 = c; b.BorderSizePixel = 0
@@ -361,8 +339,10 @@ local function ColorPicker(parent, name, getter, setter)
     end
 end
 
--- Binds
-local BindButtons = {}
+-- ============================================================
+-- BINDS — фикс: MouseButton1Down + только Keyboard в InputBegan
+-- ============================================================
+local BindRefreshers = {}
 local function BindButton(parent, action, name)
     local f = Instance.new("Frame")
     f.Size = UDim2.new(1,0,0,34)
@@ -382,21 +362,30 @@ local function BindButton(parent, action, name)
     keyLbl.BackgroundColor3 = COL.bg2; keyLbl.BorderSizePixel = 0
     keyLbl.TextColor3 = COL.accent2; keyLbl.Font = Enum.Font.GothamBold
     keyLbl.TextSize = 12; keyLbl.Parent = f; corner(keyLbl, 4)
+    keyLbl.Active = false
 
     local function refresh()
         local k = S.Binds[action]
-        keyLbl.Text = k and tostring(k):gsub("Enum.KeyCode.", "") or "None"
+        if k then
+            keyLbl.Text = tostring(k):gsub("Enum.KeyCode.","")
+            keyLbl.TextColor3 = COL.accent2
+        else
+            keyLbl.Text = "None"
+            keyLbl.TextColor3 = COL.sub
+        end
     end
     refresh()
-    BindButtons[action] = refresh
+    BindRefreshers[action] = refresh
 
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0,100,0,26); btn.Position = UDim2.new(1,-110,0.5,-13)
-    btn.BackgroundTransparency = 1; btn.Text = ""; btn.Parent = f
-    btn.MouseButton1Click:Connect(function()
-        if getgenv().TWKS_LISTENING then return end
+    btn.BackgroundTransparency = 1; btn.Text = ""
+    btn.Active = true; btn.Parent = f
+
+    btn.MouseButton1Down:Connect(function()
         getgenv().TWKS_LISTENING = action
-        keyLbl.Text = "..."
+        keyLbl.Text = "нажми..."
+        keyLbl.TextColor3 = Color3.fromRGB(255,200,100)
     end)
 end
 
@@ -405,8 +394,8 @@ end
 -- ============================================================
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.new(0, 620, 0, 420)
-Main.Position = UDim2.new(0.5,-310,0.5,-210)
+Main.Size = UDim2.new(0, 620, 0, 430)
+Main.Position = UDim2.new(0.5,-310,0.5,-215)
 Main.BackgroundColor3 = COL.bg
 Main.BackgroundTransparency = 0.1
 Main.BorderSizePixel = 0
@@ -424,7 +413,7 @@ TitleBar.Parent = Main
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,14,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "TWKS HUB  ·  v2.0"
+TitleLbl.Text = "TWKS HUB  ·  v2.1"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 14; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -439,7 +428,6 @@ CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
 
 MakeDraggable(Main, TitleBar)
 
--- Левая панель вкладок
 local Left = Instance.new("Frame")
 Left.Size = UDim2.new(0,140,1,-46)
 Left.Position = UDim2.new(0,10,0,42)
@@ -458,7 +446,6 @@ LeftPad.PaddingLeft = UDim.new(0,6)
 LeftPad.PaddingRight = UDim.new(0,6)
 LeftPad.Parent = Left
 
--- Правая панель контента
 local Right = Instance.new("Frame")
 Right.Size = UDim2.new(1,-162,1,-46)
 Right.Position = UDim2.new(0,156,0,42)
@@ -466,8 +453,6 @@ Right.BackgroundTransparency = 1
 Right.Parent = Main
 
 local TabScrolls = {}
-local ActiveTab = nil
-
 local function Tab(name)
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1,0,0,32)
@@ -476,7 +461,6 @@ local function Tab(name)
     b.TextColor3 = COL.text; b.Font = Enum.Font.Gotham
     b.TextSize = 13; b.LayoutOrder = NextOrder()
     b.Parent = Left; corner(b, 6)
-
     local sc = Instance.new("ScrollingFrame")
     sc.Size = UDim2.new(1,0,1,0)
     sc.BackgroundTransparency = 1; sc.BorderSizePixel = 0
@@ -485,21 +469,17 @@ local function Tab(name)
     sc.CanvasSize = UDim2.new(0,0,0,0)
     sc.AutomaticCanvasSize = Enum.AutomaticSize.Y
     sc.Visible = false; sc.Parent = Right
-
     local lay = Instance.new("UIListLayout")
     lay.Padding = UDim.new(0,6)
     lay.SortOrder = Enum.SortOrder.LayoutOrder
     lay.Parent = sc
-
     local pad = Instance.new("UIPadding")
     pad.PaddingTop = UDim.new(0,4)
     pad.PaddingLeft = UDim.new(0,4)
     pad.PaddingRight = UDim.new(0,10)
     pad.PaddingBottom = UDim.new(0,8)
     pad.Parent = sc
-
     TabScrolls[name] = {btn = b, scroll = sc}
-
     b.MouseButton1Click:Connect(function()
         for _, t in pairs(TabScrolls) do
             t.scroll.Visible = false
@@ -507,9 +487,7 @@ local function Tab(name)
         end
         sc.Visible = true
         b.BackgroundColor3 = COL.accent
-        ActiveTab = name
     end)
-
     return sc
 end
 
@@ -521,7 +499,7 @@ Section(A, "Основное")
 Toggle(A, "Enable Aimbot",
     function() return S.Aimbot.Enabled end,
     function(v) S.Aimbot.Enabled = v end)
-Dropdown(A, "Mode", {"Cursor","Mobile"},
+Dropdown(A, "Aim Mode", {"Cursor","Camera","Mobile"},
     function() return S.Aimbot.Mode end,
     function(v) S.Aimbot.Mode = v end)
 Slider(A, "Smoothness", 0.01, 1,
@@ -543,10 +521,9 @@ Toggle(A, "Visible Check",
 Toggle(A, "Show FOV Circle",
     function() return S.Aimbot.ShowFOV end,
     function(v) S.Aimbot.ShowFOV = v end)
-Section(A, "Mobile")
-Toggle(A, "Floating Aim Button",
-    function() return S.Aimbot.MobileBtn end,
-    function(v) S.Aimbot.MobileBtn = v; ToggleMobileBtn("Aimbot", v) end)
+Toggle(A, "Use mousemoverel (Cursor mode)",
+    function() return S.Aimbot.UseMouseMove end,
+    function(v) S.Aimbot.UseMouseMove = v end)
 
 -- ============================================================
 -- ESP TAB
@@ -560,22 +537,14 @@ Toggle(E, "Enable ESP",
         if v then
             for _, p in ipairs(Players:GetPlayers()) do if p ~= LP then CreateESP(p) end end
         else
-            for p in pairs(ESPObjs) do RemoveESP(p) end
+            for p in pairs(ESPObjs or {}) do RemoveESP(p) end
         end
     end)
 Section(E, "Elements")
-Toggle(E, "Boxes",
-    function() return S.ESP.Boxes end,
-    function(v) S.ESP.Boxes = v end)
-Toggle(E, "Names",
-    function() return S.ESP.Names end,
-    function(v) S.ESP.Names = v end)
-Toggle(E, "Distance",
-    function() return S.ESP.Distance end,
-    function(v) S.ESP.Distance = v end)
-Toggle(E, "Health Bar",
-    function() return S.ESP.Health end,
-    function(v) S.ESP.Health = v end)
+Toggle(E, "Boxes", function() return S.ESP.Boxes end, function(v) S.ESP.Boxes = v end)
+Toggle(E, "Names", function() return S.ESP.Names end, function(v) S.ESP.Names = v end)
+Toggle(E, "Distance", function() return S.ESP.Distance end, function(v) S.ESP.Distance = v end)
+Toggle(E, "Health Bar", function() return S.ESP.Health end, function(v) S.ESP.Health = v end)
 Slider(E, "Thickness", 1, 5,
     function() return S.ESP.Thickness end,
     function(v) S.ESP.Thickness = v end)
@@ -596,17 +565,13 @@ Toggle(H, "Enable Hitbox",
         if not v then RestoreAllHitboxes() end
     end)
 Section(H, "Parts")
-Toggle(H, "Head",
-    function() return S.Hitbox.Parts.Head end,
+Toggle(H, "Head", function() return S.Hitbox.Parts.Head end,
     function(v) S.Hitbox.Parts.Head = v end)
-Toggle(H, "Torso",
-    function() return S.Hitbox.Parts.Torso end,
+Toggle(H, "Torso", function() return S.Hitbox.Parts.Torso end,
     function(v) S.Hitbox.Parts.Torso = v end)
-Toggle(H, "Arms",
-    function() return S.Hitbox.Parts.Arms end,
+Toggle(H, "Arms", function() return S.Hitbox.Parts.Arms end,
     function(v) S.Hitbox.Parts.Arms = v end)
-Toggle(H, "Legs",
-    function() return S.Hitbox.Parts.Legs end,
+Toggle(H, "Legs", function() return S.Hitbox.Parts.Legs end,
     function(v) S.Hitbox.Parts.Legs = v end)
 Section(H, "Visual")
 Slider(H, "Size", 2, 30,
@@ -679,7 +644,7 @@ resetBtn.TextColor3 = COL.text; resetBtn.Font = Enum.Font.Gotham
 resetBtn.TextSize = 13; resetBtn.LayoutOrder = NextOrder()
 resetBtn.Parent = ST; corner(resetBtn, 6)
 resetBtn.MouseButton1Click:Connect(function()
-    S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.2; S.Aimbot.FOV=150
+    S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25; S.Aimbot.FOV=200
     S.ESP.Enabled=false; S.Hitbox.Enabled=false
     S.Player.Fly=false; S.Player.Noclip=false; S.Player.InfiniteJump=false
     RefreshAll(); Notify("Настройки сброшены")
@@ -698,29 +663,42 @@ end)
 
 Section(ST, "Info")
 local infoLbl = Instance.new("TextLabel")
-infoLbl.Size = UDim2.new(1,0,0,80)
+infoLbl.Size = UDim2.new(1,0,0,90)
 infoLbl.BackgroundColor3 = COL.elem; infoLbl.BackgroundTransparency = 0.15
 infoLbl.BorderSizePixel = 0; infoLbl.LayoutOrder = NextOrder()
-infoLbl.Text = "Открыть/закрыть: Left Alt\nНа мобильном — кнопка TWKS\n\nВсе настройки сохраняются в сессии."
+infoLbl.Text = "Открыть/закрыть: Left Alt\nНа мобильном — кнопка TWKS\n\nAim Mode:\n• Cursor — наводка от курсора\n• Camera — наводка на ближайшего к центру\n• Mobile — как Camera, для тача"
 infoLbl.TextColor3 = COL.sub; infoLbl.Font = Enum.Font.Gotham
 infoLbl.TextSize = 12; infoLbl.TextWrapped = true
 infoLbl.Parent = ST; corner(infoLbl, 6)
 
--- Активируем первую вкладку
-TabScrolls["Aimbot"].btn:Fire("MouseButton1Click")
+-- Активируем Aimbot по умолчанию
+for _, t in pairs(TabScrolls) do
+    t.scroll.Visible = false
+    t.btn.BackgroundColor3 = COL.elem
+end
+TabScrolls["Aimbot"].scroll.Visible = true
+TabScrolls["Aimbot"].btn.BackgroundColor3 = COL.accent
 
 -- ============================================================
 -- AIMBOT LOGIC
 -- ============================================================
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false; fovCircle.Thickness = 1
-fovCircle.Color = Color3.fromRGB(180,60,255)
-fovCircle.Transparency = 0.7
+fovCircle.Color = COL.accent; fovCircle.Transparency = 0.7
+
+local function GetMousePos()
+    return UIS:GetMouseLocation()
+end
 
 local function FindTarget()
-    local target, best = nil, S.Aimbot.FOV
-    local mousePos = UIS:GetMouseLocation()
-    local screenCenter = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    local target, best = nil, math.huge
+    local cmpPos
+    if S.Aimbot.Mode == "Mobile" then
+        cmpPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    else
+        cmpPos = GetMousePos()
+    end
+
     for _, pl in ipairs(Players:GetPlayers()) do
         if pl == LP then continue end
         if S.Aimbot.TeamCheck and pl.Team == LP.Team then continue end
@@ -731,7 +709,7 @@ local function FindTarget()
         local part = ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")
         if not part then continue end
         local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
-        if not onScreen then continue end
+        if not onScreen or sp.Z < 0 then continue end
         if S.Aimbot.VisibleCheck then
             local rp = RaycastParams.new()
             rp.FilterType = Enum.RaycastFilterType.Exclude
@@ -740,14 +718,16 @@ local function FindTarget()
                 part.Position - Camera.CFrame.Position, rp)
             if r then continue end
         end
-        local cmp = (S.Aimbot.Mode == "Mobile") and screenCenter or mousePos
-        local d = (Vector2.new(sp.X, sp.Y) - cmp).Magnitude
-        if d < best then best = d; target = part end
+        local d = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
+        if d < S.Aimbot.FOV and d < best then
+            best = d; target = part
+        end
     end
     return target
 end
 
-RunService.RenderStepped:Connect(function()
+-- основной поток aim — приоритет после камеры
+RunService:BindToRenderStep("TWKS_AIM", Enum.RenderPriority.Camera.Value + 1, function()
     if S.Aimbot.ShowFOV then
         fovCircle.Visible = true
         fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
@@ -755,13 +735,36 @@ RunService.RenderStepped:Connect(function()
     else
         fovCircle.Visible = false
     end
-    if S.Aimbot.Enabled then
-        local t = FindTarget()
-        if t then
-            local look = CFrame.new(Camera.CFrame.Position, t.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(look, S.Aimbot.Smooth)
+
+    if not S.Aimbot.Enabled then return end
+
+    local t = FindTarget()
+    if not t then return end
+
+    if S.Aimbot.Mode == "Cursor" and S.Aimbot.UseMouseMove then
+        -- пробуем двигать физический курсор
+        local sp, onScreen = Camera:WorldToViewportPoint(t.Position)
+        if onScreen then
+            local mp = GetMousePos()
+            local dx = (sp.X - mp.X) * S.Aimbot.Smooth
+            local dy = (sp.Y - mp.Y) * S.Aimbot.Smooth
+            local moved = false
+            pcall(function()
+                if syn and syn.mousemoverel then
+                    syn.mousemoverel(dx, dy); moved = true
+                elseif mousemoverel then
+                    mousemoverel(dx, dy); moved = true
+                elseif mouse and mouse.move then
+                    mouse.move(dx, dy); moved = true
+                end
+            end)
+            if moved then return end
         end
     end
+
+    -- fallback / основная логика: камера плавно к цели
+    local lookCF = CFrame.new(Camera.CFrame.Position, t.Position)
+    Camera.CFrame = Camera.CFrame:Lerp(lookCF, S.Aimbot.Smooth)
 end)
 
 -- ============================================================
@@ -774,19 +777,15 @@ function CreateESP(pl)
     local box = Drawing.new("Square")
     box.Visible = false; box.Filled = false
     box.Color = S.ESP.Color; box.Thickness = 1
-
     local nm = Drawing.new("Text")
     nm.Visible = false; nm.Center = true; nm.Outline = true
     nm.Size = 14; nm.Color = Color3.new(1,1,1)
-
     local ds = Drawing.new("Text")
     ds.Visible = false; ds.Center = true; ds.Outline = true
     ds.Size = 12; ds.Color = Color3.new(0.85,0.85,0.85)
-
     local hp = Drawing.new("Line")
     hp.Visible = false; hp.Thickness = 2
     hp.Color = Color3.new(0,1,0)
-
     ESPObjs[pl] = {box=box, name=nm, dist=ds, hp=hp}
 end
 
@@ -811,38 +810,31 @@ RunService.RenderStepped:Connect(function()
             for _, o in pairs(d) do o.Visible = false end
             continue
         end
-
         local top = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
         local bot = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
         if top.Z < 0 or bot.Z < 0 then
             for _, o in pairs(d) do o.Visible = false end
             continue
         end
-
         local height = math.abs(top.Y - bot.Y)
         local width = height * 0.5
-
         d.box.Size = Vector2.new(width, height)
         d.box.Position = Vector2.new(top.X - width/2, top.Y)
         d.box.Color = S.ESP.Color
         d.box.Thickness = S.ESP.Thickness
         d.box.Visible = S.ESP.Boxes
-
         d.name.Text = pl.Name
         d.name.Position = Vector2.new(top.X, top.Y - 18)
         d.name.Color = S.ESP.Color
         d.name.Visible = S.ESP.Names
-
         local dist = math.floor((Camera.CFrame.Position - hrp.Position).Magnitude)
         d.dist.Text = dist .. "m"
         d.dist.Position = Vector2.new(top.X, bot.Y + 2)
         d.dist.Visible = S.ESP.Distance
-
         if S.ESP.Health then
-            local barH = height
             local hpPct = hum.Health / hum.MaxHealth
             d.hp.From = Vector2.new(top.X - width/2 - 4, bot.Y)
-            d.hp.To = Vector2.new(top.X - width/2 - 4, bot.Y - barH * hpPct)
+            d.hp.To = Vector2.new(top.X - width/2 - 4, bot.Y - height * hpPct)
             d.hp.Color = Color3.fromRGB(255 * (1 - hpPct), 255 * hpPct, 0)
             d.hp.Visible = true
         else
@@ -980,37 +972,64 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
--- BINDS + INPUT
+-- ACTIONS
 -- ============================================================
-local Actions = {
-    Aimbot = function() S.Aimbot.Enabled = not S.Aimbot.Enabled; RefreshAll(); Notify("Aimbot: "..tostring(S.Aimbot.Enabled)) end,
-    ESP = function()
-        S.ESP.Enabled = not S.ESP.Enabled; RefreshAll()
-        if S.ESP.Enabled then for _, p in ipairs(Players:GetPlayers()) do if p~=LP then CreateESP(p) end end
-        else for p in pairs(ESPObjs) do RemoveESP(p) end end
-        Notify("ESP: "..tostring(S.ESP.Enabled))
-    end,
-    Hitbox = function() S.Hitbox.Enabled = not S.Hitbox.Enabled; RefreshAll()
-        if not S.Hitbox.Enabled then RestoreAllHitboxes() end
-        Notify("Hitbox: "..tostring(S.Hitbox.Enabled)) end,
-    Fly = function() S.Player.Fly = not S.Player.Fly; RefreshAll(); Notify("Fly: "..tostring(S.Player.Fly)) end,
-    Noclip = function() S.Player.Noclip = not S.Player.Noclip; RefreshAll(); Notify("Noclip: "..tostring(S.Player.Noclip)) end,
-    InfiniteJump = function() S.Player.InfiniteJump = not S.Player.InfiniteJump; RefreshAll(); Notify("InfJump: "..tostring(S.Player.InfiniteJump)) end,
-}
+local Actions = {}
+Actions.Aimbot = function()
+    S.Aimbot.Enabled = not S.Aimbot.Enabled
+    RefreshAll(); Notify("Aimbot: "..tostring(S.Aimbot.Enabled))
+end
+Actions.ESP = function()
+    S.ESP.Enabled = not S.ESP.Enabled; RefreshAll()
+    if S.ESP.Enabled then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LP then CreateESP(p) end
+        end
+    else
+        for p in pairs(ESPObjs) do RemoveESP(p) end
+    end
+    Notify("ESP: "..tostring(S.ESP.Enabled))
+end
+Actions.Hitbox = function()
+    S.Hitbox.Enabled = not S.Hitbox.Enabled; RefreshAll()
+    if not S.Hitbox.Enabled then RestoreAllHitboxes() end
+    Notify("Hitbox: "..tostring(S.Hitbox.Enabled))
+end
+Actions.Fly = function()
+    S.Player.Fly = not S.Player.Fly; RefreshAll()
+    Notify("Fly: "..tostring(S.Player.Fly))
+end
+Actions.Noclip = function()
+    S.Player.Noclip = not S.Player.Noclip; RefreshAll()
+    if not S.Player.Noclip and LP.Character then
+        for _, p in ipairs(LP.Character:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide = true end
+        end
+    end
+    Notify("Noclip: "..tostring(S.Player.Noclip))
+end
+Actions.InfiniteJump = function()
+    S.Player.InfiniteJump = not S.Player.InfiniteJump; RefreshAll()
+    Notify("InfJump: "..tostring(S.Player.InfiniteJump))
+end
 
+-- ============================================================
+-- INPUT (бинды)
+-- ============================================================
 UIS.InputBegan:Connect(function(input, gp)
-    if gp then return end
-
+    -- Слушатель бинда: реагируем ТОЛЬКО на клавиатуру
     if getgenv().TWKS_LISTENING then
-        local action = getgenv().TWKS_LISTENING
-        getgenv().TWKS_LISTENING = nil
-        if input.KeyCode ~= Enum.KeyCode.Unknown then
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            local action = getgenv().TWKS_LISTENING
+            getgenv().TWKS_LISTENING = nil
             S.Binds[action] = input.KeyCode
-            if BindButtons[action] then BindButtons[action]() end
+            if BindRefreshers[action] then BindRefreshers[action]() end
             Notify("Bind: "..action.." → "..tostring(input.KeyCode):gsub("Enum.KeyCode.",""))
         end
         return
     end
+
+    if gp then return end
 
     if input.KeyCode == Enum.KeyCode.LeftAlt then
         Main.Visible = not Main.Visible
@@ -1018,7 +1037,9 @@ UIS.InputBegan:Connect(function(input, gp)
     end
 
     for action, key in pairs(S.Binds) do
-        if input.KeyCode == key and Actions[action] then Actions[action]() end
+        if input.KeyCode == key and Actions[action] then
+            Actions[action]()
+        end
     end
 end)
 
@@ -1048,7 +1069,6 @@ function ToggleMobileBtn(action, show)
     MobileButtons[action] = b
 end
 
--- Открытие меню на мобилке
 local OpenBtn = Instance.new("TextButton")
 OpenBtn.Size = UDim2.new(0,50,0,50)
 OpenBtn.Position = UDim2.new(0,20,1,-80)
@@ -1069,7 +1089,8 @@ getgenv().TWKS_UNLOAD = function()
     for p in pairs(ESPObjs) do RemoveESP(p) end
     RestoreAllHitboxes()
     pcall(function() fovCircle:Remove() end)
+    pcall(function() RunService:UnbindFromRenderStep("TWKS_AIM") end)
     getgenv().TWKS_LOADED = false
 end
 
-Notify("TWKS Hub v2 загружен · Left Alt — меню")
+Notify("TWKS v2.1 · Left Alt — меню · Cursor Aim готов")
