@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v3.0 — XNEO-style Mobile Fly + Scrollable Tabs + Fling Suite
+-- TIMON HUB v3.1 — XNEO FLY GUI integration + Scrollable Tabs + Anti Fling
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -53,8 +53,7 @@ local S = {
     },
     Troll = {
         Spin = false, Invisible = false, ChatSpam = false,
-        InvisibleFling = false, AntiFling = false,
-        FlingRadius = 10, SpamMsg = nil
+        AntiFling = false, SpamMsg = nil
     },
     Fun = {
         Rainbow = false, Disco = false, LowGravity = false,
@@ -575,7 +574,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v3.0"
+TitleLbl.Text = "⚡ TIMON HUB · v3.1"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -661,6 +660,10 @@ local function Tab(name)
     end)
     return sc
 end
+
+-- Forward decl for XNEO FLY integration
+local XneoGui = nil
+local launchXneoFlyGUI, closeXneoFlyGUI
 
 -- ============================================================
 -- TAB: AIMBOT
@@ -801,18 +804,25 @@ Section(P, "✈ Fly")
 Toggle(P, "✈ Fly (ПК)",
     function() return S.Player.Fly end,
     function(v) S.Player.Fly = v end)
-Toggle(P, "📱 Mobile Fly",
-    function() return S.Player.MobileFly end,
-    function(v) S.Player.MobileFly = v; setMobileFly(v) end)
-Slider(P, "🚀 Fly Speed", 10, 300,
+Toggle(P, "📱 Mobile Fly (XNEO GUI)",
+    function() return XneoGui ~= nil end,
+    function(v)
+        if v then
+            if not XneoGui then launchXneoFlyGUI() end
+        else
+            if XneoGui then closeXneoFlyGUI() end
+        end
+    end)
+Slider(P, "🚀 Fly Speed (PC)", 10, 300,
     function() return S.Player.FlySpeed end,
     function(v) S.Player.FlySpeed = v end)
 Section(P, "🪐 Gravity")
 Toggle(P, "🪐 Zero Gravity",
     function() return S.Player.ZeroGravity end,
     function(v) S.Player.ZeroGravity = v; applyGravityState() end)
+
 -- ============================================================
--- TAB: TROLL
+-- TAB: TROLL (InvisibleFling removed)
 -- ============================================================
 local T = Tab("😈 Troll")
 
@@ -856,21 +866,7 @@ Button(T, "🥷 Strip Accessories", function()
     end
 end)
 
-Section(T, "🎯 Fling Suite")
-Toggle(T, "👻 Invisible Fling",
-    function() return S.Troll.InvisibleFling end,
-    function(v)
-        S.Troll.InvisibleFling = v
-        if not v and LP.Character then
-            for _, p in ipairs(LP.Character:GetDescendants()) do
-                if p:IsA("BasePart") then p.LocalTransparencyModifier = 0
-                elseif p:IsA("Decal") then p.Transparency = 0 end
-            end
-        end
-    end)
-Slider(T, "📏 Fling Radius", 3, 30,
-    function() return S.Troll.FlingRadius or 10 end,
-    function(v) S.Troll.FlingRadius = v end)
+Section(T, "🛡 Anti Fling")
 Toggle(T, "🛡 Anti Fling",
     function() return S.Troll.AntiFling end,
     function(v)
@@ -945,7 +941,7 @@ Toggle(B, "🎯 Aimbot Button",
 Toggle(B, "✈ Fly Button (PC)",
     function() return S.MobileBtns.Fly == true end,
     function(v) S.MobileBtns.Fly = v; ToggleMobileBtn("Fly", v) end)
-Toggle(B, "📱 Mobile Fly Button",
+Toggle(B, "📱 Mobile Fly (XNEO) Button",
     function() return S.MobileBtns.MobileFly == true end,
     function(v) S.MobileBtns.MobileFly = v; ToggleMobileBtn("MobileFly", v) end)
 Toggle(B, "🪐 Zero Gravity Button",
@@ -954,9 +950,6 @@ Toggle(B, "🪐 Zero Gravity Button",
 Toggle(B, "👻 Noclip Button",
     function() return S.MobileBtns.Noclip == true end,
     function(v) S.MobileBtns.Noclip = v; ToggleMobileBtn("Noclip", v) end)
-Toggle(B, "👻 Invisible Fling Button",
-    function() return S.MobileBtns.InvisibleFling == true end,
-    function(v) S.MobileBtns.InvisibleFling = v; ToggleMobileBtn("InvisibleFling", v) end)
 Toggle(B, "🛡 Anti Fling Button",
     function() return S.MobileBtns.AntiFling == true end,
     function(v) S.MobileBtns.AntiFling = v; ToggleMobileBtn("AntiFling", v) end)
@@ -1046,10 +1039,10 @@ Button(ST, "🔄 Сбросить настройки", function()
     S.ESP.Enabled=false; S.Hitbox.Enabled=false
     S.Hitbox.NPCSupport=false
     S.Player.Fly=false
-    if S.Player.MobileFly then S.Player.MobileFly=false; setMobileFly(false) end
+    if XneoGui then closeXneoFlyGUI() end
     S.Player.Noclip=false; S.Player.InfiniteJump=false
     S.Player.ZeroGravity=false
-    S.Troll.InvisibleFling=false; S.Troll.AntiFling=false
+    S.Troll.AntiFling=false
     applyGravityState()
     RefreshAll(); MarkDirty(); Notify("⚙ Настройки сброшены")
 end)
@@ -1093,7 +1086,11 @@ local function applyLoadedSettings()
         ToggleMobileBtn(action, state)
     end
     applyGravityState()
-    if S.Player.MobileFly then setMobileFly(true) else setMobileFly(false) end
+    if S.Player.MobileFly then
+        if not XneoGui then launchXneoFlyGUI() end
+    else
+        if XneoGui then closeXneoFlyGUI() end
+    end
     MarkDirty()
 end
 
@@ -1135,7 +1132,6 @@ function RefreshCfgList()
     end
 end
 RefreshCfgList()
-
 -- ============================================================
 -- GRAVITY STATE
 -- ============================================================
@@ -1527,9 +1523,19 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- MOBILE FLY — движок XNEO (PlatformStand + TranslateBy)
+-- XNEO FLY GUI — полный перенос FLY GUI V3
 -- ============================================================
-local ALL_HUM_STATES = {
+local XneoState = {
+    gui = nil,
+    nowe = false,
+    speeds = 1,
+    tpWalking = false,
+    bg = nil,
+    bv = nil,
+    flyLoopConn = nil,
+}
+
+local XNEO_STATES = {
     Enum.HumanoidStateType.Climbing, Enum.HumanoidStateType.FallingDown,
     Enum.HumanoidStateType.Flying, Enum.HumanoidStateType.Freefall,
     Enum.HumanoidStateType.GettingUp, Enum.HumanoidStateType.Jumping,
@@ -1540,107 +1546,304 @@ local ALL_HUM_STATES = {
     Enum.HumanoidStateType.Swimming,
 }
 
-local mobileFlyActive = false
-local upBtn, downBtn
+local function xneoTurnOffFlight()
+    local chr = LP.Character
+    local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+    XneoState.nowe = false
+    XneoState.tpWalking = false
+    if XneoState.flyLoopConn then
+        pcall(function() XneoState.flyLoopConn:Disconnect() end)
+        XneoState.flyLoopConn = nil
+    end
+    if XneoState.bg then pcall(function() XneoState.bg:Destroy() end); XneoState.bg = nil end
+    if XneoState.bv then pcall(function() XneoState.bv:Destroy() end); XneoState.bv = nil end
+    if chr and hum then
+        for _, st in ipairs(XNEO_STATES) do
+            pcall(function() hum:SetStateEnabled(st, true) end)
+        end
+        pcall(function() hum:ChangeState(Enum.HumanoidStateType.Running) end)
+        hum.PlatformStand = false
+        local animate = chr:FindFirstChild("Animate")
+        if animate then animate.Disabled = false end
+    end
+end
 
-local function buildVerticalBtn(label, isUp)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0, 62, 0, 62)
-    b.AnchorPoint = Vector2.new(1, 1)
-    b.Position = isUp and UDim2.new(1, -20, 1, -240) or UDim2.new(1, -20, 1, -170)
-    b.BackgroundColor3 = COL.bg2
-    b.BackgroundTransparency = 0.1
-    b.TextColor3 = COL.accent2
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 22
-    b.Text = label
-    b.BorderSizePixel = 0
-    b.Visible = false
-    b.Parent = ScreenGui
-    corner(b, 31); stroke(b, COL.accent2, 2)
-    local held = false
-    b.MouseButton1Down:Connect(function()
-        held = true
+local function xneoTurnOnFlight()
+    local chr = LP.Character
+    local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+    if not chr or not hum then return end
+    if S.Player.Fly then S.Player.Fly = false; RefreshAll() end
+
+    XneoState.nowe = true
+
+    -- tp-walk цикл (TranslateBy)
+    XneoState.tpWalking = true
+    XneoState.flyLoopConn = RunService.Heartbeat:Connect(function()
+        if not XneoState.tpWalking then return end
+        local c = LP.Character
+        local h = c and c:FindFirstChildWhichIsA("Humanoid")
+        if not c or not h or h.Health <= 0 then return end
+        if h.MoveDirection.Magnitude > 0 then
+            c:TranslateBy(h.MoveDirection)
+        end
+    end)
+
+    -- отключить анимации и стейты
+    local animate = chr:FindFirstChild("Animate")
+    if animate then animate.Disabled = true end
+    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+        pcall(function() track:AdjustSpeed(0) end)
+    end
+    for _, st in ipairs(XNEO_STATES) do
+        pcall(function() hum:SetStateEnabled(st, false) end)
+    end
+    pcall(function() hum:ChangeState(Enum.HumanoidStateType.Swimming) end)
+
+    -- BodyGyro / BodyVelocity для стабилизации
+    local part = (hum.RigType == Enum.HumanoidRigType.R6)
+        and chr:FindFirstChild("Torso")
+        or chr:FindFirstChild("UpperTorso")
+    if part then
+        local bg = Instance.new("BodyGyro")
+        bg.P = 9e4
+        bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bg.CFrame = part.CFrame
+        bg.Parent = part
+        XneoState.bg = bg
+
+        local bv = Instance.new("BodyVelocity")
+        bv.Velocity = Vector3.new(0, 0.1, 0)
+        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        bv.Parent = part
+        XneoState.bv = bv
+    end
+
+    hum.PlatformStand = true
+    task.spawn(function()
+        while XneoState.nowe do
+            task.wait()
+            if XneoState.bg then
+                pcall(function()
+                    XneoState.bg.CFrame = Camera.CFrame
+                end)
+            end
+        end
+    end)
+end
+
+function launchXneoFlyGUI()
+    if XneoState.gui then return end
+
+    local main = Instance.new("ScreenGui")
+    main.Name = "XneoFlyGui"
+    main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    main.ResetOnSpawn = false
+    main.IgnoreGuiInset = true
+    pcall(function() main.Parent = CoreGui end)
+    if not main.Parent then main.Parent = LP:WaitForChild("PlayerGui") end
+    XneoState.gui = main
+
+    local Frame = Instance.new("Frame")
+    Frame.Parent = main
+    Frame.BackgroundColor3 = Color3.fromRGB(163, 255, 137)
+    Frame.BorderColor3 = Color3.fromRGB(103, 221, 213)
+    Frame.Position = UDim2.new(0.100, 0, 0.379, 0)
+    Frame.Size = UDim2.new(0, 190, 0, 57)
+    Frame.Active = true
+    Frame.Draggable = true
+    corner(Frame, 8); stroke(Frame, Color3.fromRGB(103, 221, 213), 2)
+
+    local up = Instance.new("TextButton")
+    up.Name = "up"; up.Parent = Frame
+    up.BackgroundColor3 = Color3.fromRGB(79, 255, 152)
+    up.Size = UDim2.new(0, 44, 0, 28)
+    up.Font = Enum.Font.SourceSans
+    up.Text = "UP"; up.TextColor3 = Color3.fromRGB(0,0,0); up.TextSize = 14
+    corner(up, 6)
+
+    local down = Instance.new("TextButton")
+    down.Name = "down"; down.Parent = Frame
+    down.BackgroundColor3 = Color3.fromRGB(215, 255, 121)
+    down.Position = UDim2.new(0, 0, 0.491, 0)
+    down.Size = UDim2.new(0, 44, 0, 28)
+    down.Font = Enum.Font.SourceSans
+    down.Text = "DOWN"; down.TextColor3 = Color3.fromRGB(0,0,0); down.TextSize = 14
+    corner(down, 6)
+
+    local onof = Instance.new("TextButton")
+    onof.Name = "onof"; onof.Parent = Frame
+    onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
+    onof.Position = UDim2.new(0.702, 0, 0.491, 0)
+    onof.Size = UDim2.new(0, 56, 0, 28)
+    onof.Font = Enum.Font.SourceSans
+    onof.Text = "fly"; onof.TextColor3 = Color3.fromRGB(0,0,0); onof.TextSize = 14
+    corner(onof, 6)
+
+    local TextLabel = Instance.new("TextLabel")
+    TextLabel.Parent = Frame
+    TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
+    TextLabel.Position = UDim2.new(0.469, 0, 0, 0)
+    TextLabel.Size = UDim2.new(0, 100, 0, 28)
+    TextLabel.Font = Enum.Font.SourceSans
+    TextLabel.Text = "FLY GUI V3"; TextLabel.TextColor3 = Color3.fromRGB(0,0,0)
+    TextLabel.TextScaled = true; TextLabel.TextSize = 14; TextLabel.TextWrapped = true
+
+    local plus = Instance.new("TextButton")
+    plus.Name = "plus"; plus.Parent = Frame
+    plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
+    plus.Position = UDim2.new(0.231, 0, 0, 0)
+    plus.Size = UDim2.new(0, 45, 0, 28)
+    plus.Font = Enum.Font.SourceSans
+    plus.Text = "+"; plus.TextColor3 = Color3.fromRGB(0,0,0); plus.TextScaled = true
+    corner(plus, 6)
+
+    local speedLbl = Instance.new("TextLabel")
+    speedLbl.Name = "speed"; speedLbl.Parent = Frame
+    speedLbl.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
+    speedLbl.Position = UDim2.new(0.468, 0, 0.491, 0)
+    speedLbl.Size = UDim2.new(0, 44, 0, 28)
+    speedLbl.Font = Enum.Font.SourceSans
+    speedLbl.Text = tostring(XneoState.speeds); speedLbl.TextColor3 = Color3.fromRGB(0,0,0)
+    speedLbl.TextScaled = true
+
+    local mine = Instance.new("TextButton")
+    mine.Name = "mine"; mine.Parent = Frame
+    mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
+    mine.Position = UDim2.new(0.231, 0, 0.491, 0)
+    mine.Size = UDim2.new(0, 45, 0, 29)
+    mine.Font = Enum.Font.SourceSans
+    mine.Text = "-"; mine.TextColor3 = Color3.fromRGB(0,0,0); mine.TextScaled = true
+    corner(mine, 6)
+
+    local closebutton = Instance.new("TextButton")
+    closebutton.Name = "Close"; closebutton.Parent = Frame
+    closebutton.BackgroundColor3 = Color3.fromRGB(225, 25, 0)
+    closebutton.Font = Enum.Font.SourceSans
+    closebutton.Size = UDim2.new(0, 45, 0, 28)
+    closebutton.Text = "X"; closebutton.TextSize = 30
+    closebutton.TextColor3 = Color3.fromRGB(0,0,0)
+    closebutton.Position = UDim2.new(0, 0, -1, 27)
+    corner(closebutton, 6)
+
+    local mini = Instance.new("TextButton")
+    mini.Name = "minimize"; mini.Parent = Frame
+    mini.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
+    mini.Font = Enum.Font.SourceSans
+    mini.Size = UDim2.new(0, 45, 0, 28)
+    mini.Text = "-"; mini.TextSize = 40
+    mini.TextColor3 = Color3.fromRGB(0,0,0)
+    mini.Position = UDim2.new(0, 44, -1, 27)
+    corner(mini, 6)
+
+    local mini2 = Instance.new("TextButton")
+    mini2.Name = "minimize2"; mini2.Parent = Frame
+    mini2.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
+    mini2.Font = Enum.Font.SourceSans
+    mini2.Size = UDim2.new(0, 45, 0, 28)
+    mini2.Text = "+"; mini2.TextSize = 40
+    mini2.TextColor3 = Color3.fromRGB(0,0,0)
+    mini2.Position = UDim2.new(0, 44, -1, 57)
+    mini2.Visible = false
+    corner(mini2, 6)
+
+    -- ==== кнопка fly ====
+    onof.MouseButton1Click:Connect(function()
+        if XneoState.nowe then
+            xneoTurnOffFlight()
+        else
+            xneoTurnOnFlight()
+        end
+    end)
+
+    -- ==== UP / DOWN (тач и мышь) ====
+    local upHeld = false
+    up.MouseButton1Down:Connect(function()
+        upHeld = true
         task.spawn(function()
-            while held do
+            while upHeld do
                 local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then
-                    hrp.CFrame = hrp.CFrame * CFrame.new(0, isUp and 1 or -1, 0)
+                    hrp.CFrame = hrp.CFrame * CFrame.new(0, 1, 0)
                 end
                 task.wait()
             end
         end)
     end)
-    local function release() held = false end
-    b.MouseButton1Up:Connect(release)
-    b.MouseLeave:Connect(release)
-    b.TouchLongPress:Connect(function() end) -- noop guard
-    return b
-end
+    local function upRelease() upHeld = false end
+    up.MouseButton1Up:Connect(upRelease)
+    up.MouseLeave:Connect(upRelease)
 
-upBtn = buildVerticalBtn("▲", true)
-downBtn = buildVerticalBtn("▼", false)
-
-function setMobileFly(on)
-    local chr = LP.Character
-    local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-    if on then
-        if not chr or not hum then
-            S.Player.MobileFly = false
-            RefreshAll()
-            return
-        end
-        if S.Player.Fly then S.Player.Fly = false; RefreshAll() end
-        for _, st in ipairs(ALL_HUM_STATES) do
-            pcall(function() hum:SetStateEnabled(st, false) end)
-        end
-        pcall(function() hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics) end)
-        hum.PlatformStand = true
-        local animate = chr:FindFirstChild("Animate")
-        if animate then animate.Disabled = true end
-        for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
-            pcall(function() track:AdjustSpeed(0) end)
-        end
-        mobileFlyActive = true
-        upBtn.Visible = true
-        downBtn.Visible = true
-    else
-        mobileFlyActive = false
-        upBtn.Visible = false
-        downBtn.Visible = false
-        if chr and hum then
-            for _, st in ipairs(ALL_HUM_STATES) do
-                pcall(function() hum:SetStateEnabled(st, true) end)
+    local downHeld = false
+    down.MouseButton1Down:Connect(function()
+        downHeld = true
+        task.spawn(function()
+            while downHeld do
+                local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.CFrame = hrp.CFrame * CFrame.new(0, -1, 0)
+                end
+                task.wait()
             end
-            pcall(function() hum:ChangeState(Enum.HumanoidStateType.Running) end)
-            hum.PlatformStand = false
-            local animate = chr:FindFirstChild("Animate")
-            if animate then animate.Disabled = false end
+        end)
+    end)
+    local function downRelease() downHeld = false end
+    down.MouseButton1Up:Connect(downRelease)
+    down.MouseLeave:Connect(downRelease)
+
+    -- ==== + / - ====
+    plus.MouseButton1Click:Connect(function()
+        XneoState.speeds = XneoState.speeds + 1
+        speedLbl.Text = tostring(XneoState.speeds)
+    end)
+    mine.MouseButton1Click:Connect(function()
+        if XneoState.speeds <= 1 then
+            speedLbl.Text = "cannot be less than 1"
+            task.wait(1)
+            speedLbl.Text = tostring(XneoState.speeds)
+        else
+            XneoState.speeds = XneoState.speeds - 1
+            speedLbl.Text = tostring(XneoState.speeds)
         end
-    end
+    end)
+
+    -- ==== close ====
+    closebutton.MouseButton1Click:Connect(function()
+        closeXneoFlyGUI()
+    end)
+
+    -- ==== minimize ====
+    mini.MouseButton1Click:Connect(function()
+        up.Visible = false; down.Visible = false; onof.Visible = false
+        plus.Visible = false; speedLbl.Visible = false; mine.Visible = false
+        mini.Visible = false; mini2.Visible = true
+        Frame.BackgroundTransparency = 1
+        closebutton.Position = UDim2.new(0, 0, -1, 57)
+    end)
+    mini2.MouseButton1Click:Connect(function()
+        up.Visible = true; down.Visible = true; onof.Visible = true
+        plus.Visible = true; speedLbl.Visible = true; mine.Visible = true
+        mini.Visible = true; mini2.Visible = false
+        Frame.BackgroundTransparency = 0
+        closebutton.Position = UDim2.new(0, 0, -1, 27)
+    end)
+
+    -- поднять флаг хаба и обновить кнопки
+    S.Player.MobileFly = true
+    RefreshAll()
+    MarkDirty()
 end
 
-RunService.Heartbeat:Connect(function(dt)
-    if not mobileFlyActive then return end
-    local chr = LP.Character
-    local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-    if not chr or not hum or hum.Health <= 0 then return end
-    local md = hum.MoveDirection
-    if md.Magnitude > 0 then
-        chr:TranslateBy(md * S.Player.FlySpeed * dt)
+function closeXneoFlyGUI()
+    xneoTurnOffFlight()
+    if XneoState.gui then
+        pcall(function() XneoState.gui:Destroy() end)
+        XneoState.gui = nil
     end
-end)
-
-LP.CharacterAdded:Connect(function()
-    local was = mobileFlyActive
-    mobileFlyActive = false
-    if upBtn then upBtn.Visible = false end
-    if downBtn then downBtn.Visible = false end
-    task.wait(0.6)
-    if was and S.Player.MobileFly then
-        setMobileFly(true)
-    end
-end)
+    XneoState.speeds = 1
+    S.Player.MobileFly = false
+    RefreshAll()
+    MarkDirty()
+end
 
 -- ============================================================
 -- PLAYER MODS
@@ -1699,68 +1902,8 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- INVISIBLE FLING + ANTI FLING
+-- ANTI FLING
 -- ============================================================
-local ActiveFlingBV = {}
-
-local function clearFlingFor(pl)
-    local list = ActiveFlingBV[pl]
-    if list then
-        for _, inst in ipairs(list) do
-            pcall(function() inst:Destroy() end)
-        end
-        ActiveFlingBV[pl] = nil
-    end
-end
-
-local function flingPlayer(pl)
-    if not pl or pl == LP then return end
-    local ch = pl.Character
-    if not ch then return end
-    local hrp = ch:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    if ActiveFlingBV[pl] then return end
-    local list = {}
-    local bav = Instance.new("BodyAngularVelocity")
-    bav.AngularVelocity = Vector3.new(99999, 99999, 99999)
-    bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-    bav.Parent = hrp
-    table.insert(list, bav)
-    local bv = Instance.new("BodyVelocity")
-    bv.Velocity = Vector3.new(99999, 99999, 99999)
-    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bv.Parent = hrp
-    table.insert(list, bv)
-    ActiveFlingBV[pl] = list
-    task.delay(0.8, function() clearFlingFor(pl) end)
-end
-
-task.spawn(function()
-    while task.wait(0.25) do
-        if S.Troll.InvisibleFling and LP.Character then
-            for _, p in ipairs(LP.Character:GetDescendants()) do
-                if p:IsA("BasePart") then p.LocalTransparencyModifier = 1
-                elseif p:IsA("Decal") then p.Transparency = 1 end
-            end
-            local myHRP = LP.Character:FindFirstChild("HumanoidRootPart")
-            if myHRP then
-                local radius = S.Troll.FlingRadius or 10
-                for _, pl in ipairs(Players:GetPlayers()) do
-                    if pl ~= LP and pl.Character then
-                        local thrp = pl.Character:FindFirstChild("HumanoidRootPart")
-                        if thrp then
-                            local dist = (thrp.Position - myHRP.Position).Magnitude
-                            if dist <= radius then
-                                flingPlayer(pl)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
 local ANTI_FLING_PARTS = {
     "BodyVelocity","BodyAngularVelocity","BodyGyro","BodyThrust","BodyForce"
 }
@@ -1770,10 +1913,16 @@ task.spawn(function()
         if S.Troll.AntiFling and LP.Character then
             for _, p in ipairs(LP.Character:GetDescendants()) do
                 if p:IsA("BasePart") then
-                    for _, class in ipairs(ANTI_FLING_PARTS) do
-                        for _, inst in ipairs(p:GetChildren()) do
-                            if inst:IsA(class) then
-                                pcall(function() inst:Destroy() end)
+                    -- не трогаем BodyGyro/BodyVelocity, которые XNEO использует на текущем персонаже
+                    local skip = XneoState.nowe and (
+                        p.Name == "Torso" or p.Name == "UpperTorso"
+                    )
+                    if not skip then
+                        for _, class in ipairs(ANTI_FLING_PARTS) do
+                            for _, inst in ipairs(p:GetChildren()) do
+                                if inst:IsA(class) then
+                                    pcall(function() inst:Destroy() end)
+                                end
                             end
                         end
                     end
@@ -1798,8 +1947,8 @@ RunService.RenderStepped:Connect(function(dt)
     local ch = LP.Character
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
 
-    -- PC Fly (WASD + Space/Shift)
-    if S.Player.Fly and hrp then
+    -- PC Fly (WASD) — не работает если XNEO включён
+    if S.Player.Fly and not XneoState.nowe and hrp then
         if not FlyBV then
             FlyBV = Instance.new("BodyVelocity")
             FlyBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
@@ -1841,7 +1990,7 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- NPC hitbox CFrame sync
+    -- NPC hitbox sync
     if S.Hitbox.NPCSupport then
         for model, e in pairs(NPCHitboxes) do
             if model.Parent then
@@ -1988,18 +2137,20 @@ Actions.Hitbox = function()
     Notify("📦 Hitbox: "..tostring(S.Hitbox.Enabled))
 end
 Actions.Fly = function()
-    if not S.Player.Fly and S.Player.MobileFly then
-        S.Player.MobileFly = false
-        setMobileFly(false)
+    if not S.Player.Fly and XneoState.nowe then
+        closeXneoFlyGUI()
     end
     S.Player.Fly = not S.Player.Fly; RefreshAll(); MarkDirty()
     Notify("✈ Fly: "..tostring(S.Player.Fly))
 end
 Actions.MobileFly = function()
-    S.Player.MobileFly = not S.Player.MobileFly
-    setMobileFly(S.Player.MobileFly)
-    RefreshAll(); MarkDirty()
-    Notify("📱 Mobile Fly: "..tostring(S.Player.MobileFly))
+    if XneoState.gui then
+        closeXneoFlyGUI()
+        Notify("📱 XNEO Fly: OFF")
+    else
+        launchXneoFlyGUI()
+        Notify("📱 XNEO Fly: ON")
+    end
 end
 Actions.ZeroGravity = function()
     S.Player.ZeroGravity = not S.Player.ZeroGravity
@@ -2018,10 +2169,6 @@ end
 Actions.InfiniteJump = function()
     S.Player.InfiniteJump = not S.Player.InfiniteJump; RefreshAll(); MarkDirty()
     Notify("♾ InfJump: "..tostring(S.Player.InfiniteJump))
-end
-Actions.InvisibleFling = function()
-    S.Troll.InvisibleFling = not S.Troll.InvisibleFling; RefreshAll(); MarkDirty()
-    Notify("👻 InvFling: "..tostring(S.Troll.InvisibleFling))
 end
 Actions.AntiFling = function()
     S.Troll.AntiFling = not S.Troll.AntiFling; RefreshAll(); MarkDirty()
@@ -2072,10 +2219,9 @@ function ToggleMobileBtn(action, show)
     b.TextColor3 = COL.accent2; b.Font = Enum.Font.GothamBold
     b.TextSize = 11
     local LABEL = {
-        Aimbot = "AIM", Fly = "FLY", MobileFly = "MFLY",
+        Aimbot = "AIM", Fly = "FLY", MobileFly = "XNEO",
         ZeroGravity = "GRAV", Noclip = "NOCLIP",
-        InvisibleFling = "IFLNG", AntiFling = "AFLNG",
-        InfiniteJump = "IJMP"
+        AntiFling = "AFLNG", InfiniteJump = "IJMP"
     }
     b.Text = LABEL[action] or action
     b.BorderSizePixel = 0
@@ -2084,11 +2230,10 @@ function ToggleMobileBtn(action, show)
     local function activeState()
         if action == "Aimbot" then return S.Aimbot.Enabled
         elseif action == "Fly" then return S.Player.Fly
-        elseif action == "MobileFly" then return S.Player.MobileFly
+        elseif action == "MobileFly" then return XneoState.gui ~= nil
         elseif action == "ZeroGravity" then return S.Player.ZeroGravity
         elseif action == "Noclip" then return S.Player.Noclip
         elseif action == "InfiniteJump" then return S.Player.InfiniteJump
-        elseif action == "InvisibleFling" then return S.Troll.InvisibleFling
         elseif action == "AntiFling" then return S.Troll.AntiFling
         end
         return false
@@ -2148,17 +2293,11 @@ for action, state in pairs(S.MobileBtns) do
     if state then ToggleMobileBtn(action, true) end
 end
 applyGravityState()
-if S.Player.MobileFly then setMobileFly(true) end
 
 getgenv().TIMON_UNLOAD = function()
-    pcall(function()
-        if upBtn then upBtn:Destroy() end
-        if downBtn then downBtn:Destroy() end
-    end)
-    if S.Player.MobileFly then pcall(function() setMobileFly(false) end) end
+    pcall(function() closeXneoFlyGUI() end)
     pcall(function() ScreenGui:Destroy() end)
     for p in pairs(ESPObjs) do RemoveESP(p) end
-    for p in pairs(ActiveFlingBV) do clearFlingFor(p) end
     ClearAllHitboxes()
     ClearAllNPCHitboxes()
     pcall(function() fovCircle:Remove() end)
@@ -2173,4 +2312,4 @@ getgenv().TIMON_UNLOAD = function()
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v3.0 · XNEO Mobile Fly + Scrollable Tabs + Fling Suite")
+Notify("⚡ Timon Hub v3.1 · XNEO Fly GUI + Scrollable Tabs + Anti Fling")
