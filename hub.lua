@@ -2374,4 +2374,4 @@ getgenv().TIMON_UNLOAD = function()
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v3.6 · no Fun · no ChatSpam · off-screen aim fix")
+Notify("⚡ Timon Hub v3.6 · Loaded")
