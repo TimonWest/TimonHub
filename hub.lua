@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v4.0 — Jitter + Anti-AFK + ZeroG-Ragdoll + Lazy + FPS Booster
+-- TIMON HUB v4.0.1 — Sticky fix on AimbotHold release
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -31,7 +31,6 @@ local S = {
         PredictLead = false, BulletSpeed = 1000,
         LeadMultiplier = 1.0, HitscanMode = false,
         TargetNPCs = false,
-        -- Jitter
         JitterEnabled = false,
         Jitter = 1.5,
     },
@@ -67,7 +66,6 @@ local S = {
         ZeroGravity = false,
         WalkSpeed = 16, JumpPower = 50,
         InfiniteJump = false, Noclip = false,
-        -- New
         AntiAFK = false,
         LazyMode = false,
         FPSBooster = false,
@@ -575,7 +573,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v4.0"
+TitleLbl.Text = "⚡ TIMON HUB · v4.0.1"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -663,7 +661,7 @@ local XneoGui = nil
 local launchXneoFlyGUI, closeXneoFlyGUI
 local OpenBtn
 -- ============================================================
--- TAB: COMBAT (бывший Aimbot)
+-- TAB: COMBAT
 -- ============================================================
 local A = Tab("🎯 Combat")
 Section(A, "🎮 Основное")
@@ -1221,15 +1219,12 @@ RefreshCfgList()
 -- ============================================================
 -- GRAVITY STATE (ZeroG + Ragdoll)
 -- ============================================================
-local origStateEnabled = nil
-
 function applyGravityState()
     local chr = LP.Character
     local hum = chr and chr:FindFirstChildOfClass("Humanoid")
     if S.Player.ZeroGravity then
         Workspace.Gravity = 0
         if hum then
-            -- Ragdoll-подобное состояние: PlatformStanding + Ragdoll разрешён
             pcall(function() hum:ChangeState(Enum.HumanoidStateType.Ragdoll) end)
             pcall(function() hum:ChangeState(Enum.HumanoidStateType.PlatformStanding) end)
             hum.PlatformStand = true
@@ -1260,7 +1255,6 @@ end)
 -- ============================================================
 -- ANTI-AFK
 -- ============================================================
-local antiAFKConn = nil
 local antiAFKThread = nil
 
 function startAntiAFK()
@@ -1309,7 +1303,6 @@ function enableFPSBooster()
         lighting.GlobalShadows = false
         fpsBackup.FogEnd = lighting.FogEnd
         lighting.FogEnd = 1e6
-        fpsBackup.Technology = lighting.Technology
         fpsBackup.ShadowSoftness = lighting.ShadowSoftness
         lighting.ShadowSoftness = 0
     end)
@@ -1405,7 +1398,7 @@ function ApplyFloatingLock()
 end
 
 -- ============================================================
--- AIMBOT — Jitter + Prediction + NPC
+-- AIMBOT — Jitter + Prediction + NPC + Sticky fix
 -- ============================================================
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false; fovCircle.Thickness = 1
@@ -1431,7 +1424,7 @@ local function IsCursorAimActive()
     if not S.Binds.AimbotHold then return true end
     if aimHoldAvailable then
         local ok, isDown = pcall(function()
-            return UIS:IsKeyDown(S.Aimbot.HoldBind or S.Binds.AimbotHold)
+            return UIS:IsKeyDown(S.Binds.AimbotHold)
         end)
         if ok then return isDown == true end
     end
@@ -1465,7 +1458,6 @@ local function IsOnScreen(part)
     return onScreen and sp.Z > 0
 end
 
--- Prediction
 local function GetLeadPos(part, origin)
     if not S.Aimbot.PredictLead or S.Aimbot.HitscanMode then
         return part.Position
@@ -1481,7 +1473,6 @@ local function GetLeadPos(part, origin)
         part.Velocity.Y,
         md.Z * walkSpeed
     )
-    -- clamp скорости для защиты от лагов
     if vel.Magnitude > 500 then vel = vel.Unit * 500 end
 
     local bs = math.max(S.Aimbot.BulletSpeed, 1)
@@ -1494,7 +1485,6 @@ local function GetLeadPos(part, origin)
     return aimPos
 end
 
--- Валидация игрока (с NPC)
 local function IsTargetValid(target, isNPC, requireVisible, requireOnScreen)
     if not target then return false end
     if isNPC then
@@ -1524,16 +1514,20 @@ local function FindTarget()
     local isCursor = (S.Aimbot.Mode == "Cursor")
     local holdActive = isCursor and S.Binds.AimbotHold and IsCursorAimActive()
 
-    -- Sticky (учитываем и NPC)
+    -- Sticky
     if S.Aimbot.StickyLock and StickyTarget then
-        local ok, part = IsTargetValid(StickyTarget, StickyTargetIsNPC, false, true)
-        if holdActive and wasHoldActive then
-            if ok then return part end
-            StickyTarget = nil; StickyTargetIsNPC = false
-        elseif isCursor and S.Binds.AimbotHold and not holdActive then
-            StickyTarget = nil; StickyTargetIsNPC = false
-            return nil
+        local isCursorBind = isCursor and S.Binds.AimbotHold
+        if isCursorBind then
+            -- Cursor + bind: держим только пока зажато + цель на экране
+            if holdActive and wasHoldActive then
+                local ok, part = IsTargetValid(StickyTarget, StickyTargetIsNPC, false, true)
+                if ok then return part end
+                StickyTarget = nil; StickyTargetIsNPC = false
+            else
+                StickyTarget = nil; StickyTargetIsNPC = false
+            end
         else
+            -- Cursor без бина / Camera / Mobile: перепроверка каждый кадр
             local ok2, part2 = IsTargetValid(StickyTarget, StickyTargetIsNPC,
                 S.Aimbot.WallCheck, true)
             if ok2 then return part2 end
@@ -1555,7 +1549,6 @@ local function FindTarget()
     local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     local myPos = myHRP and myHRP.Position or Vector3.zero
 
-    -- Игроки
     for _, pl in ipairs(Players:GetPlayers()) do
         if pl == LP then continue end
         local ch = pl.Character
@@ -1576,7 +1569,6 @@ local function FindTarget()
         end
     end
 
-    -- NPC
     if S.Aimbot.TargetNPCs then
         refreshNPCCache()
         for model in pairs(NPCCache) do
@@ -1646,8 +1638,17 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
         fovCircle.Visible = false
     end
 
-    if not S.Aimbot.Enabled then StickyTarget = nil; wasHoldActive = false; return end
-    if not IsCursorAimActive() then wasHoldActive = false; return end
+    -- FIX: при отпускании бинда / выключении aim — сбрасываем sticky полностью
+    if not S.Aimbot.Enabled then
+        StickyTarget = nil; StickyTargetIsNPC = false
+        wasHoldActive = false
+        return
+    end
+    if not IsCursorAimActive() then
+        StickyTarget = nil; StickyTargetIsNPC = false
+        wasHoldActive = false
+        return
+    end
 
     local t = FindTarget()
     wasHoldActive = true
@@ -1662,7 +1663,6 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
         local mp = UIS:GetMouseLocation()
         local dx = (sp.X - mp.X) * S.Aimbot.Smooth
         local dy = (sp.Y - mp.Y) * S.Aimbot.Smooth
-        -- Jitter
         if S.Aimbot.JitterEnabled and S.Aimbot.Jitter > 0 then
             dx += (math.random() * 2 - 1) * S.Aimbot.Jitter
             dy += (math.random() * 2 - 1) * S.Aimbot.Jitter
@@ -1673,7 +1673,6 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
     local lookCF = CFrame.new(Camera.CFrame.Position, aimPos)
     Camera.CFrame = Camera.CFrame:Lerp(lookCF, S.Aimbot.Smooth)
 end)
-
 -- ============================================================
 -- ESP helpers — Player + NPC
 -- ============================================================
@@ -1847,6 +1846,7 @@ Players.PlayerRemoving:Connect(function(pl)
     RemoveESP(pl)
     RemoveHitboxFor(pl)
 end)
+
 -- ============================================================
 -- HITBOX (Players)
 -- ============================================================
@@ -2456,7 +2456,6 @@ RunService.RenderStepped:Connect(function(dt)
     local ch = LP.Character
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
 
-    -- PC Fly
     if S.Player.Fly and not XneoState.nowe and hrp then
         if not FlyBV then
             FlyBV = Instance.new("BodyVelocity")
@@ -2482,7 +2481,6 @@ RunService.RenderStepped:Connect(function(dt)
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
     end
 
-    -- Hitbox sync (каждый кадр — критично)
     if S.Hitbox.Enabled then
         for _, e in pairs(HitboxParts) do
             if e.head and e.srcHead and e.srcHead.Parent then
@@ -2504,12 +2502,10 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Lazy Mode: пропускаем ESP update каждый 2-й кадр
     lazyFrame = lazyFrame + 1
     local skipESP = S.Player.LazyMode and (lazyFrame % 2 == 0)
 
     if not skipESP then
-        -- ESP PLAYER
         if S.ESP.Enabled then
             for _, d in pairs(ESPObjs) do
                 local c = d.player.Character
@@ -2558,7 +2554,6 @@ RunService.RenderStepped:Connect(function(dt)
             end
         end
 
-        -- ESP NPC
         if S.ESP.NPCEnabled then
             for model, d in pairs(NPCESPObjs) do
                 if not model.Parent then
@@ -2611,7 +2606,6 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Throttled troll-эффекты (30 fps)
     effectAccum = effectAccum + dt
     if effectAccum < EFFECT_INTERVAL then return end
     effectAccum = 0
@@ -2871,4 +2865,4 @@ getgenv().TIMON_UNLOAD = function()
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v4.0 · Loaded!")
+Notify("⚡ Timon Hub v4.0.1 · Loaded!")
