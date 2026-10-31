@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v2.9 — Scrollable Tabs + Mobile Fly + Zero Gravity + Fling Suite
+-- TIMON HUB v2.9.1 — Scrollable Tabs + Mobile Fly v3 (Perfect) + Zero Gravity + Fling Suite
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -574,7 +574,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v2.9"
+TitleLbl.Text = "⚡ TIMON HUB · v2.9.1"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -800,7 +800,7 @@ Section(P, "✈ Fly")
 Toggle(P, "✈ Fly (ПК)",
     function() return S.Player.Fly end,
     function(v) S.Player.Fly = v end)
-Toggle(P, "📱 Mobile Fly",
+Toggle(P, "📱 Mobile Fly (v3)",
     function() return S.Player.MobileFly end,
     function(v) S.Player.MobileFly = v end)
 Slider(P, "🚀 Fly Speed", 10, 300,
@@ -810,6 +810,7 @@ Section(P, "🪐 Gravity")
 Toggle(P, "🪐 Zero Gravity",
     function() return S.Player.ZeroGravity end,
     function(v) S.Player.ZeroGravity = v; applyGravityState() end)
+
 -- ============================================================
 -- TAB: TROLL
 -- ============================================================
@@ -1582,9 +1583,7 @@ end)
 -- ============================================================
 -- INVISIBLE FLING + ANTI FLING
 -- ============================================================
--- Свой HRP не трогаем. Fling навешивается только на target HRP.
-
-local ActiveFlingBV = {} -- [player] = BodyVelocity/AngularVelocity
+local ActiveFlingBV = {}
 
 local function clearFlingFor(pl)
     local list = ActiveFlingBV[pl]
@@ -1604,7 +1603,6 @@ local function flingPlayer(pl)
     if not hrp then return end
     if ActiveFlingBV[pl] then return end
     local list = {}
-    -- классический fling: огромная angular velocity + velocity
     local bav = Instance.new("BodyAngularVelocity")
     bav.AngularVelocity = Vector3.new(99999, 99999, 99999)
     bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
@@ -1623,11 +1621,9 @@ local function flingPlayer(pl)
     end)
 end
 
--- Invisible Fling — периодический тик
 task.spawn(function()
     while task.wait(0.25) do
         if S.Troll.InvisibleFling and LP.Character then
-            -- сделать себя невидимым
             for _, p in ipairs(LP.Character:GetDescendants()) do
                 if p:IsA("BasePart") then p.LocalTransparencyModifier = 1
                 elseif p:IsA("Decal") then p.Transparency = 1 end
@@ -1651,7 +1647,6 @@ task.spawn(function()
     end
 end)
 
--- Anti Fling — защита + проход сквозь других
 local ANTI_FLING_PARTS = {
     "BodyVelocity","BodyAngularVelocity","BodyGyro","BodyThrust","BodyForce"
 }
@@ -1659,7 +1654,6 @@ local ANTI_FLING_PARTS = {
 task.spawn(function()
     while task.wait(0.1) do
         if S.Troll.AntiFling and LP.Character then
-            -- убрать любые velocity/angular-эффекты надетые на нас
             for _, p in ipairs(LP.Character:GetDescendants()) do
                 if p:IsA("BasePart") then
                     for _, class in ipairs(ANTI_FLING_PARTS) do
@@ -1669,12 +1663,10 @@ task.spawn(function()
                             end
                         end
                     end
-                    -- сброс аномальной скорости
                     if p.Velocity.Magnitude > 500 then
                         p.Velocity = Vector3.zero
                         p.RotVelocity = Vector3.zero
                     end
-                    -- сквозь других
                     p.CanCollide = false
                 end
             end
@@ -1683,17 +1675,98 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- FLY (PC + Mobile) + TROLL/FUN RENDER LOOP
+-- FLY (PC) & MOBILE FLY v3 (Идеальный для телефонов)
 -- ============================================================
 local FlyBV, FlyBG
 local SpinBV, DiscoLight, FireEmitter
+
+-- Состояние управления для Mobile Fly v3
+local MobileFlyInputs = { Forward = 0, Backward = 0, Left = 0, Right = 0, Up = 0, Down = 0 }
+local MobileFlyGui = nil
+
+local function CreateMobileFlyJoystick()
+    if MobileFlyGui and MobileFlyGui.Parent then return end
+    
+    MobileFlyGui = Instance.new("ScreenGui")
+    MobileFlyGui.Name = "TimonHub_MobileFlyV3"
+    MobileFlyGui.ResetOnSpawn = false
+    MobileFlyGui.IgnoreGuiInset = true
+    pcall(function() MobileFlyGui.Parent = CoreGui end)
+    if not MobileFlyGui.Parent then MobileFlyGui.Parent = LP:WaitForChild("PlayerGui") end
+
+    -- Контейнер для кнопок управления полетом (справа снизу)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(0, 160, 0, 160)
+    container.Position = UDim2.new(1, -180, 1, -210)
+    container.BackgroundTransparency = 1
+    container.Parent = MobileFlyGui
+
+    local function makeFlyBtn(name, text, pos, size)
+        local btn = Instance.new("TextButton")
+        btn.Size = size or UDim2.new(0, 48, 0, 48)
+        btn.Position = pos
+        btn.BackgroundColor3 = COL.bg2
+        btn.BackgroundTransparency = 0.3
+        btn.TextColor3 = COL.accent2
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 18
+        btn.Text = text
+        btn.BorderSizePixel = 0
+        btn.Parent = container
+        corner(btn, 10)
+        stroke(btn, COL.accent2, 1.5)
+        return btn
+    end
+
+    -- Кнопки: Вперед (W), Назад (S), Влево (A), Вправо (D), Вверх (Space), Вниз (Shift)
+    local btnW = makeFlyBtn("W", "▲", UDim2.new(0.35, 0, 0, 0))
+    local btnS = makeFlyBtn("S", "▼", UDim2.new(0.35, 0, 0.7, 0))
+    local btnA = makeFlyBtn("A", "◄", UDim2.new(0, 0, 0.35, 0))
+    local btnD = makeFlyBtn("D", "►", UDim2.new(0.7, 0, 0.35, 0))
+    
+    local btnUp = makeFlyBtn("UP", "+", UDim2.new(0, 0, 0, 0), UDim2.new(0, 38, 0, 38))
+    btnUp.Position = UDim2.new(1, -40, 0, 0)
+    local btnDown = makeFlyBtn("DN", "-", UDim2.new(0, 0, 0, 0), UDim2.new(0, 38, 0, 38))
+    btnDown.Position = UDim2.new(1, -40, 0, 45)
+
+    -- Подключение Touch/Mouse событий для удержания
+    local function bindTouch(btn, key)
+        btn.MouseButton1Down:Connect(function() MobileFlyInputs[key] = 1; btn.BackgroundColor3 = COL.accent2; btn.TextColor3 = Color3.new(1,1,1) end)
+        btn.MouseButton1Up:Connect(function() MobileFlyInputs[key] = 0; btn.BackgroundColor3 = COL.bg2; btn.TextColor3 = COL.accent2 end)
+        btn.MouseLeave:Connect(function() MobileFlyInputs[key] = 0; btn.BackgroundColor3 = COL.bg2; btn.TextColor3 = COL.accent2 end)
+        btn.TouchStart:Connect(function() MobileFlyInputs[key] = 1; btn.BackgroundColor3 = COL.accent2; btn.TextColor3 = Color3.new(1,1,1) end)
+        btn.TouchEnded:Connect(function() MobileFlyInputs[key] = 0; btn.BackgroundColor3 = COL.bg2; btn.TextColor3 = COL.accent2 end)
+    end
+
+    bindTouch(btnW, "Forward")
+    bindTouch(btnS, "Backward")
+    bindTouch(btnA, "Left")
+    bindTouch(btnD, "Right")
+    bindTouch(btnUp, "Up")
+    bindTouch(btnDown, "Down")
+end
+
+local function DestroyMobileFlyJoystick()
+    if MobileFlyGui then
+        MobileFlyGui:Destroy()
+        MobileFlyGui = nil
+    end
+    for k in pairs(MobileFlyInputs) do MobileFlyInputs[k] = 0 end
+end
 
 RunService.RenderStepped:Connect(function(dt)
     local ch = LP.Character
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
     local hum = ch and ch:FindFirstChildOfClass("Humanoid")
 
-    -- Fly PC (WASD + Space/Shift) — старое поведение
+    -- Управление отображением джойстика Mobile Fly v3
+    if S.Player.MobileFly then
+        if not MobileFlyGui then CreateMobileFlyJoystick() end
+    else
+        if MobileFlyGui then DestroyMobileFlyJoystick() end
+    end
+
+    -- Fly PC (WASD + Space/Shift)
     if S.Player.Fly and hrp then
         if not FlyBV then
             FlyBV = Instance.new("BodyVelocity")
@@ -1714,7 +1787,8 @@ RunService.RenderStepped:Connect(function(dt)
         if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir -= Vector3.new(0,1,0) end
         FlyBV.Velocity = dir * S.Player.FlySpeed
         FlyBG.CFrame = Camera.CFrame
-    -- Mobile Fly — джойстик / MoveDirection, иначе зависание
+
+    -- Mobile Fly v3 (Идеальный полет с виртуальным джойстиком и ориентацией по камере)
     elseif S.Player.MobileFly and hrp then
         if not FlyBV then
             FlyBV = Instance.new("BodyVelocity")
@@ -1726,13 +1800,23 @@ RunService.RenderStepped:Connect(function(dt)
             FlyBG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
             FlyBG.Parent = hrp
         end
-        local moveDir = hum and hum.MoveDirection or Vector3.zero
-        if moveDir.Magnitude > 0.05 then
-            FlyBV.Velocity = moveDir * S.Player.FlySpeed
+        
+        local camCF = Camera.CFrame
+        local dir = Vector3.new(
+            (MobileFlyInputs.Right - MobileFlyInputs.Left),
+            (MobileFlyInputs.Up - MobileFlyInputs.Down),
+            (MobileFlyInputs.Backward - MobileFlyInputs.Forward)
+        )
+        
+        -- Вычисление вектора движения относительно направления камеры
+        local moveVector = (camCF.RightVector * dir.X) + (Vector3.new(0,1,0) * dir.Y) - (camCF.LookVector * dir.Z)
+        if moveVector.Magnitude > 0 then
+            FlyBV.Velocity = moveVector.Unit * S.Player.FlySpeed
         else
             FlyBV.Velocity = Vector3.zero
         end
-        FlyBG.CFrame = Camera.CFrame
+        FlyBG.CFrame = camCF
+
     elseif FlyBV then
         FlyBV:Destroy(); FlyBV = nil
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
@@ -1824,7 +1908,7 @@ RunService.RenderStepped:Connect(function(dt)
         SpinBV:Destroy(); SpinBV = nil
     end
 
-    -- Troll: Invisible Self (независимо от InvisibleFling)
+    -- Troll: Invisible Self
     if S.Troll.Invisible and ch then
         for _, p in ipairs(ch:GetDescendants()) do
             if p:IsA("BasePart") then p.LocalTransparencyModifier = 1
@@ -1907,7 +1991,7 @@ Actions.Fly = function()
 end
 Actions.MobileFly = function()
     S.Player.MobileFly = not S.Player.MobileFly; RefreshAll(); MarkDirty()
-    Notify("📱 Mobile Fly: "..tostring(S.Player.MobileFly))
+    Notify("📱 Mobile Fly v3: "..tostring(S.Player.MobileFly))
 end
 Actions.ZeroGravity = function()
     S.Player.ZeroGravity = not S.Player.ZeroGravity
@@ -1974,12 +2058,10 @@ function ToggleMobileBtn(action, show)
     MOBILE_POS_INDEX = MOBILE_POS_INDEX + 1
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(0,58,0,58)
-    -- стек по вертикали в левой части экрана
     b.Position = UDim2.new(0, 20, 0, 120 + (MOBILE_POS_INDEX - 1) * 68)
     b.BackgroundColor3 = COL.bg2; b.BackgroundTransparency = 0.1
     b.TextColor3 = COL.accent2; b.Font = Enum.Font.GothamBold
     b.TextSize = 11
-    -- короткие метки под кнопки
     local LABEL = {
         Aimbot = "AIM", Fly = "FLY", MobileFly = "MFLY",
         ZeroGravity = "GRAV", Noclip = "NOCLIP",
@@ -1990,7 +2072,6 @@ function ToggleMobileBtn(action, show)
     b.BorderSizePixel = 0
     b.Parent = ScreenGui; corner(b, 29); stroke(b, COL.accent2, 2)
     MakeDraggable(b, b)
-    -- индикатор состояния
     local function activeState()
         if action == "Aimbot" then return S.Aimbot.Enabled
         elseif action == "Fly" then return S.Player.Fly
@@ -2061,6 +2142,7 @@ applyGravityState()
 
 getgenv().TIMON_UNLOAD = function()
     pcall(function() ScreenGui:Destroy() end)
+    DestroyMobileFlyJoystick()
     for p in pairs(ESPObjs) do RemoveESP(p) end
     for p in pairs(ActiveFlingBV) do clearFlingFor(p) end
     ClearAllHitboxes()
@@ -2075,4 +2157,4 @@ getgenv().TIMON_UNLOAD = function()
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v2.9 · TabsScroll + MobileFly + ZeroG + Fling Suite")
+Notify("⚡ Timon Hub v2.9.1 · Mobile Fly v3 Added")
