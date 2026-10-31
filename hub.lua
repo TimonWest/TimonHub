@@ -1,5 +1,5 @@
 -- ============================================================================
--- TWKS HUB v2.1 — Cursor Aim + Mobile Aim + Full Binds
+-- TWKS HUB v2.2 — ULTIMATE STABLE & POLISHED
 -- ============================================================================
 
 if getgenv().TWKS_LOADED then
@@ -33,7 +33,7 @@ local S = {
         TeamCheck = true,
         VisibleCheck = false,
         ShowFOV = true,
-        UseMouseMove = true   -- пробовать mousemoverel
+        UseMouseMove = true
     },
     ESP = {
         Enabled = false, Boxes = true, Names = true,
@@ -340,7 +340,7 @@ local function ColorPicker(parent, name, getter, setter)
 end
 
 -- ============================================================
--- BINDS — фикс: MouseButton1Down + только Keyboard в InputBegan
+-- BINDS
 -- ============================================================
 local BindRefreshers = {}
 local function BindButton(parent, action, name)
@@ -413,7 +413,7 @@ TitleBar.Parent = Main
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,14,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "TWKS HUB  ·  v2.1"
+TitleLbl.Text = "TWKS HUB  ·  v2.2"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 14; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -726,7 +726,6 @@ local function FindTarget()
     return target
 end
 
--- основной поток aim — приоритет после камеры
 RunService:BindToRenderStep("TWKS_AIM", Enum.RenderPriority.Camera.Value + 1, function()
     if S.Aimbot.ShowFOV then
         fovCircle.Visible = true
@@ -742,7 +741,6 @@ RunService:BindToRenderStep("TWKS_AIM", Enum.RenderPriority.Camera.Value + 1, fu
     if not t then return end
 
     if S.Aimbot.Mode == "Cursor" and S.Aimbot.UseMouseMove then
-        -- пробуем двигать физический курсор
         local sp, onScreen = Camera:WorldToViewportPoint(t.Position)
         if onScreen then
             local mp = GetMousePos()
@@ -762,7 +760,6 @@ RunService:BindToRenderStep("TWKS_AIM", Enum.RenderPriority.Camera.Value + 1, fu
         end
     end
 
-    -- fallback / основная логика: камера плавно к цели
     local lookCF = CFrame.new(Camera.CFrame.Position, t.Position)
     Camera.CFrame = Camera.CFrame:Lerp(lookCF, S.Aimbot.Smooth)
 end)
@@ -1017,7 +1014,6 @@ end
 -- INPUT (бинды)
 -- ============================================================
 UIS.InputBegan:Connect(function(input, gp)
-    -- Слушатель бинда: реагируем ТОЛЬКО на клавиатуру
     if getgenv().TWKS_LISTENING then
         if input.UserInputType == Enum.UserInputType.Keyboard then
             local action = getgenv().TWKS_LISTENING
@@ -1093,4 +1089,4 @@ getgenv().TWKS_UNLOAD = function()
     getgenv().TWKS_LOADED = false
 end
 
-Notify("TWKS v2.1 · Left Alt — меню · Cursor Aim готов")
+Notify("TWKS v2.2 · Left Alt — меню · Все функции активированы")
