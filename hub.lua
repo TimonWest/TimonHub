@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v2.5 — Hybrid Targeting (Cursor/Center + Distance)
+-- TIMON HUB v2.7 — Frame Highlight + Troll & Fun Tabs
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -15,6 +15,7 @@ local HttpService = game:GetService("HttpService")
 
 local LP = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+local DEFAULT_GRAVITY = Workspace.Gravity
 getgenv().TIMON_LOADED = true
 
 -- ============================================================
@@ -47,6 +48,13 @@ local S = {
         WalkSpeed = 16, JumpPower = 50,
         InfiniteJump = false, Noclip = false
     },
+    Troll = {
+        Spin = false, Invisible = false, ChatSpam = false
+    },
+    Fun = {
+        Rainbow = false, Disco = false, LowGravity = false,
+        RandomEmote = false, FireTrail = false
+    },
     Hamster = { Coins = 0 },
     Binds = {}, MobileBtns = {},
     AutoSave = true, ConfigName = "auto"
@@ -58,11 +66,10 @@ getgenv().TIMON_SETTINGS = S
 -- ============================================================
 local COL = {
     bg = Color3.fromRGB(18,12,24), bg2 = Color3.fromRGB(28,18,38),
-    elem = Color3.fromRGB(48,32,62),
-    elemHover = Color3.fromRGB(68,44,86),
+    elem = Color3.fromRGB(52,36,68), elemHover = Color3.fromRGB(72,48,92),
     accent = Color3.fromRGB(180,60,255), accent2 = Color3.fromRGB(255,60,180),
-    text = Color3.fromRGB(240,230,255), sub = Color3.fromRGB(180,160,200),
-    stroke = Color3.fromRGB(120,70,160), off = Color3.fromRGB(70,60,80)
+    text = Color3.fromRGB(250,240,255), sub = Color3.fromRGB(200,180,220),
+    stroke = Color3.fromRGB(130,80,170), off = Color3.fromRGB(80,68,90)
 }
 local function corner(o, r)
     local c = Instance.new("UICorner")
@@ -169,9 +176,7 @@ local function loadConfigFile(name)
     if not ok2 or not data then return false end
     applySettings(data); return true
 end
-local function deleteConfig(name)
-    pcall(function() delfile(CONFIG_DIR.."/"..name..".json") end)
-end
+local function deleteConfig(name) pcall(function() delfile(CONFIG_DIR.."/"..name..".json") end) end
 local function listConfigs()
     local out = {}
     pcall(function()
@@ -205,22 +210,21 @@ local function MarkDirty() CONFIG_DIRTY = true end
 local function Notify(txt)
     task.spawn(function()
         local n = Instance.new("Frame")
-        n.Size = UDim2.new(0, 250, 0, 44)
-        n.Position = UDim2.new(1, -270, 1, -80)
-        n.BackgroundColor3 = COL.bg2
-        n.BackgroundTransparency = 0.05
+        n.Size = UDim2.new(0, 260, 0, 46)
+        n.Position = UDim2.new(1, -280, 1, -80)
+        n.BackgroundColor3 = COL.bg2; n.BackgroundTransparency = 0.05
         n.BorderSizePixel = 0; n.Parent = ScreenGui
         corner(n, 12); stroke(n, COL.accent, 2)
         local l = Instance.new("TextLabel")
-        l.Size = UDim2.new(1,-20,1,0); l.Position = UDim2.new(0,12,0,0)
+        l.Size = UDim2.new(1,-20,1,0); l.Position = UDim2.new(0,14,0,0)
         l.BackgroundTransparency = 1; l.Text = txt
-        l.TextColor3 = COL.text; l.Font = Enum.Font.Gotham
-        l.TextSize = 13; l.TextXAlignment = Enum.TextXAlignment.Left
+        l.TextColor3 = COL.text; l.Font = Enum.Font.GothamBold
+        l.TextSize = 14; l.TextXAlignment = Enum.TextXAlignment.Left
         l.Parent = n
-        Tween:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(1,-270,1,-100)}):Play()
+        Tween:Create(n, TweenInfo.new(0.3), {Position = UDim2.new(1,-280,1,-100)}):Play()
         task.wait(2.5)
         Tween:Create(n, TweenInfo.new(0.3),
-            {Position = UDim2.new(1,-270,1,-40), BackgroundTransparency = 1}):Play()
+            {Position = UDim2.new(1,-280,1,-40), BackgroundTransparency = 1}):Play()
         Tween:Create(l, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
         task.wait(0.35); n:Destroy()
     end)
@@ -241,18 +245,18 @@ local function NextOrder() ORDER = ORDER + 1; return ORDER end
 
 local function Section(parent, text)
     local f = Instance.new("Frame")
-    f.Size = UDim2.new(1,0,0,26); f.BackgroundTransparency = 1
+    f.Size = UDim2.new(1,0,0,28); f.BackgroundTransparency = 1
     f.LayoutOrder = NextOrder(); f.Parent = parent
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(1,0,1,0); l.BackgroundTransparency = 1
-    l.Text = string.upper(text); l.TextColor3 = COL.accent2
-    l.Font = Enum.Font.GothamBold; l.TextSize = 12
+    l.Text = text; l.TextColor3 = COL.accent2
+    l.Font = Enum.Font.GothamBold; l.TextSize = 13
     l.TextXAlignment = Enum.TextXAlignment.Left; l.Parent = f
 end
 
 local function Toggle(parent, name, getter, setter)
     local f = Instance.new("Frame")
-    f.Size = UDim2.new(1,0,0,36)
+    f.Size = UDim2.new(1,0,0,38)
     f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.05
     f.BorderSizePixel = 0; f.LayoutOrder = NextOrder()
     f.Parent = parent; corner(f, 10); stroke(f, COL.stroke, 1.5)
@@ -260,7 +264,7 @@ local function Toggle(parent, name, getter, setter)
     lbl.Size = UDim2.new(1,-70,1,0); lbl.Position = UDim2.new(0,14,0,0)
     lbl.BackgroundTransparency = 1; lbl.Text = name
     lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = f
     local track = Instance.new("Frame")
     track.Size = UDim2.new(0,40,0,20); track.Position = UDim2.new(1,-52,0.5,-10)
@@ -290,7 +294,7 @@ end
 
 local function Slider(parent, name, minV, maxV, getter, setter)
     local f = Instance.new("Frame")
-    f.Size = UDim2.new(1,0,0,52)
+    f.Size = UDim2.new(1,0,0,54)
     f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.05
     f.BorderSizePixel = 0; f.LayoutOrder = NextOrder()
     f.Parent = parent; corner(f, 10); stroke(f, COL.stroke, 1.5)
@@ -298,10 +302,10 @@ local function Slider(parent, name, minV, maxV, getter, setter)
     lbl.Size = UDim2.new(1,-20,0,18); lbl.Position = UDim2.new(0,14,0,8)
     lbl.BackgroundTransparency = 1
     lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = f
     local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(1,-28,0,8); bar.Position = UDim2.new(0,14,0,34)
+    bar.Size = UDim2.new(1,-28,0,8); bar.Position = UDim2.new(0,14,0,36)
     bar.BackgroundColor3 = Color3.fromRGB(15,10,20); bar.BorderSizePixel = 0
     bar.Parent = f; corner(bar, 4)
     local fill = Instance.new("Frame")
@@ -340,7 +344,7 @@ end
 
 local function Dropdown(parent, name, options, getter, setter)
     local f = Instance.new("Frame")
-    f.Size = UDim2.new(1,0,0,36)
+    f.Size = UDim2.new(1,0,0,38)
     f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.05
     f.BorderSizePixel = 0; f.LayoutOrder = NextOrder()
     f.Parent = parent; corner(f, 10); stroke(f, COL.stroke, 1.5)
@@ -348,13 +352,13 @@ local function Dropdown(parent, name, options, getter, setter)
     lbl.Size = UDim2.new(1,-32,1,0); lbl.Position = UDim2.new(0,14,0,0)
     lbl.BackgroundTransparency = 1
     lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = f
     local arrow = Instance.new("TextLabel")
     arrow.Size = UDim2.new(0,20,1,0); arrow.Position = UDim2.new(1,-24,0,0)
     arrow.BackgroundTransparency = 1; arrow.Text = "▾"
     arrow.TextColor3 = COL.accent2; arrow.Font = Enum.Font.GothamBold
-    arrow.TextSize = 14; arrow.Parent = f
+    arrow.TextSize = 16; arrow.Parent = f
     local function render() lbl.Text = name .. ": " .. tostring(getter()) end
     render(); AddRefresh(render)
     local popup
@@ -364,7 +368,7 @@ local function Dropdown(parent, name, options, getter, setter)
     btn.MouseButton1Click:Connect(function()
         if popup and popup.Parent then popup:Destroy(); popup = nil; return end
         popup = Instance.new("Frame")
-        popup.Size = UDim2.new(0, f.AbsoluteSize.X, 0, #options*26+6)
+        popup.Size = UDim2.new(0, f.AbsoluteSize.X, 0, #options*28+6)
         popup.Position = UDim2.new(0, f.AbsolutePosition.X,
             0, f.AbsolutePosition.Y + f.AbsoluteSize.Y + 2)
         popup.BackgroundColor3 = COL.bg2; popup.BorderSizePixel = 0
@@ -372,10 +376,10 @@ local function Dropdown(parent, name, options, getter, setter)
         corner(popup, 10); stroke(popup, COL.accent, 1.5)
         for i, opt in ipairs(options) do
             local ob = Instance.new("TextButton")
-            ob.Size = UDim2.new(1,-8,0,22); ob.Position = UDim2.new(0,4,0,(i-1)*26+4)
+            ob.Size = UDim2.new(1,-8,0,24); ob.Position = UDim2.new(0,4,0,(i-1)*28+4)
             ob.BackgroundColor3 = COL.elem; ob.BorderSizePixel = 0
             ob.Text = opt; ob.TextColor3 = COL.text
-            ob.Font = Enum.Font.Gotham; ob.TextSize = 13
+            ob.Font = Enum.Font.Gotham; ob.TextSize = 14
             ob.ZIndex = 51; ob.Parent = popup; corner(ob, 6)
             ob.MouseButton1Click:Connect(function()
                 setter(opt); render(); MarkDirty()
@@ -396,21 +400,21 @@ local PALETTE = {
 
 local function ColorPicker(parent, name, getter, setter)
     local f = Instance.new("Frame")
-    f.Size = UDim2.new(1,0,0,84)
+    f.Size = UDim2.new(1,0,0,86)
     f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.05
     f.BorderSizePixel = 0; f.LayoutOrder = NextOrder()
     f.Parent = parent; corner(f, 10); stroke(f, COL.stroke, 1.5)
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1,-20,0,16); lbl.Position = UDim2.new(0,14,0,6)
+    lbl.Size = UDim2.new(1,-20,0,18); lbl.Position = UDim2.new(0,14,0,6)
     lbl.BackgroundTransparency = 1; lbl.Text = name
     lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = f
     local swatches = {}
     for i, c in ipairs(PALETTE) do
         local row = math.floor((i-1)/6); local col = (i-1) % 6
         local b = Instance.new("TextButton")
-        b.Size = UDim2.new(0,30,0,22); b.Position = UDim2.new(0,14+col*34,0,26+row*24)
+        b.Size = UDim2.new(0,32,0,22); b.Position = UDim2.new(0,14+col*36,0,28+row*24)
         b.BackgroundColor3 = c; b.BorderSizePixel = 0
         b.Text = ""; b.Parent = f; corner(b, 6)
         local s = stroke(b, Color3.new(1,1,1), (c == getter()) and 2 or 0)
@@ -425,22 +429,22 @@ end
 
 local function TextBox(parent, name, placeholder, getter, setter)
     local f = Instance.new("Frame")
-    f.Size = UDim2.new(1,0,0,54)
+    f.Size = UDim2.new(1,0,0,58)
     f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.05
     f.BorderSizePixel = 0; f.LayoutOrder = NextOrder()
     f.Parent = parent; corner(f, 10); stroke(f, COL.stroke, 1.5)
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1,-20,0,18); lbl.Position = UDim2.new(0,14,0,6)
+    lbl.Size = UDim2.new(1,-20,0,20); lbl.Position = UDim2.new(0,14,0,6)
     lbl.BackgroundTransparency = 1; lbl.Text = name
     lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = f
     local box = Instance.new("TextBox")
-    box.Size = UDim2.new(1,-28,0,22); box.Position = UDim2.new(0,14,0,26)
+    box.Size = UDim2.new(1,-28,0,24); box.Position = UDim2.new(0,14,0,28)
     box.BackgroundColor3 = COL.bg2; box.BorderSizePixel = 0
     box.Text = getter() or ""; box.PlaceholderText = placeholder or ""
     box.TextColor3 = COL.text; box.PlaceholderColor3 = COL.sub
-    box.Font = Enum.Font.Gotham; box.TextSize = 12
+    box.Font = Enum.Font.Gotham; box.TextSize = 13
     box.TextXAlignment = Enum.TextXAlignment.Left
     box.ClearTextOnFocus = false; box.Parent = f; corner(box, 6)
     stroke(box, COL.stroke, 1)
@@ -450,13 +454,13 @@ end
 local function Button(parent, label, callback, opts)
     opts = opts or {}
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1,0,0,38)
+    b.Size = UDim2.new(1,0,0,40)
     b.BackgroundColor3 = opts.color or COL.elem
     b.BackgroundTransparency = 0.05
     b.BorderSizePixel = 0; b.Text = label
     b.TextColor3 = opts.textColor or COL.text
     b.Font = Enum.Font.GothamBold
-    b.TextSize = 13; b.LayoutOrder = NextOrder()
+    b.TextSize = 14; b.LayoutOrder = NextOrder()
     b.AutoButtonColor = false
     b.Parent = parent; corner(b, 10); stroke(b, opts.stroke or COL.stroke, 1.5)
     b.MouseEnter:Connect(function()
@@ -474,7 +478,7 @@ end
 local BindRefreshers = {}
 local function BindButton(parent, action, name)
     local f = Instance.new("Frame")
-    f.Size = UDim2.new(1,0,0,36)
+    f.Size = UDim2.new(1,0,0,38)
     f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.05
     f.BorderSizePixel = 0; f.LayoutOrder = NextOrder()
     f.Parent = parent; corner(f, 10); stroke(f, COL.stroke, 1.5)
@@ -482,13 +486,13 @@ local function BindButton(parent, action, name)
     lbl.Size = UDim2.new(1,-124,1,0); lbl.Position = UDim2.new(0,14,0,0)
     lbl.BackgroundTransparency = 1; lbl.Text = name
     lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = f
     local keyLbl = Instance.new("TextLabel")
-    keyLbl.Size = UDim2.new(0,100,0,26); keyLbl.Position = UDim2.new(1,-110,0.5,-13)
+    keyLbl.Size = UDim2.new(0,104,0,28); keyLbl.Position = UDim2.new(1,-114,0.5,-14)
     keyLbl.BackgroundColor3 = COL.bg2; keyLbl.BorderSizePixel = 0
     keyLbl.TextColor3 = COL.accent2; keyLbl.Font = Enum.Font.GothamBold
-    keyLbl.TextSize = 12; keyLbl.Parent = f; corner(keyLbl, 8)
+    keyLbl.TextSize = 13; keyLbl.Parent = f; corner(keyLbl, 8)
     local function refresh()
         local k = S.Binds[action]
         if k then
@@ -500,7 +504,7 @@ local function BindButton(parent, action, name)
     end
     refresh(); BindRefreshers[action] = refresh
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0,100,0,26); btn.Position = UDim2.new(1,-110,0.5,-13)
+    btn.Size = UDim2.new(0,104,0,28); btn.Position = UDim2.new(1,-114,0.5,-14)
     btn.BackgroundTransparency = 1; btn.Text = ""
     btn.Active = true; btn.Parent = f
     btn.MouseButton1Down:Connect(function()
@@ -514,8 +518,8 @@ end
 -- ============================================================
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.new(0, 620, 0, 430)
-Main.Position = UDim2.new(0.5,-310,0.5,-215)
+Main.Size = UDim2.new(0, 640, 0, 460)
+Main.Position = UDim2.new(0.5,-320,0.5,-230)
 Main.BackgroundColor3 = COL.bg
 Main.BackgroundTransparency = 0.05
 Main.BorderSizePixel = 0; Main.ClipsDescendants = true
@@ -523,7 +527,7 @@ Main.Parent = ScreenGui
 corner(Main, 16); stroke(Main, COL.accent, 2)
 
 local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1,0,0,38)
+TitleBar.Size = UDim2.new(1,0,0,40)
 TitleBar.BackgroundColor3 = COL.bg2
 TitleBar.BackgroundTransparency = 0.05
 TitleBar.BorderSizePixel = 0; TitleBar.Parent = Main
@@ -532,36 +536,36 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "TIMON HUB  ·  v2.5"
+TitleLbl.Text = "⚡ TIMON HUB · v2.7"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
-TitleLbl.TextSize = 15; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
 
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0,28,0,28); CloseBtn.Position = UDim2.new(1,-36,0.5,-14)
 CloseBtn.BackgroundColor3 = COL.accent2; CloseBtn.Text = "×"
 CloseBtn.TextColor3 = Color3.new(1,1,1); CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 18; CloseBtn.BorderSizePixel = 0; CloseBtn.Parent = TitleBar
+CloseBtn.TextSize = 20; CloseBtn.BorderSizePixel = 0; CloseBtn.Parent = TitleBar
 corner(CloseBtn, 8)
 CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
 MakeDraggable(Main, TitleBar)
 
 local Left = Instance.new("Frame")
-Left.Size = UDim2.new(0,140,1,-50)
-Left.Position = UDim2.new(0,10,0,46)
+Left.Size = UDim2.new(0,150,1,-52)
+Left.Position = UDim2.new(0,10,0,48)
 Left.BackgroundColor3 = COL.bg2; Left.BackgroundTransparency = 0.05
 Left.BorderSizePixel = 0; Left.Parent = Main
 corner(Left, 12)
 local LL = Instance.new("UIListLayout")
-LL.Padding = UDim.new(0,5); LL.SortOrder = Enum.SortOrder.LayoutOrder
+LL.Padding = UDim.new(0,4); LL.SortOrder = Enum.SortOrder.LayoutOrder
 LL.Parent = Left
 local LP2 = Instance.new("UIPadding")
 LP2.PaddingTop = UDim.new(0,8); LP2.PaddingLeft = UDim.new(0,6)
 LP2.PaddingRight = UDim.new(0,6); LP2.Parent = Left
 
 local Right = Instance.new("Frame")
-Right.Size = UDim2.new(1,-162,1,-50)
-Right.Position = UDim2.new(0,156,0,46)
+Right.Size = UDim2.new(1,-172,1,-52)
+Right.Position = UDim2.new(0,166,0,48)
 Right.BackgroundTransparency = 1; Right.Parent = Main
 
 local TabScrolls = {}
@@ -609,45 +613,45 @@ local function Tab(name)
 end
 
 -- ============================================================
--- TABS CONTENT
+-- TAB CONTENT
 -- ============================================================
-local A = Tab("Aimbot")
-Section(A, "Основное")
-Toggle(A, "Enable Aimbot",
+local A = Tab("🎯 Aimbot")
+Section(A, "🎮 Основное")
+Toggle(A, "⚡ Enable Aimbot",
     function() return S.Aimbot.Enabled end,
     function(v) S.Aimbot.Enabled = v end)
-Toggle(A, "Sticky Lock",
+Toggle(A, "🔒 Sticky Lock",
     function() return S.Aimbot.StickyLock end,
     function(v) S.Aimbot.StickyLock = v end)
-Dropdown(A, "Aim Mode", {"Cursor","Camera","Mobile"},
+Dropdown(A, "🎯 Aim Mode", {"Cursor","Camera","Mobile"},
     function() return S.Aimbot.Mode end,
     function(v) S.Aimbot.Mode = v end)
-Slider(A, "Smoothness", 0.01, 1,
+Slider(A, "💨 Smoothness", 0.01, 1,
     function() return S.Aimbot.Smooth end,
     function(v) S.Aimbot.Smooth = v end)
-Section(A, "Targeting")
-Slider(A, "Distance Weight", 0, 5,
+Section(A, "🎯 Targeting")
+Slider(A, "📏 Distance Weight", 0, 5,
     function() return S.Aimbot.DistanceWeight end,
     function(v) S.Aimbot.DistanceWeight = v end)
-Section(A, "FOV (не для Cursor)")
-Slider(A, "Camera FOV", 30, 800,
+Section(A, "📐 FOV (не для Cursor)")
+Slider(A, "📷 Camera FOV", 30, 800,
     function() return S.Aimbot.CameraFOV end,
     function(v) S.Aimbot.CameraFOV = v end)
-Slider(A, "Mobile FOV", 30, 800,
+Slider(A, "📱 Mobile FOV", 30, 800,
     function() return S.Aimbot.MobileFOV end,
     function(v) S.Aimbot.MobileFOV = v end)
-Toggle(A, "Show FOV Circle",
+Toggle(A, "⭕ Show FOV Circle",
     function() return S.Aimbot.ShowFOV end,
     function(v) S.Aimbot.ShowFOV = v end)
-Section(A, "Target")
-Dropdown(A, "Target Part",
+Section(A, "🎯 Target")
+Dropdown(A, "🎯 Target Part",
     {"Head","HumanoidRootPart","Torso","UpperTorso","LowerTorso"},
     function() return S.Aimbot.Part end,
     function(v) S.Aimbot.Part = v end)
 
-local E = Tab("ESP")
-Section(E, "Toggle")
-Toggle(E, "Enable ESP",
+local E = Tab("👁 ESP")
+Section(E, "🔘 Toggle")
+Toggle(E, "👁 Enable ESP",
     function() return S.ESP.Enabled end,
     function(v)
         S.ESP.Enabled = v
@@ -659,98 +663,188 @@ Toggle(E, "Enable ESP",
             for p in pairs(ESPObjs or {}) do RemoveESP(p) end
         end
     end)
-Section(E, "Highlight")
-ColorPicker(E, "Outline Color",
+Section(E, "✨ Highlight")
+ColorPicker(E, "🎨 Outline Color",
     function() return S.ESP.OutlineColor end,
     function(v) S.ESP.OutlineColor = v; RefreshESPColors() end)
-ColorPicker(E, "Fill Color",
+ColorPicker(E, "🎨 Fill Color",
     function() return S.ESP.FillColor end,
     function(v) S.ESP.FillColor = v; RefreshESPColors() end)
-Slider(E, "Fill Transparency", 0, 1,
+Slider(E, "💧 Fill Transparency", 0, 1,
     function() return S.ESP.FillTransparency end,
     function(v) S.ESP.FillTransparency = v; RefreshESPColors() end)
-Slider(E, "Outline Transparency", 0, 1,
+Slider(E, "💧 Outline Transparency", 0, 1,
     function() return S.ESP.OutlineTransparency end,
     function(v) S.ESP.OutlineTransparency = v; RefreshESPColors() end)
-Toggle(E, "Through Walls",
+Toggle(E, "🧱 Through Walls",
     function() return S.ESP.ThroughWalls end,
     function(v) S.ESP.ThroughWalls = v; RefreshESPColors() end)
-Section(E, "Text")
-Toggle(E, "Show Name",
+Section(E, "📝 Text")
+Toggle(E, "👤 Show Name",
     function() return S.ESP.ShowName end,
     function(v) S.ESP.ShowName = v end)
-Toggle(E, "Show Distance",
+Toggle(E, "📏 Show Distance",
     function() return S.ESP.ShowDistance end,
     function(v) S.ESP.ShowDistance = v end)
 
-local H = Tab("Hitbox")
-Section(H, "Toggle")
-Toggle(H, "Enable Hitbox",
+local H = Tab("📦 Hitbox")
+Section(H, "🔘 Toggle")
+Toggle(H, "📦 Enable Hitbox",
     function() return S.Hitbox.Enabled end,
     function(v)
         S.Hitbox.Enabled = v
         if not v then ClearAllHitboxes() end
     end)
-Section(H, "Parts")
-Toggle(H, "Head Hitbox",
+Section(H, "🎯 Parts")
+Toggle(H, "👤 Head Hitbox",
     function() return S.Hitbox.HeadEnabled end,
     function(v) S.Hitbox.HeadEnabled = v; RefreshHitboxes() end)
-Toggle(H, "Body Hitbox",
+Toggle(H, "🧍 Body Hitbox",
     function() return S.Hitbox.BodyEnabled end,
     function(v) S.Hitbox.BodyEnabled = v; RefreshHitboxes() end)
-Section(H, "Sizes")
-Slider(H, "Head Size", 1, 15,
+Section(H, "📐 Sizes")
+Slider(H, "👤 Head Size", 1, 15,
     function() return S.Hitbox.HeadSize end,
     function(v) S.Hitbox.HeadSize = v; RefreshHitboxes() end)
-Slider(H, "Body Size", 2, 25,
+Slider(H, "🧍 Body Size", 2, 25,
     function() return S.Hitbox.BodySize end,
     function(v) S.Hitbox.BodySize = v; RefreshHitboxes() end)
-Section(H, "Visual")
-Slider(H, "Transparency", 0, 1,
+Section(H, "🎨 Visual")
+Slider(H, "💧 Transparency", 0, 1,
     function() return S.Hitbox.Transparency end,
     function(v) S.Hitbox.Transparency = v; RefreshHitboxes() end)
-ColorPicker(H, "Hitbox Color",
+ColorPicker(H, "🎨 Hitbox Color",
     function() return S.Hitbox.Color end,
     function(v) S.Hitbox.Color = v; RefreshHitboxes() end)
 
-local P = Tab("Player")
-Section(P, "Movement")
-Slider(P, "Walk Speed", 16, 300,
+local P = Tab("🏃 Player")
+Section(P, "🏃 Movement")
+Slider(P, "⚡ Walk Speed", 16, 300,
     function() return S.Player.WalkSpeed end,
     function(v) S.Player.WalkSpeed = v end)
-Slider(P, "Jump Power", 50, 300,
+Slider(P, "🦘 Jump Power", 50, 300,
     function() return S.Player.JumpPower end,
     function(v) S.Player.JumpPower = v end)
-Toggle(P, "Infinite Jump",
+Toggle(P, "♾ Infinite Jump",
     function() return S.Player.InfiniteJump end,
     function(v) S.Player.InfiniteJump = v end)
-Toggle(P, "Noclip",
+Toggle(P, "👻 Noclip",
     function() return S.Player.Noclip end,
     function(v) S.Player.Noclip = v end)
-Section(P, "Fly")
-Toggle(P, "Fly",
+Section(P, "✈ Fly")
+Toggle(P, "✈ Fly",
     function() return S.Player.Fly end,
     function(v) S.Player.Fly = v end)
-Slider(P, "Fly Speed", 10, 300,
+Slider(P, "🚀 Fly Speed", 10, 300,
     function() return S.Player.FlySpeed end,
     function(v) S.Player.FlySpeed = v end)
 
-local B = Tab("Binds")
-Section(B, "Key Binds (ПК)")
-BindButton(B, "Aimbot", "Aimbot")
-BindButton(B, "ESP", "ESP")
-BindButton(B, "Hitbox", "Hitbox")
-BindButton(B, "Fly", "Fly")
-BindButton(B, "Noclip", "Noclip")
-BindButton(B, "InfiniteJump", "Infinite Jump")
-Section(B, "Floating Buttons (Mobile)")
-Toggle(B, "Aimbot Button",
+-- ============================================================
+-- TROLL TAB
+-- ============================================================
+local T = Tab("😈 Troll")
+Section(T, "🌀 Движение")
+Toggle(T, "🌀 Spin Self",
+    function() return S.Troll.Spin end,
+    function(v) S.Troll.Spin = v end)
+Button(T, "🚀 Fling Self", function()
+    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local bv = Instance.new("BodyVelocity")
+        bv.Velocity = Vector3.new(800, 500, 800)
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Parent = hrp
+        task.wait(0.4)
+        pcall(function() bv:Destroy() end)
+        Notify("🚀 Fling!")
+    end
+end, {color = COL.accent2, hover = Color3.fromRGB(255, 90, 200), textColor = Color3.new(1,1,1)})
+
+Section(T, "🎭 Внешность")
+Toggle(T, "👻 Invisible Self",
+    function() return S.Troll.Invisible end,
+    function(v)
+        S.Troll.Invisible = v
+        if not v and LP.Character then
+            for _, p in ipairs(LP.Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.LocalTransparencyModifier = 0
+                elseif p:IsA("Decal") then p.Transparency = 0 end
+            end
+        end
+    end)
+Button(T, "🥷 Strip Accessories", function()
+    if LP.Character then
+        for _, acc in ipairs(LP.Character:GetDescendants()) do
+            if acc:IsA("Accessory") or acc:IsA("Hat") then
+                pcall(function() acc:Destroy() end)
+            end
+        end
+        Notify("🥷 Аксессуары сняты")
+    end
+end)
+
+Section(T, "💬 Чат")
+Toggle(T, "💬 Chat Spam",
+    function() return S.Troll.ChatSpam end,
+    function(v) S.Troll.ChatSpam = v end)
+TextBox(T, "📝 Сообщение", "Timon Hub on top 🔥",
+    function() return S.Troll.SpamMsg or "Timon Hub on top 🔥" end,
+    function(v) S.Troll.SpamMsg = v end)
+
+-- ============================================================
+-- FUN TAB
+-- ============================================================
+local FN = Tab("🎉 Fun")
+Section(FN, "✨ Внешность")
+Toggle(FN, "🌈 Rainbow Character",
+    function() return S.Fun.Rainbow end,
+    function(v)
+        S.Fun.Rainbow = v
+        if not v and LP.Character then
+            for _, p in ipairs(LP.Character:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.Material = Enum.Material.Plastic
+                    p.Color = Color3.fromRGB(163,162,165)
+                end
+            end
+        end
+    end)
+Toggle(FN, "🎆 Disco Lights",
+    function() return S.Fun.Disco end,
+    function(v) S.Fun.Disco = v end)
+Toggle(FN, "🔥 Fire Trail",
+    function() return S.Fun.FireTrail end,
+    function(v) S.Fun.FireTrail = v end)
+
+Section(FN, "🌌 Мир")
+Toggle(FN, "🪐 Low Gravity",
+    function() return S.Fun.LowGravity end,
+    function(v)
+        S.Fun.LowGravity = v
+        Workspace.Gravity = v and 50 or DEFAULT_GRAVITY
+    end)
+
+Section(FN, "🎭 Анимации")
+Toggle(FN, "🎵 Random Emote Loop",
+    function() return S.Fun.RandomEmote end,
+    function(v) S.Fun.RandomEmote = v end)
+
+local B = Tab("🔗 Binds")
+Section(B, "⌨ Key Binds (ПК)")
+BindButton(B, "Aimbot", "🎯 Aimbot")
+BindButton(B, "ESP", "👁 ESP")
+BindButton(B, "Hitbox", "📦 Hitbox")
+BindButton(B, "Fly", "✈ Fly")
+BindButton(B, "Noclip", "👻 Noclip")
+BindButton(B, "InfiniteJump", "♾ Infinite Jump")
+Section(B, "📱 Floating Buttons (Mobile)")
+Toggle(B, "🎯 Aimbot Button",
     function() return S.MobileBtns.Aimbot == true end,
     function(v) S.MobileBtns.Aimbot = v; ToggleMobileBtn("Aimbot", v) end)
-Toggle(B, "Fly Button",
+Toggle(B, "✈ Fly Button",
     function() return S.MobileBtns.Fly == true end,
     function(v) S.MobileBtns.Fly = v; ToggleMobileBtn("Fly", v) end)
-Toggle(B, "Noclip Button",
+Toggle(B, "👻 Noclip Button",
     function() return S.MobileBtns.Noclip == true end,
     function(v) S.MobileBtns.Noclip = v; ToggleMobileBtn("Noclip", v) end)
 
@@ -760,18 +854,18 @@ Toggle(B, "Noclip Button",
 local HT = Tab("🐹 Hamster")
 
 local coinLbl = Instance.new("TextLabel")
-coinLbl.Size = UDim2.new(1,0,0,44)
+coinLbl.Size = UDim2.new(1,0,0,48)
 coinLbl.BackgroundColor3 = COL.bg2; coinLbl.BackgroundTransparency = 0.05
 coinLbl.BorderSizePixel = 0; coinLbl.LayoutOrder = -1
-coinLbl.Font = Enum.Font.GothamBold; coinLbl.TextSize = 20
+coinLbl.Font = Enum.Font.GothamBold; coinLbl.TextSize = 22
 coinLbl.TextColor3 = Color3.fromRGB(255, 215, 0)
 coinLbl.TextXAlignment = Enum.TextXAlignment.Right
-coinLbl.Text = "🪙 " .. tostring(S.Hamster.Coins)
-coinLbl.Parent = HT; corner(coinLbl, 10); stroke(coinLbl, Color3.fromRGB(255, 215, 0), 1.5)
+coinLbl.Text = "💰 " .. tostring(S.Hamster.Coins)
+coinLbl.Parent = HT; corner(coinLbl, 10); stroke(coinLbl, Color3.fromRGB(255, 215, 0), 2)
 local pad1 = Instance.new("UIPadding")
 pad1.PaddingRight = UDim.new(0, 16); pad1.Parent = coinLbl
 
-local function refreshCoin() coinLbl.Text = "🪙 " .. tostring(S.Hamster.Coins) end
+local function refreshCoin() coinLbl.Text = "💰 " .. tostring(S.Hamster.Coins) end
 AddRefresh(refreshCoin)
 
 local spamBtn = Instance.new("TextButton")
@@ -790,22 +884,22 @@ corner(spamBtn, 90)
 stroke(spamBtn, Color3.fromRGB(255, 180, 0), 3)
 
 local spamLabel = Instance.new("TextLabel")
-spamLabel.Size = UDim2.new(1,0,0,30)
+spamLabel.Size = UDim2.new(1,0,0,32)
 spamLabel.BackgroundTransparency = 1
 spamLabel.LayoutOrder = NextOrder()
-spamLabel.Text = "ЖМИ ХОМЯКА"
+spamLabel.Text = "🐹 ЖМИ ХОМЯКА 🐹"
 spamLabel.Font = Enum.Font.GothamBold
-spamLabel.TextSize = 16
+spamLabel.TextSize = 17
 spamLabel.TextColor3 = COL.accent2
 spamLabel.Parent = HT
 
 local spamInfo = Instance.new("TextLabel")
-spamInfo.Size = UDim2.new(1,0,0,30)
+spamInfo.Size = UDim2.new(1,0,0,32)
 spamInfo.BackgroundTransparency = 1
 spamInfo.LayoutOrder = NextOrder()
-spamInfo.Text = "Каждый клик = +1 🪙"
+spamInfo.Text = "💰 Каждый клик = +1 монета"
 spamInfo.Font = Enum.Font.Gotham
-spamInfo.TextSize = 12
+spamInfo.TextSize = 14
 spamInfo.TextColor3 = COL.sub
 spamInfo.Parent = HT
 
@@ -822,38 +916,38 @@ spamBtn.MouseButton1Click:Connect(function()
     task.delay(0.05, function() clickCooldown = false end)
 end)
 
-Button(HT, "Сбросить монеты", function()
+Button(HT, "🔄 Сбросить монеты", function()
     S.Hamster.Coins = 0; refreshCoin(); MarkDirty()
-    Notify("Монеты сброшены")
+    Notify("💰 Монеты сброшены")
 end, {textColor = COL.accent2})
 
 -- ============================================================
 -- SETTINGS TAB
 -- ============================================================
-local ST = Tab("Settings")
-Section(ST, "Действия")
-Button(ST, "Сбросить настройки", function()
+local ST = Tab("⚙ Settings")
+Section(ST, "🛠 Действия")
+Button(ST, "🔄 Сбросить настройки", function()
     S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25
     S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
     S.Aimbot.DistanceWeight=1
     S.ESP.Enabled=false; S.Hitbox.Enabled=false
     S.Player.Fly=false; S.Player.Noclip=false; S.Player.InfiniteJump=false
-    RefreshAll(); MarkDirty(); Notify("Настройки сброшены")
+    RefreshAll(); MarkDirty(); Notify("⚙ Настройки сброшены")
 end)
-Button(ST, "Выгрузить скрипт", function()
+Button(ST, "🚪 Выгрузить скрипт", function()
     pcall(function() getgenv().TIMON_UNLOAD() end)
 end, {color = COL.accent2, hover = Color3.fromRGB(255, 90, 200), textColor = Color3.new(1,1,1)})
 
-Section(ST, "Конфиги")
-TextBox(ST, "Имя конфига", "auto",
+Section(ST, "💾 Конфиги")
+TextBox(ST, "📝 Имя конфига", "auto",
     function() return S.ConfigName end,
     function(v) S.ConfigName = (v ~= "" and v) or "auto" end)
-Button(ST, "Сохранить (перезапись)", function()
+Button(ST, "💾 Сохранить (перезапись)", function()
     local name = S.ConfigName or "auto"
     if saveConfig(name) then
-        Notify("Сохранено: "..name)
+        Notify("💾 Сохранено: "..name)
         if RefreshCfgList then RefreshCfgList() end
-    else Notify("Ошибка") end
+    else Notify("⚠ Ошибка") end
 end)
 
 local function applyLoadedSettings()
@@ -875,28 +969,28 @@ local function applyLoadedSettings()
     MarkDirty()
 end
 
-Button(ST, "Загрузить", function()
+Button(ST, "📂 Загрузить", function()
     local name = S.ConfigName or "auto"
     if loadConfigFile(name) then
-        applyLoadedSettings(); Notify("Загружено: "..name)
-    else Notify("Не найден: "..name) end
+        applyLoadedSettings(); Notify("📂 Загружено: "..name)
+    else Notify("⚠ Не найден: "..name) end
 end)
-Button(ST, "Удалить", function()
+Button(ST, "🗑 Удалить", function()
     local name = S.ConfigName or "auto"
-    deleteConfig(name); Notify("Удалено: "..name)
+    deleteConfig(name); Notify("🗑 Удалено: "..name)
     if RefreshCfgList then RefreshCfgList() end
 end)
-Toggle(ST, "Авто-сохранение",
+Toggle(ST, "💾 Авто-сохранение",
     function() return S.AutoSave end,
     function(v) S.AutoSave = v end)
 
-Section(ST, "Доступные конфиги")
+Section(ST, "📁 Доступные конфиги")
 local cfgListLbl = Instance.new("TextLabel")
 cfgListLbl.Size = UDim2.new(1,0,0,90)
 cfgListLbl.BackgroundColor3 = COL.elem; cfgListLbl.BackgroundTransparency = 0.05
 cfgListLbl.BorderSizePixel = 0; cfgListLbl.LayoutOrder = NextOrder()
 cfgListLbl.TextColor3 = COL.sub; cfgListLbl.Font = Enum.Font.Gotham
-cfgListLbl.TextSize = 12; cfgListLbl.TextWrapped = true
+cfgListLbl.TextSize = 13; cfgListLbl.TextWrapped = true
 cfgListLbl.TextXAlignment = Enum.TextXAlignment.Left
 cfgListLbl.TextYAlignment = Enum.TextYAlignment.Top
 cfgListLbl.Parent = ST; corner(cfgListLbl, 10); stroke(cfgListLbl, COL.stroke, 1.5)
@@ -1059,7 +1153,7 @@ function CreateESP(pl)
 
     local ds = Drawing.new("Text")
     ds.Visible = false; ds.Center = true; ds.Outline = true
-    ds.Size = 12; ds.Color = Color3.fromRGB(220,220,220)
+    ds.Size = 13; ds.Color = Color3.fromRGB(230,230,230)
 
     ESPObjs[pl] = {hl = hl, name = nm, dist = ds}
 
@@ -1172,7 +1266,7 @@ end
 Players.PlayerRemoving:Connect(RemoveHitboxFor)
 
 task.spawn(function()
-    while task.wait(0.5) do
+    while task.wait(0.3) do
         if S.Hitbox.Enabled then
             for _, pl in ipairs(Players:GetPlayers()) do
                 pcall(ApplyHitbox, pl)
@@ -1198,20 +1292,56 @@ UIS.JumpRequest:Connect(function()
     end
 end)
 
--- ============================================================
--- MERGED RENDER LOOP
--- ============================================================
-local FlyBV, FlyBG
-
-RunService.RenderStepped:Connect(function(dt)
-    if S.Player.Noclip and LP.Character then
-        for _, p in ipairs(LP.Character:GetDescendants()) do
-            if p:IsA("BasePart") then p.CanCollide = false end
+-- Noclip — 10 Hz
+task.spawn(function()
+    while task.wait(0.1) do
+        if S.Player.Noclip and LP.Character then
+            for _, p in ipairs(LP.Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = false end
+            end
         end
     end
+end)
 
+-- Chat Spam — 2s
+task.spawn(function()
+    while task.wait(2) do
+        if S.Troll.ChatSpam then
+            pcall(function()
+                game:GetService("ReplicatedStorage")
+                    .DefaultChatSystemChatEvents
+                    .SayMessageRequest:FireServer(S.Troll.SpamMsg or "Timon Hub on top 🔥", "All")
+            end)
+        end
+    end
+end)
+
+-- Random Emote — 3s
+task.spawn(function()
+    while task.wait(3) do
+        if S.Fun.RandomEmote then
+            local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local emotes = {"wave", "dance", "point", "laugh", "cheer"}
+                pcall(function()
+                    hum:PlayEmote(emotes[math.random(#emotes)])
+                end)
+            end
+        end
+    end
+end)
+
+-- ============================================================
+-- RENDER LOOP (Fly + Hitbox sync + ESP per-frame + Troll/Fun)
+-- ============================================================
+local FlyBV, FlyBG
+local SpinBV, DiscoLight, FireEmitter
+
+RunService.RenderStepped:Connect(function(dt)
     local ch = LP.Character
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+
+    -- Fly
     if S.Player.Fly and hrp then
         if not FlyBV then
             FlyBV = Instance.new("BodyVelocity")
@@ -1237,6 +1367,7 @@ RunService.RenderStepped:Connect(function(dt)
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
     end
 
+    -- Hitbox CFrame sync
     if S.Hitbox.Enabled then
         for pl, e in pairs(HitboxParts) do
             local c = pl.Character
@@ -1253,6 +1384,7 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
+    -- ESP — КАЖДЫЙ КАДР
     if S.ESP.Enabled then
         for pl, d in pairs(ESPObjs) do
             local c = pl.Character
@@ -1290,6 +1422,67 @@ RunService.RenderStepped:Connect(function(dt)
             else d.dist.Visible = false end
         end
     end
+
+    -- Troll: Spin Self
+    if S.Troll.Spin and hrp then
+        if not SpinBV or not SpinBV.Parent then
+            SpinBV = Instance.new("BodyAngularVelocity")
+            SpinBV.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            SpinBV.AngularVelocity = Vector3.new(0, 30, 0)
+            SpinBV.Parent = hrp
+        end
+    elseif SpinBV then
+        SpinBV:Destroy(); SpinBV = nil
+    end
+
+    -- Troll: Invisible Self
+    if S.Troll.Invisible and ch then
+        for _, p in ipairs(ch:GetDescendants()) do
+            if p:IsA("BasePart") then p.LocalTransparencyModifier = 1
+            elseif p:IsA("Decal") then p.Transparency = 1 end
+        end
+    end
+
+    -- Fun: Rainbow Character
+    if S.Fun.Rainbow and ch then
+        local hue = tick() % 1
+        for _, p in ipairs(ch:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                p.Color = Color3.fromHSV(hue, 1, 1)
+                p.Material = Enum.Material.Neon
+            end
+        end
+    end
+
+    -- Fun: Disco Lights
+    if S.Fun.Disco and hrp then
+        if not DiscoLight or not DiscoLight.Parent then
+            DiscoLight = Instance.new("PointLight")
+            DiscoLight.Brightness = 5
+            DiscoLight.Range = 30
+            DiscoLight.Parent = hrp
+        end
+        DiscoLight.Color = Color3.fromHSV(tick() % 1, 1, 1)
+    elseif DiscoLight then
+        DiscoLight:Destroy(); DiscoLight = nil
+    end
+
+    -- Fun: Fire Trail
+    if S.Fun.FireTrail and hrp then
+        if not FireEmitter or not FireEmitter.Parent then
+            FireEmitter = Instance.new("ParticleEmitter")
+            FireEmitter.Texture = "rbxasset://textures/particles/fire_main.dds"
+            FireEmitter.Rate = 50
+            FireEmitter.Lifetime = NumberRange.new(0.5, 1)
+            FireEmitter.Speed = NumberRange.new(2, 5)
+            FireEmitter.Size = NumberSequence.new(1, 0)
+            FireEmitter.Color = ColorSequence.new(Color3.fromRGB(255, 100, 0),
+                Color3.fromRGB(255, 200, 0))
+            FireEmitter.Parent = hrp
+        end
+    elseif FireEmitter then
+        FireEmitter:Destroy(); FireEmitter = nil
+    end
 end)
 
 -- ============================================================
@@ -1299,7 +1492,7 @@ local Actions = {}
 Actions.Aimbot = function()
     S.Aimbot.Enabled = not S.Aimbot.Enabled; RefreshAll(); MarkDirty()
     if not S.Aimbot.Enabled then StickyTarget = nil end
-    Notify("Aimbot: "..tostring(S.Aimbot.Enabled))
+    Notify("🎯 Aimbot: "..tostring(S.Aimbot.Enabled))
 end
 Actions.ESP = function()
     S.ESP.Enabled = not S.ESP.Enabled; RefreshAll(); MarkDirty()
@@ -1310,18 +1503,18 @@ Actions.ESP = function()
     else
         for p in pairs(ESPObjs) do RemoveESP(p) end
     end
-    Notify("ESP: "..tostring(S.ESP.Enabled))
+    Notify("👁 ESP: "..tostring(S.ESP.Enabled))
 end
 Actions.Hitbox = function()
     S.Hitbox.Enabled = not S.Hitbox.Enabled; RefreshAll(); MarkDirty()
     if S.Hitbox.Enabled then
         for _, pl in ipairs(Players:GetPlayers()) do pcall(ApplyHitbox, pl) end
     else ClearAllHitboxes() end
-    Notify("Hitbox: "..tostring(S.Hitbox.Enabled))
+    Notify("📦 Hitbox: "..tostring(S.Hitbox.Enabled))
 end
 Actions.Fly = function()
     S.Player.Fly = not S.Player.Fly; RefreshAll(); MarkDirty()
-    Notify("Fly: "..tostring(S.Player.Fly))
+    Notify("✈ Fly: "..tostring(S.Player.Fly))
 end
 Actions.Noclip = function()
     S.Player.Noclip = not S.Player.Noclip; RefreshAll(); MarkDirty()
@@ -1330,11 +1523,11 @@ Actions.Noclip = function()
             if p:IsA("BasePart") then p.CanCollide = true end
         end
     end
-    Notify("Noclip: "..tostring(S.Player.Noclip))
+    Notify("👻 Noclip: "..tostring(S.Player.Noclip))
 end
 Actions.InfiniteJump = function()
     S.Player.InfiniteJump = not S.Player.InfiniteJump; RefreshAll(); MarkDirty()
-    Notify("InfJump: "..tostring(S.Player.InfiniteJump))
+    Notify("♾ InfJump: "..tostring(S.Player.InfiniteJump))
 end
 
 UIS.InputBegan:Connect(function(input, gp)
@@ -1345,7 +1538,7 @@ UIS.InputBegan:Connect(function(input, gp)
             S.Binds[action] = input.KeyCode
             if BindRefreshers[action] then BindRefreshers[action]() end
             MarkDirty()
-            Notify("Bind: "..action.." → "..tostring(input.KeyCode):gsub("Enum.KeyCode.",""))
+            Notify("🔗 Bind: "..action.." → "..tostring(input.KeyCode):gsub("Enum.KeyCode.",""))
         end
         return
     end
@@ -1368,12 +1561,12 @@ function ToggleMobileBtn(action, show)
     end
     if not show then return end
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0,56,0,56)
+    b.Size = UDim2.new(0,58,0,58)
     b.Position = UDim2.new(0,20,0.5,0)
     b.BackgroundColor3 = COL.bg2; b.BackgroundTransparency = 0.1
     b.TextColor3 = COL.accent2; b.Font = Enum.Font.GothamBold
     b.TextSize = 11; b.Text = action; b.BorderSizePixel = 0
-    b.Parent = ScreenGui; corner(b, 28); stroke(b, COL.accent2, 2)
+    b.Parent = ScreenGui; corner(b, 29); stroke(b, COL.accent2, 2)
     MakeDraggable(b, b)
     local active = false
     b.MouseButton1Click:Connect(function()
@@ -1385,12 +1578,12 @@ function ToggleMobileBtn(action, show)
 end
 
 local OpenBtn = Instance.new("TextButton")
-OpenBtn.Size = UDim2.new(0,50,0,50)
+OpenBtn.Size = UDim2.new(0,52,0,52)
 OpenBtn.Position = UDim2.new(0,20,1,-80)
 OpenBtn.BackgroundColor3 = COL.bg2; OpenBtn.BackgroundTransparency = 0.1
 OpenBtn.TextColor3 = COL.accent2; OpenBtn.Font = Enum.Font.GothamBold
-OpenBtn.TextSize = 11; OpenBtn.Text = "Timon"; OpenBtn.BorderSizePixel = 0
-OpenBtn.Parent = ScreenGui; corner(OpenBtn, 25); stroke(OpenBtn, COL.accent2, 2)
+OpenBtn.TextSize = 13; OpenBtn.Text = "⚡"; OpenBtn.BorderSizePixel = 0
+OpenBtn.Parent = ScreenGui; corner(OpenBtn, 26); stroke(OpenBtn, COL.accent2, 2)
 MakeDraggable(OpenBtn, OpenBtn)
 OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
 
@@ -1400,8 +1593,8 @@ OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end
 for _, t in pairs(TabScrolls) do
     t.scroll.Visible = false; t.btn.BackgroundColor3 = COL.elem
 end
-TabScrolls["Aimbot"].scroll.Visible = true
-TabScrolls["Aimbot"].btn.BackgroundColor3 = COL.accent
+TabScrolls["🎯 Aimbot"].scroll.Visible = true
+TabScrolls["🎯 Aimbot"].btn.BackgroundColor3 = COL.accent
 
 task.spawn(function()
     while task.wait(2) do
@@ -1427,8 +1620,12 @@ getgenv().TIMON_UNLOAD = function()
     ClearAllHitboxes()
     pcall(function() fovCircle:Remove() end)
     pcall(function() RunService:UnbindFromRenderStep("TIMON_AIM") end)
+    if SpinBV then pcall(function() SpinBV:Destroy() end) end
+    if DiscoLight then pcall(function() DiscoLight:Destroy() end) end
+    if FireEmitter then pcall(function() FireEmitter:Destroy() end) end
+    Workspace.Gravity = DEFAULT_GRAVITY
     StickyTarget = nil
     getgenv().TIMON_LOADED = false
 end
 
-Notify("Timon Hub v2.5 · Hybrid Targeting готов")
+Notify("⚡ Timon Hub v2.7 · Troll & Fun готовы")
