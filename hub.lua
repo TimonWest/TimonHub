@@ -1,5 +1,5 @@
 -- ============================================================================
--- UNIVERSAL ROBLOX EXECUTOR SCRIPT (PC & MOBILE)
+-- UNIVERSAL ROBLOX EXECUTOR SCRIPT (PC & MOBILE) - FULLY FEATURED
 -- ============================================================================
 
 if getgenv().TWKS_LOADED then
@@ -21,7 +21,7 @@ getgenv().TWKS_LOADED = true
 local Settings = {
     Aimbot = {
         Enabled = false,
-        Mode = "Cursor", -- Cursor, Mobile
+        Mode = "Cursor",
         Smoothness = 0.2,
         FOV = 100,
         TargetPart = "Head",
@@ -106,7 +106,7 @@ local function Notify(text)
     end)
 end
 
-Notify("TWKS Loaded Successfully")
+Notify("TWKS Fully Loaded")
 
 -- ============================ AIMBOT ============================
 local function GetClosestPlayer()
@@ -354,25 +354,11 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ============================ BINDS & INPUT ============================
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed then
-        if input.KeyCode == Settings.Aimbot.Key then
-            Settings.Aimbot.Enabled = not Settings.Aimbot.Enabled
-            Notify("Aimbot: " .. tostring(Settings.Aimbot.Enabled))
-        elseif input.KeyCode == Enum.KeyCode.LeftAlt then
-            if ScreenGui:FindFirstChild("MainFrame") then
-                ScreenGui.MainFrame.Visible = not ScreenGui.MainFrame.Visible
-            end
-        end
-    end
-end)
-
 -- ============================ MENU (GUI) ============================
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 500, 0, 350)
-MainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
+MainFrame.Size = UDim2.new(0, 520, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -260, 0.5, -190)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 15, 30)
 MainFrame.BackgroundTransparency = 0.15
 MainFrame.BorderSizePixel = 0
@@ -390,7 +376,7 @@ UIStroke.Thickness = 1.5
 UIStroke.Parent = MainFrame
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -40, 0, 35)
+Title.Size = UDim2.new(1, -50, 0, 40)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
 Title.TextColor3 = Color3.fromRGB(255, 20, 147)
@@ -402,16 +388,158 @@ Title.Parent = MainFrame
 
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -35, 0, 2)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
 CloseBtn.BackgroundTransparency = 1
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.TextSize = 18
+CloseBtn.TextSize = 20
 CloseBtn.Font = Enum.Font.SourceSansBold
 CloseBtn.Text = "×"
 CloseBtn.Parent = MainFrame
 
 CloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
+end)
+
+-- Sidebar Tabs
+local Sidebar = Instance.new("ScrollingFrame")
+Sidebar.Size = UDim2.new(0, 120, 1, -50)
+Sidebar.Position = UDim2.new(0, 10, 0, 40)
+Sidebar.BackgroundTransparency = 1
+Sidebar.BorderSizePixel = 0
+Sidebar.CanvasSize = UDim2.new(0, 0, 0, 300)
+Sidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Sidebar.ScrollBarThickness = 2
+Sidebar.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 6)
+UIListLayout.Parent = Sidebar
+
+-- Content Container
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Size = UDim2.new(1, -145, 1, -50)
+ContentContainer.Position = UDim2.new(0, 135, 0, 40)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.Parent = MainFrame
+
+local Pages = {}
+
+local function CreatePage(name)
+    local page = Instance.new("ScrollingFrame")
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.Visible = false
+    page.CanvasSize = UDim2.new(0, 0, 0, 500)
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.ScrollBarThickness = 4
+    page.Parent = ContentContainer
+
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 10)
+    layout.Parent = page
+
+    Pages[name] = page
+    return page
+end
+
+-- Tabs creation
+local tabNames = {"Aimbot", "ESP", "Hitbox", "Player", "Settings"}
+local firstTab = true
+for _, tName in ipairs(tabNames) do
+    local page = CreatePage(tName)
+    
+    local tabBtn = Instance.new("TextButton")
+    tabBtn.Size = UDim2.new(1, 0, 0, 35)
+    tabBtn.BackgroundColor3 = Color3.fromRGB(40, 30, 60)
+    tabBtn.BackgroundTransparency = firstTab and 0.2 or 0.6
+    tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tabBtn.TextSize = 14
+    tabBtn.Font = Enum.Font.SourceSansBold
+    tabBtn.Text = tName
+    tabBtn.Parent = Sidebar
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = tabBtn
+
+    if firstTab then
+        page.Visible = true
+        firstTab = false
+    end
+
+    tabBtn.MouseButton1Click:Connect(function()
+        for _, p in pairs(Pages) do p.Visible = false end
+        for _, b in pairs(Sidebar:GetChildren()) do
+            if b:IsA("TextButton") then b.BackgroundTransparency = 0.6 end
+        end
+        page.Visible = true
+        tabBtn.BackgroundTransparency = 0.2
+    end)
+end
+
+-- Helper to add Toggles
+local function AddToggle(page, text, state, callback)
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(1, -10, 0, 35)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 45)
+    toggleBtn.BackgroundTransparency = 0.3
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleBtn.TextSize = 14
+    toggleBtn.Font = Enum.Font.SourceSans
+    toggleBtn.TextXAlignment = Enum.TextXAlignment.Left
+    toggleBtn.Text = "  " .. text .. ": " .. (state and "ON" or "OFF")
+    toggleBtn.Parent = page
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = toggleBtn
+
+    toggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        toggleBtn.Text = "  " .. text .. ": " .. (state and "ON" or "OFF")
+        callback(state)
+    end)
+end
+
+-- Populate Aimbot Page
+AddToggle(Pages.Aimbot, "Aimbot Enabled", Settings.Aimbot.Enabled, function(v) Settings.Aimbot.Enabled = v end)
+AddToggle(Pages.Aimbot, "Team Check", Settings.Aimbot.TeamCheck, function(v) Settings.Aimbot.TeamCheck = v end)
+AddToggle(Pages.Aimbot, "Visible Check", Settings.Aimbot.VisibleCheck, function(v) Settings.Aimbot.VisibleCheck = v end)
+
+-- Populate ESP Page
+AddToggle(Pages.ESP, "ESP Enabled", Settings.ESP.Enabled, function(v) Settings.ESP.Enabled = v end)
+AddToggle(Pages.ESP, "Draw Boxes", Settings.ESP.Boxes, function(v) Settings.ESP.Boxes = v end)
+AddToggle(Pages.ESP, "Show Names", Settings.ESP.Names, function(v) Settings.ESP.Names = v end)
+AddToggle(Pages.ESP, "Show Distance", Settings.ESP.Distance, function(v) Settings.ESP.Distance = v end)
+
+-- Populate Hitbox Page
+AddToggle(Pages.Hitbox, "Hitbox Expander", Settings.Hitbox.Enabled, function(v) Settings.Hitbox.Enabled = v end)
+
+-- Populate Player Page
+AddToggle(Pages.Player, "Fly", Settings.Player.Fly, function(v) Settings.Player.Fly = v end)
+AddToggle(Pages.Player, "Infinite Jump", Settings.Player.InfiniteJump, function(v) Settings.Player.InfiniteJump = v end)
+AddToggle(Pages.Player, "Noclip", Settings.Player.Noclip, function(v) Settings.Player.Noclip = v end)
+
+-- Populate Settings Page
+local unloadBtn = Instance.new("TextButton")
+unloadBtn.Size = UDim2.new(1, -10, 0, 35)
+unloadBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 50)
+unloadBtn.BackgroundTransparency = 0.3
+unloadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+unloadBtn.TextSize = 14
+unloadBtn.Font = Enum.Font.SourceSansBold
+unloadBtn.Text = "Unload Script"
+unloadBtn.Parent = Pages.Settings
+
+local uc = Instance.new("UICorner")
+uc.CornerRadius = UDim.new(0, 6)
+uc.Parent = unloadBtn
+
+unloadBtn.MouseButton1Click:Connect(function()
+    pcall(function() getgenv().TWKS_UNLOAD() end)
 end)
 
 -- Accent animation
@@ -445,6 +573,14 @@ MobileBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
+-- Keybind to toggle menu
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.LeftAlt then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
 getgenv().TWKS_UNLOAD = function()
     ScreenGui:Destroy()
+    getgenv().TWKS_LOADED = false
 end
