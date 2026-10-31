@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v2.8 — Adaptive UI + NPC Hitbox + Frame Highlight
+-- TIMON HUB v2.9 — Scrollable Tabs + Mobile Fly + Zero Gravity + Fling
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -12,6 +12,7 @@ local Tween       = game:GetService("TweenService")
 local CoreGui     = game:GetService("CoreGui")
 local Workspace   = game:GetService("Workspace")
 local HttpService = game:GetService("HttpService")
+local Debris      = game:GetService("Debris")
 
 local LP = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -46,11 +47,14 @@ local S = {
     },
     Player = {
         Fly = false, FlySpeed = 50,
+        MobileFly = false,
         WalkSpeed = 16, JumpPower = 50,
-        InfiniteJump = false, Noclip = false
+        InfiniteJump = false, Noclip = false,
+        ZeroGravity = false
     },
     Troll = {
-        Spin = false, Invisible = false, ChatSpam = false
+        Spin = false, Invisible = false, ChatSpam = false,
+        InvisibleFling = false, AntiFling = false
     },
     Fun = {
         Rainbow = false, Disco = false, LowGravity = false,
@@ -61,6 +65,16 @@ local S = {
     AutoSave = true, ConfigName = "auto"
 }
 getgenv().TIMON_SETTINGS = S
+
+local function applyGravity()
+    if S.Player.ZeroGravity then
+        Workspace.Gravity = 0
+    elseif S.Fun.LowGravity then
+        Workspace.Gravity = 50
+    else
+        Workspace.Gravity = DEFAULT_GRAVITY
+    end
+end
 
 -- ============================================================
 -- COLORS + HELPERS
@@ -236,9 +250,6 @@ local function Notify(txt)
     end)
 end
 
--- ============================================================
--- REFRESHERS
--- ============================================================
 local Refreshers = {}
 local function AddRefresh(fn) table.insert(Refreshers, fn) end
 local function RefreshAll() for _, fn in ipairs(Refreshers) do pcall(fn) end end
@@ -520,7 +531,7 @@ local function BindButton(parent, action, name)
 end
 
 -- ============================================================
--- ADAPTIVE MAIN FRAME (PC / Mobile)
+-- ADAPTIVE MAIN FRAME
 -- ============================================================
 local IsMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
@@ -552,14 +563,13 @@ local function ApplyMainSize()
     Main.Position = UDim2.new(0.5, -finalW * scale / 2, 0.5, -finalH * scale / 2)
     UIScale.Scale = scale
 end
-
 ApplyMainSize()
 pcall(function()
     Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(ApplyMainSize)
 end)
 
 -- ============================================================
--- TITLE BAR + TABS LAYOUT
+-- TITLE BAR
 -- ============================================================
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1,0,0,40)
@@ -571,7 +581,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v2.8"
+TitleLbl.Text = "⚡ TIMON HUB · v2.9"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -585,18 +595,29 @@ corner(CloseBtn, 8)
 CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
 MakeDraggable(Main, TitleBar)
 
-local Left = Instance.new("Frame")
-Left.Size = UDim2.new(0,150,1,-52)
-Left.Position = UDim2.new(0,10,0,48)
-Left.BackgroundColor3 = COL.bg2; Left.BackgroundTransparency = 0.05
-Left.BorderSizePixel = 0; Left.Parent = Main
+-- ============================================================
+-- LEFT PANEL — SCROLLING FRAME
+-- ============================================================
+local Left = Instance.new("ScrollingFrame")
+Left.Size = UDim2.new(0, 150, 1, -52)
+Left.Position = UDim2.new(0, 10, 0, 48)
+Left.BackgroundColor3 = COL.bg2
+Left.BackgroundTransparency = 0.05
+Left.BorderSizePixel = 0
+Left.ScrollBarThickness = 4
+Left.ScrollBarImageColor3 = COL.accent2
+Left.CanvasSize = UDim2.new(0, 0, 0, 0)
+Left.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Left.ScrollingDirection = Enum.ScrollingDirection.Y
+Left.Parent = Main
 corner(Left, 12)
 local LL = Instance.new("UIListLayout")
-LL.Padding = UDim.new(0,4); LL.SortOrder = Enum.SortOrder.LayoutOrder
+LL.Padding = UDim.new(0, 4); LL.SortOrder = Enum.SortOrder.LayoutOrder
 LL.Parent = Left
 local LP2 = Instance.new("UIPadding")
-LP2.PaddingTop = UDim.new(0,8); LP2.PaddingLeft = UDim.new(0,6)
-LP2.PaddingRight = UDim.new(0,6); LP2.Parent = Left
+LP2.PaddingTop = UDim.new(0, 8); LP2.PaddingLeft = UDim.new(0, 6)
+LP2.PaddingRight = UDim.new(0, 6); LP2.PaddingBottom = UDim.new(0, 8)
+LP2.Parent = Left
 
 local Right = Instance.new("Frame")
 Right.Size = UDim2.new(1,-172,1,-52)
@@ -773,13 +794,45 @@ Toggle(P, "♾ Infinite Jump",
 Toggle(P, "👻 Noclip",
     function() return S.Player.Noclip end,
     function(v) S.Player.Noclip = v end)
-Section(P, "✈ Fly")
+
+Section(P, "✈ PC Fly (WASD)")
 Toggle(P, "✈ Fly",
     function() return S.Player.Fly end,
-    function(v) S.Player.Fly = v end)
+    function(v)
+        S.Player.Fly = v
+        if v and S.Player.MobileFly then
+            S.Player.MobileFly = false
+            if MobileFlyBV then MobileFlyBV:Destroy(); MobileFlyBV = nil end
+            if MobileFlyBG then MobileFlyBG:Destroy(); MobileFlyBG = nil end
+        end
+    end)
 Slider(P, "🚀 Fly Speed", 10, 300,
     function() return S.Player.FlySpeed end,
     function(v) S.Player.FlySpeed = v end)
+
+Section(P, "📱 Mobile Fly")
+Toggle(P, "📱 Mobile Fly",
+    function() return S.Player.MobileFly end,
+    function(v)
+        S.Player.MobileFly = v
+        if v and S.Player.Fly then
+            S.Player.Fly = false
+            if FlyBV then FlyBV:Destroy(); FlyBV = nil end
+            if FlyBG then FlyBG:Destroy(); FlyBG = nil end
+        end
+        if not v and MobileFlyBV then
+            MobileFlyBV:Destroy(); MobileFlyBV = nil
+            if MobileFlyBG then MobileFlyBG:Destroy(); MobileFlyBG = nil end
+        end
+    end)
+
+Section(P, "🌌 Gravity")
+Toggle(P, "🌌 Zero Gravity",
+    function() return S.Player.ZeroGravity end,
+    function(v)
+        S.Player.ZeroGravity = v
+        applyGravity()
+    end)
 
 -- ============================================================
 -- TROLL TAB
@@ -825,6 +878,33 @@ Button(T, "🥷 Strip Accessories", function()
     end
 end)
 
+Section(T, "💥 Fling")
+Toggle(T, "🌫 Invisible Fling",
+    function() return S.Troll.InvisibleFling end,
+    function(v)
+        S.Troll.InvisibleFling = v
+        if not v and LP.Character then
+            for _, p in ipairs(LP.Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.Transparency = 0 end
+                if p:IsA("Decal") then p.Transparency = 0 end
+            end
+        end
+    end)
+Toggle(T, "🛡 Anti-Fling",
+    function() return S.Troll.AntiFling end,
+    function(v)
+        S.Troll.AntiFling = v
+        if not v then
+            for _, pl in pairs(Players:GetPlayers()) do
+                if pl ~= LP and pl.Character then
+                    for _, part in ipairs(pl.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = true end
+                    end
+                end
+            end
+        end
+    end)
+
 Section(T, "💬 Чат")
 Toggle(T, "💬 Chat Spam",
     function() return S.Troll.ChatSpam end,
@@ -862,21 +942,29 @@ Toggle(FN, "🪐 Low Gravity",
     function() return S.Fun.LowGravity end,
     function(v)
         S.Fun.LowGravity = v
-        Workspace.Gravity = v and 50 or DEFAULT_GRAVITY
+        applyGravity()
     end)
 Section(FN, "🎭 Анимации")
 Toggle(FN, "🎵 Random Emote Loop",
     function() return S.Fun.RandomEmote end,
     function(v) S.Fun.RandomEmote = v end)
 
+-- ============================================================
+-- BINDS TAB
+-- ============================================================
 local B = Tab("🔗 Binds")
 Section(B, "⌨ Key Binds (ПК)")
 BindButton(B, "Aimbot", "🎯 Aimbot")
 BindButton(B, "ESP", "👁 ESP")
 BindButton(B, "Hitbox", "📦 Hitbox")
 BindButton(B, "Fly", "✈ Fly")
+BindButton(B, "MobileFly", "📱 Mobile Fly")
 BindButton(B, "Noclip", "👻 Noclip")
 BindButton(B, "InfiniteJump", "♾ Infinite Jump")
+BindButton(B, "ZeroGravity", "🌌 Zero Gravity")
+BindButton(B, "InvisibleFling", "🌫 Invisible Fling")
+BindButton(B, "AntiFling", "🛡 Anti-Fling")
+
 Section(B, "📱 Floating Buttons (Mobile)")
 Toggle(B, "🎯 Aimbot Button",
     function() return S.MobileBtns.Aimbot == true end,
@@ -884,9 +972,21 @@ Toggle(B, "🎯 Aimbot Button",
 Toggle(B, "✈ Fly Button",
     function() return S.MobileBtns.Fly == true end,
     function(v) S.MobileBtns.Fly = v; ToggleMobileBtn("Fly", v) end)
+Toggle(B, "📱 Mobile Fly Button",
+    function() return S.MobileBtns.MobileFly == true end,
+    function(v) S.MobileBtns.MobileFly = v; ToggleMobileBtn("MobileFly", v) end)
 Toggle(B, "👻 Noclip Button",
     function() return S.MobileBtns.Noclip == true end,
     function(v) S.MobileBtns.Noclip = v; ToggleMobileBtn("Noclip", v) end)
+Toggle(B, "🌌 Zero Gravity Button",
+    function() return S.MobileBtns.ZeroGravity == true end,
+    function(v) S.MobileBtns.ZeroGravity = v; ToggleMobileBtn("ZeroGravity", v) end)
+Toggle(B, "🌫 Invisible Fling Button",
+    function() return S.MobileBtns.InvisibleFling == true end,
+    function(v) S.MobileBtns.InvisibleFling = v; ToggleMobileBtn("InvisibleFling", v) end)
+Toggle(B, "🛡 Anti-Fling Button",
+    function() return S.MobileBtns.AntiFling == true end,
+    function(v) S.MobileBtns.AntiFling = v; ToggleMobileBtn("AntiFling", v) end)
 
 -- ============================================================
 -- HAMSTER TAB
@@ -972,7 +1072,11 @@ Button(ST, "🔄 Сбросить настройки", function()
     S.Aimbot.DistanceWeight=1
     S.ESP.Enabled=false; S.Hitbox.Enabled=false
     S.Hitbox.NPCSupport=false
-    S.Player.Fly=false; S.Player.Noclip=false; S.Player.InfiniteJump=false
+    S.Player.Fly=false; S.Player.MobileFly=false
+    S.Player.Noclip=false; S.Player.InfiniteJump=false
+    S.Player.ZeroGravity=false
+    S.Troll.InvisibleFling=false; S.Troll.AntiFling=false
+    applyGravity()
     RefreshAll(); MarkDirty(); Notify("⚙ Настройки сброшены")
 end)
 Button(ST, "🚪 Выгрузить скрипт", function()
@@ -1014,6 +1118,7 @@ local function applyLoadedSettings()
     for action, state in pairs(S.MobileBtns) do
         ToggleMobileBtn(action, state)
     end
+    applyGravity()
     MarkDirty()
 end
 
@@ -1231,7 +1336,7 @@ end)
 Players.PlayerRemoving:Connect(RemoveESP)
 
 -- ============================================================
--- HITBOX (Players)
+-- HITBOX (Players + NPC)
 -- ============================================================
 local HitboxParts = {}
 
@@ -1280,529 +1385,3 @@ local function ApplyHitbox(pl)
         if torso then
             entry.body.Size = Vector3.new(S.Hitbox.BodySize, S.Hitbox.BodySize, S.Hitbox.BodySize)
             entry.body.CFrame = torso.CFrame
-            entry.body.Color = S.Hitbox.Color
-            entry.body.Transparency = S.Hitbox.Transparency
-        end
-    elseif entry.body then
-        entry.body:Destroy(); entry.body = nil
-    end
-end
-
-local function RemoveHitboxFor(pl)
-    local e = HitboxParts[pl]
-    if e then
-        if e.head and e.head.Parent then e.head:Destroy() end
-        if e.body and e.body.Parent then e.body:Destroy() end
-        HitboxParts[pl] = nil
-    end
-end
-
-function ClearAllHitboxes()
-    for pl in pairs(HitboxParts) do RemoveHitboxFor(pl) end
-    HitboxParts = {}
-end
-
-function RefreshHitboxes()
-    ClearAllHitboxes()
-    if S.Hitbox.Enabled then
-        for _, pl in ipairs(Players:GetPlayers()) do
-            pcall(ApplyHitbox, pl)
-        end
-    end
-end
-
-Players.PlayerRemoving:Connect(RemoveHitboxFor)
-
-task.spawn(function()
-    while task.wait(0.3) do
-        if S.Hitbox.Enabled then
-            for _, pl in ipairs(Players:GetPlayers()) do
-                pcall(ApplyHitbox, pl)
-            end
-        end
-    end
-end)
-
--- ============================================================
--- NPC HITBOX
--- ============================================================
-local NPCCache = {}
-local NPCHitboxes = {}
-
-local function isPlayerCharacter(model)
-    return Players:GetPlayerFromCharacter(model) ~= nil
-end
-
-local function isNPC(model)
-    if not model or not model.Parent then return false end
-    if not model:IsA("Model") then return false end
-    if isPlayerCharacter(model) then return false end
-    local hum = model:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return false end
-    if not model:FindFirstChild("HumanoidRootPart")
-       and not model:FindFirstChild("Torso") then return false end
-    return true
-end
-
-function refreshNPCCache()
-    local newCache = {}
-    local function scanFolder(folder)
-        for _, child in ipairs(folder:GetChildren()) do
-            if child:IsA("Model") and isNPC(child) then
-                newCache[child] = true
-            elseif child:IsA("Folder") then
-                scanFolder(child)
-            end
-        end
-    end
-    scanFolder(Workspace)
-    NPCCache = newCache
-end
-
-function ApplyNPCHitbox(model)
-    if not model or not model.Parent then return end
-    if isPlayerCharacter(model) then return end
-
-    local entry = NPCHitboxes[model]
-    if not entry then entry = {head = nil, body = nil}; NPCHitboxes[model] = entry end
-
-    if S.Hitbox.HeadEnabled then
-        if not entry.head or not entry.head.Parent then
-            entry.head = createHitboxPart("NPCHead")
-        end
-        local head = model:FindFirstChild("Head")
-        if head then
-            entry.head.Size = Vector3.new(S.Hitbox.HeadSize, S.Hitbox.HeadSize, S.Hitbox.HeadSize)
-            entry.head.CFrame = head.CFrame
-            entry.head.Color = S.Hitbox.Color
-            entry.head.Transparency = S.Hitbox.Transparency
-        end
-    elseif entry.head then
-        entry.head:Destroy(); entry.head = nil
-    end
-
-    if S.Hitbox.BodyEnabled then
-        if not entry.body or not entry.body.Parent then
-            entry.body = createHitboxPart("NPCBody")
-        end
-        local torso = model:FindFirstChild("UpperTorso")
-            or model:FindFirstChild("Torso")
-            or model:FindFirstChild("HumanoidRootPart")
-        if torso then
-            entry.body.Size = Vector3.new(S.Hitbox.BodySize, S.Hitbox.BodySize, S.Hitbox.BodySize)
-            entry.body.CFrame = torso.CFrame
-            entry.body.Color = S.Hitbox.Color
-            entry.body.Transparency = S.Hitbox.Transparency
-        end
-    elseif entry.body then
-        entry.body:Destroy(); entry.body = nil
-    end
-end
-
-function ClearAllNPCHitboxes()
-    for model, e in pairs(NPCHitboxes) do
-        if e.head and e.head.Parent then e.head:Destroy() end
-        if e.body and e.body.Parent then e.body:Destroy() end
-    end
-    NPCHitboxes = {}
-    NPCCache = {}
-end
-
-local function RemoveNPCHitbox(model)
-    local e = NPCHitboxes[model]
-    if e then
-        if e.head and e.head.Parent then e.head:Destroy() end
-        if e.body and e.body.Parent then e.body:Destroy() end
-        NPCHitboxes[model] = nil
-    end
-end
-
-task.spawn(function()
-    while task.wait(1) do
-        if S.Hitbox.NPCSupport then
-            refreshNPCCache()
-            for model in pairs(NPCCache) do
-                pcall(ApplyNPCHitbox, model)
-            end
-            for model in pairs(NPCHitboxes) do
-                if not model.Parent or not NPCCache[model] then
-                    RemoveNPCHitbox(model)
-                end
-            end
-        end
-    end
-end)
-
--- ============================================================
--- PLAYER MODS
--- ============================================================
-RunService.Heartbeat:Connect(function()
-    local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.WalkSpeed = S.Player.WalkSpeed
-        hum.JumpPower = S.Player.JumpPower
-    end
-end)
-UIS.JumpRequest:Connect(function()
-    if S.Player.InfiniteJump then
-        local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end)
-
--- Noclip — 10 Hz
-task.spawn(function()
-    while task.wait(0.1) do
-        if S.Player.Noclip and LP.Character then
-            for _, p in ipairs(LP.Character:GetDescendants()) do
-                if p:IsA("BasePart") then p.CanCollide = false end
-            end
-        end
-    end
-end)
-
--- Chat Spam — 2s
-task.spawn(function()
-    while task.wait(2) do
-        if S.Troll.ChatSpam then
-            pcall(function()
-                game:GetService("ReplicatedStorage")
-                    .DefaultChatSystemChatEvents
-                    .SayMessageRequest:FireServer(S.Troll.SpamMsg or "Timon Hub on top 🔥", "All")
-            end)
-        end
-    end
-end)
-
--- Random Emote — 3s
-task.spawn(function()
-    while task.wait(3) do
-        if S.Fun.RandomEmote then
-            local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                local emotes = {"wave", "dance", "point", "laugh", "cheer"}
-                pcall(function()
-                    hum:PlayEmote(emotes[math.random(#emotes)])
-                end)
-            end
-        end
-    end
-end)
-
--- ============================================================
--- RENDER LOOP (Fly + Hitbox sync + ESP + NPC Hitbox + Troll/Fun)
--- ============================================================
-local FlyBV, FlyBG
-local SpinBV, DiscoLight, FireEmitter
-
-RunService.RenderStepped:Connect(function(dt)
-    local ch = LP.Character
-    local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
-
-    -- Fly
-    if S.Player.Fly and hrp then
-        if not FlyBV then
-            FlyBV = Instance.new("BodyVelocity")
-            FlyBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            FlyBV.Parent = hrp
-        end
-        if not FlyBG then
-            FlyBG = Instance.new("BodyGyro")
-            FlyBG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            FlyBG.Parent = hrp
-        end
-        local dir = Vector3.new()
-        if UIS:IsKeyDown(Enum.KeyCode.W) then dir += Camera.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= Camera.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= Camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then dir += Camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
-        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir -= Vector3.new(0,1,0) end
-        FlyBV.Velocity = dir * S.Player.FlySpeed
-        FlyBG.CFrame = Camera.CFrame
-    elseif FlyBV then
-        FlyBV:Destroy(); FlyBV = nil
-        if FlyBG then FlyBG:Destroy(); FlyBG = nil end
-    end
-
-    -- Hitbox CFrame sync (Players)
-    if S.Hitbox.Enabled then
-        for pl, e in pairs(HitboxParts) do
-            local c = pl.Character
-            if c then
-                if e.head then
-                    local h = c:FindFirstChild("Head")
-                    if h then e.head.CFrame = h.CFrame end
-                end
-                if e.body then
-                    local t = c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso")
-                    if t then e.body.CFrame = t.CFrame end
-                end
-            end
-        end
-    end
-
-    -- NPC hitbox CFrame sync
-    if S.Hitbox.NPCSupport then
-        for model, e in pairs(NPCHitboxes) do
-            if model.Parent then
-                if e.head then
-                    local h = model:FindFirstChild("Head")
-                    if h then e.head.CFrame = h.CFrame end
-                end
-                if e.body then
-                    local t = model:FindFirstChild("UpperTorso")
-                        or model:FindFirstChild("Torso")
-                        or model:FindFirstChild("HumanoidRootPart")
-                    if t then e.body.CFrame = t.CFrame end
-                end
-            end
-        end
-    end
-
-    -- ESP — каждый кадр
-    if S.ESP.Enabled then
-        for pl, d in pairs(ESPObjs) do
-            local c = pl.Character
-            if not c then
-                d.name.Visible = false; d.dist.Visible = false
-                if d.hl then d.hl.Enabled = false end
-                continue
-            end
-            if d.hl then
-                d.hl.Enabled = true
-                if d.hl.Adornee ~= c then d.hl.Adornee = c end
-            end
-            local head = c:FindFirstChild("Head")
-            local root = c:FindFirstChild("HumanoidRootPart")
-            if not head or not root then
-                d.name.Visible = false; d.dist.Visible = false
-                continue
-            end
-            local top = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 1, 0))
-            if top.Z < 0 then
-                d.name.Visible = false; d.dist.Visible = false
-                continue
-            end
-            if S.ESP.ShowName then
-                d.name.Text = pl.Name
-                d.name.Position = Vector2.new(top.X, top.Y - 20)
-                d.name.Color = S.ESP.OutlineColor
-                d.name.Visible = true
-            else d.name.Visible = false end
-            if S.ESP.ShowDistance then
-                local dist = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
-                d.dist.Text = dist .. "m"
-                d.dist.Position = Vector2.new(top.X, top.Y - 4)
-                d.dist.Visible = true
-            else d.dist.Visible = false end
-        end
-    end
-
-    -- Troll: Spin Self
-    if S.Troll.Spin and hrp then
-        if not SpinBV or not SpinBV.Parent then
-            SpinBV = Instance.new("BodyAngularVelocity")
-            SpinBV.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            SpinBV.AngularVelocity = Vector3.new(0, 30, 0)
-            SpinBV.Parent = hrp
-        end
-    elseif SpinBV then
-        SpinBV:Destroy(); SpinBV = nil
-    end
-
-    -- Troll: Invisible Self
-    if S.Troll.Invisible and ch then
-        for _, p in ipairs(ch:GetDescendants()) do
-            if p:IsA("BasePart") then p.LocalTransparencyModifier = 1
-            elseif p:IsA("Decal") then p.Transparency = 1 end
-        end
-    end
-
-    -- Fun: Rainbow Character
-    if S.Fun.Rainbow and ch then
-        local hue = tick() % 1
-        for _, p in ipairs(ch:GetDescendants()) do
-            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
-                p.Color = Color3.fromHSV(hue, 1, 1)
-                p.Material = Enum.Material.Neon
-            end
-        end
-    end
-
-    -- Fun: Disco Lights
-    if S.Fun.Disco and hrp then
-        if not DiscoLight or not DiscoLight.Parent then
-            DiscoLight = Instance.new("PointLight")
-            DiscoLight.Brightness = 5
-            DiscoLight.Range = 30
-            DiscoLight.Parent = hrp
-        end
-        DiscoLight.Color = Color3.fromHSV(tick() % 1, 1, 1)
-    elseif DiscoLight then
-        DiscoLight:Destroy(); DiscoLight = nil
-    end
-
-    -- Fun: Fire Trail
-    if S.Fun.FireTrail and hrp then
-        if not FireEmitter or not FireEmitter.Parent then
-            FireEmitter = Instance.new("ParticleEmitter")
-            FireEmitter.Texture = "rbxasset://textures/particles/fire_main.dds"
-            FireEmitter.Rate = 50
-            FireEmitter.Lifetime = NumberRange.new(0.5, 1)
-            FireEmitter.Speed = NumberRange.new(2, 5)
-            FireEmitter.Size = NumberSequence.new(1, 0)
-            FireEmitter.Color = ColorSequence.new(Color3.fromRGB(255, 100, 0),
-                Color3.fromRGB(255, 200, 0))
-            FireEmitter.Parent = hrp
-        end
-    elseif FireEmitter then
-        FireEmitter:Destroy(); FireEmitter = nil
-    end
-end)
-
--- ============================================================
--- ACTIONS + INPUT
--- ============================================================
-local Actions = {}
-Actions.Aimbot = function()
-    S.Aimbot.Enabled = not S.Aimbot.Enabled; RefreshAll(); MarkDirty()
-    if not S.Aimbot.Enabled then StickyTarget = nil end
-    Notify("🎯 Aimbot: "..tostring(S.Aimbot.Enabled))
-end
-Actions.ESP = function()
-    S.ESP.Enabled = not S.ESP.Enabled; RefreshAll(); MarkDirty()
-    if S.ESP.Enabled then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP then CreateESP(p) end
-        end
-    else
-        for p in pairs(ESPObjs) do RemoveESP(p) end
-    end
-    Notify("👁 ESP: "..tostring(S.ESP.Enabled))
-end
-Actions.Hitbox = function()
-    S.Hitbox.Enabled = not S.Hitbox.Enabled; RefreshAll(); MarkDirty()
-    if S.Hitbox.Enabled then
-        for _, pl in ipairs(Players:GetPlayers()) do pcall(ApplyHitbox, pl) end
-    else ClearAllHitboxes() end
-    Notify("📦 Hitbox: "..tostring(S.Hitbox.Enabled))
-end
-Actions.Fly = function()
-    S.Player.Fly = not S.Player.Fly; RefreshAll(); MarkDirty()
-    Notify("✈ Fly: "..tostring(S.Player.Fly))
-end
-Actions.Noclip = function()
-    S.Player.Noclip = not S.Player.Noclip; RefreshAll(); MarkDirty()
-    if not S.Player.Noclip and LP.Character then
-        for _, p in ipairs(LP.Character:GetDescendants()) do
-            if p:IsA("BasePart") then p.CanCollide = true end
-        end
-    end
-    Notify("👻 Noclip: "..tostring(S.Player.Noclip))
-end
-Actions.InfiniteJump = function()
-    S.Player.InfiniteJump = not S.Player.InfiniteJump; RefreshAll(); MarkDirty()
-    Notify("♾ InfJump: "..tostring(S.Player.InfiniteJump))
-end
-
-UIS.InputBegan:Connect(function(input, gp)
-    if getgenv().TIMON_LISTENING then
-        if input.UserInputType == Enum.UserInputType.Keyboard then
-            local action = getgenv().TIMON_LISTENING
-            getgenv().TIMON_LISTENING = nil
-            S.Binds[action] = input.KeyCode
-            if BindRefreshers[action] then BindRefreshers[action]() end
-            MarkDirty()
-            Notify("🔗 Bind: "..action.." → "..tostring(input.KeyCode):gsub("Enum.KeyCode.",""))
-        end
-        return
-    end
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.LeftAlt then
-        Main.Visible = not Main.Visible; return
-    end
-    for action, key in pairs(S.Binds) do
-        if input.KeyCode == key and Actions[action] then Actions[action]() end
-    end
-end)
-
--- ============================================================
--- MOBILE
--- ============================================================
-local MobileButtons = {}
-function ToggleMobileBtn(action, show)
-    if MobileButtons[action] then
-        MobileButtons[action]:Destroy(); MobileButtons[action] = nil
-    end
-    if not show then return end
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0,58,0,58)
-    b.Position = UDim2.new(0,20,0.5,0)
-    b.BackgroundColor3 = COL.bg2; b.BackgroundTransparency = 0.1
-    b.TextColor3 = COL.accent2; b.Font = Enum.Font.GothamBold
-    b.TextSize = 11; b.Text = action; b.BorderSizePixel = 0
-    b.Parent = ScreenGui; corner(b, 29); stroke(b, COL.accent2, 2)
-    MakeDraggable(b, b)
-    local active = false
-    b.MouseButton1Click:Connect(function()
-        active = not active
-        if Actions[action] then Actions[action]() end
-        b.BackgroundColor3 = active and COL.accent2 or COL.bg2
-    end)
-    MobileButtons[action] = b
-end
-
-local OpenBtn = Instance.new("TextButton")
-OpenBtn.Size = UDim2.new(0,52,0,52)
-OpenBtn.Position = UDim2.new(0,20,1,-80)
-OpenBtn.BackgroundColor3 = COL.bg2; OpenBtn.BackgroundTransparency = 0.1
-OpenBtn.TextColor3 = COL.accent2; OpenBtn.Font = Enum.Font.GothamBold
-OpenBtn.TextSize = 13; OpenBtn.Text = "⚡"; OpenBtn.BorderSizePixel = 0
-OpenBtn.Parent = ScreenGui; corner(OpenBtn, 26); stroke(OpenBtn, COL.accent2, 2)
-MakeDraggable(OpenBtn, OpenBtn)
-OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
-
--- ============================================================
--- FINAL
--- ============================================================
-for _, t in pairs(TabScrolls) do
-    t.scroll.Visible = false; t.btn.BackgroundColor3 = COL.elem
-end
-TabScrolls["🎯 Aimbot"].scroll.Visible = true
-TabScrolls["🎯 Aimbot"].btn.BackgroundColor3 = COL.accent
-
-task.spawn(function()
-    while task.wait(2) do
-        if CONFIG_DIRTY and S.AutoSave then
-            CONFIG_DIRTY = false
-            pcall(function() saveConfig(AUTOSAVE_FILE) end)
-        end
-    end
-end)
-
-if S.ESP.Enabled then
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP then CreateESP(p) end
-    end
-end
-for action, state in pairs(S.MobileBtns) do
-    if state then ToggleMobileBtn(action, true) end
-end
-
-getgenv().TIMON_UNLOAD = function()
-    pcall(function() ScreenGui:Destroy() end)
-    for p in pairs(ESPObjs) do RemoveESP(p) end
-    ClearAllHitboxes()
-    ClearAllNPCHitboxes()
-    pcall(function() fovCircle:Remove() end)
-    pcall(function() RunService:UnbindFromRenderStep("TIMON_AIM") end)
-    if SpinBV then pcall(function() SpinBV:Destroy() end) end
-    if DiscoLight then pcall(function() DiscoLight:Destroy() end) end
-    if FireEmitter then pcall(function() FireEmitter:Destroy() end) end
-    Workspace.Gravity = DEFAULT_GRAVITY
-    StickyTarget = nil
-    getgenv().TIMON_LOADED = false
-end
-
-Notify("⚡ Timon Hub v2.8 · Adaptive UI + NPC Hitbox")
