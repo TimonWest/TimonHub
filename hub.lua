@@ -1,5 +1,5 @@
--- ============================================================================
--- TIMON HUB v2.9.3 — Scrollable Tabs + Native Joystick Mobile Fly + Zero Gravity + Fling Suite
+-- ============================================================
+-- TIMON HUB v2.9.4 — Scrollable Tabs + Fixed Mobile Fly V3 + Zero Gravity + Fling Suite
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================
 
@@ -378,7 +378,7 @@ local function Dropdown(parent, name, options, getter, setter)
         if popup and popup.Parent then popup:Destroy(); popup = nil; return end
         popup = Instance.new("Frame")
         popup.Size = UDim2.new(0, f.AbsoluteSize.X, 0, #options*28+6)
-        popup.Position = UDim2.new(0, f.AbsolutePosition.X,
+        popup.Position = UDim2.new(0, f.AbsoluteSize.X,
             0, f.AbsolutePosition.Y + f.AbsoluteSize.Y + 2)
         popup.BackgroundColor3 = COL.bg2; popup.BorderSizePixel = 0
         popup.ZIndex = 50; popup.Parent = ScreenGui
@@ -574,7 +574,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v2.9.3"
+TitleLbl.Text = "⚡ TIMON HUB · v2.9.4"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -796,8 +796,8 @@ Toggle(P, "♾ Infinite Jump",
 Toggle(P, "👻 Noclip",
     function() return S.Player.Noclip end,
     function(v) S.Player.Noclip = v end)
-Section(P, "✈ Fly V3")
-Toggle(P, "📱 Mobile Fly V3 (Joystick)",
+Section(P, "✈ Fly V3 (Joystick)")
+Toggle(P, "📱 Mobile Fly V3",
     function() return S.Player.MobileFly end,
     function(v) S.Player.MobileFly = v end)
 Slider(P, "🚀 Fly Speed", 1, 10,
@@ -1669,14 +1669,12 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- FLY (PC) & MOBILE FLY V3 (Pure Joystick & TranslateBy Logic)
+-- FLY (PC) & MOBILE FLY V3 (Joystick TranslateBy Logic Fixed)
 -- ============================================================
 local FlyBV, FlyBG
 local SpinBV, DiscoLight, FireEmitter
 
--- Переменные для работы Fly V3 через джойстик
-local tpwalking = false
-
+-- Поток обработки движения через джойстик ходьбы (как в Fly V3)
 task.spawn(function()
     RunService.Heartbeat:Connect(function()
         local chr = LP.Character
@@ -1696,39 +1694,26 @@ RunService.RenderStepped:Connect(function(dt)
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
     local hum = ch and ch:FindFirstChildOfClass("Humanoid")
 
-    -- Управление состоянием анимаций и физики для Mobile Fly V3
+    -- Корректное включение/отключение состояния полета без локов прыжка
     if S.Player.MobileFly then
         pcall(function()
-            ch.Animate.Disabled = true
+            if ch:FindFirstChild("Animate") then ch.Animate.Disabled = true end
             local animController = ch:FindFirstChildOfClass("Humanoid") or ch:FindFirstChildOfClass("AnimationController")
             if animController then
                 for _, track in next, animController:GetPlayingAnimationTracks() do
                     track:AdjustSpeed(0)
                 end
             end
-            hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Flying, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
             hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Running, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
-            hum:ChangeState(Enum.HumanoidStateType.Swimming)
+            hum:ChangeState(Enum.HumanoidStateType.PlatformStanding)
             hum.PlatformStand = true
         end)
     else
         pcall(function()
             if ch then
-                ch.Animate.Disabled = false
+                if ch:FindFirstChild("Animate") then ch.Animate.Disabled = false end
                 hum.PlatformStand = false
+                -- Полный сброс состояний в дефолт, чтобы персонаж снова мог прыгать и бегать
                 hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
                 hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
                 hum:SetStateEnabled(Enum.HumanoidStateType.Flying, true)
@@ -1737,7 +1722,7 @@ RunService.RenderStepped:Connect(function(dt)
                 hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
                 hum:SetStateEnabled(Enum.HumanoidStateType.Landed, true)
                 hum:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
-                hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
                 hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
                 hum:SetStateEnabled(Enum.HumanoidStateType.Running, true)
                 hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, true)
@@ -2109,4 +2094,4 @@ getgenv().TIMON_UNLOAD = function()
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v2.9.3 · Mobile Fly V3 Integrated")
+Notify("⚡ Timon Hub v2.9.4 · Mobile Fly V3 Fixed")
