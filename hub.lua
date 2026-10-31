@@ -1,4 +1,4 @@
--- TWKS // Timon Hub - Ultimate Advanced Suite (Fly + Troll Edition)
+-- TWKS // Timon Hub - Ultimate Advanced Suite (Original Fly Integrated Edition v5.1)
 local Players, RunService, UserInputService, HttpService, TweenService, LocalPlayer, Camera = game:GetService("Players"), game:GetService("RunService"), game:GetService("UserInputService"), game:GetService("HttpService"), game:GetService("TweenService"), game:GetService("Players").LocalPlayer, workspace.CurrentCamera
 
 pcall(function()
@@ -11,7 +11,7 @@ local FOVCircle = nil
 pcall(function()
     if Drawing then
         FOVCircle = Drawing.new("Circle")
-        FOVCircle.Visible, FOVCircle.Thickness, FOVCircle.NumSides, FOVCircle.Filled, FOVCircle.Color = false, 1.5, 64, false, Color3.fromRGB(180, 100, 255)
+        FOVCircle.Visible, FOVCircle.Thickness, FOVCircle.NumSides, FOVCircle.Filled, FOVCircle.Color = false, 1.5, 64, false, Color3.fromRGB(210, 110, 255)
     end
 end)
 
@@ -22,28 +22,19 @@ local HitboxEnabled, HitboxSize, HitboxTransparency, HitboxTargetName, HitboxKey
 local InvisFlingEnabled, AntiFlingEnabled, HamsterCoins = false, false, 0
 local WalkSpeedEnabled, CustomWalkSpeed, JumpPowerEnabled, CustomJumpPower = false, 16, false, 50
 
--- Переменные Fly
+-- Переменные оригинального Fly из скрипта
 local FlyEnabled = false
-local FlySpeed = 50
 local FlyKey = Enum.KeyCode.F
-local flyConnection = nil
-local controlModule = nil
-local bg, bv
+local nowe = false
+local tpwalking = false
+local speeds = 1
 
--- Переменные Troll функций
+-- Новые Troll функции
+local RainbowBodyEnabled = false
+local AutoClickerEnabled = false
 local VisualSpinEnabled = false
 local InvisibleEnabled = false
 local JitterEnabled = false
-
-pcall(function()
-    local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
-    if playerScripts then
-        local playerModule = playerScripts:FindFirstChild("PlayerModule")
-        if playerModule then
-            controlModule = require(playerModule:FindFirstChild("ControlModule"))
-        end
-    end
-end)
 
 local ConfigFolder, AutoLoadFileName, CurrentConfigName, AutoLoadEnabled = "TimonHub_Configs", "TimonHub_Configs/autoload.json", "default", false
 pcall(function() if makefolder and not isfolder(ConfigFolder) then makefolder(ConfigFolder) end end)
@@ -56,36 +47,37 @@ MobileGui.Name, MobileGui.ResetOnSpawn = "TimonHub_MobileButtons", false
 
 local function createMobileButton(pos, text)
     local btn = Instance.new("TextButton", MobileGui)
-    btn.Size, btn.Position, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text, btn.Active, btn.Draggable = UDim2.new(0, 105, 0, 42), pos, Color3.fromRGB(12, 8, 20), 0.2, Color3.fromRGB(235, 205, 255), 12, Enum.Font.GothamBold, text, true, true
+    btn.Size, btn.Position, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text, btn.Active, btn.Draggable = UDim2.new(0, 115, 0, 42), pos, Color3.fromRGB(15, 8, 30), 0.15, Color3.fromRGB(240, 200, 255), 12, Enum.Font.GothamBold, text, true, true
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
     local stroke = Instance.new("UIStroke", btn)
-    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(190, 90, 255), 0.25, 1.8
+    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(200, 90, 255), 0.2, 2
     return btn
 end
 
 local ToggleUIMobileBtn = createMobileButton(UDim2.new(0, 20, 0, 20), "⚡ MENU")
-local MobileAimToggleBtn = createMobileButton(UDim2.new(0, 135, 0, 20), "Mob.Aim: OFF")
-local FlyMobileBtn = createMobileButton(UDim2.new(0, 250, 0, 20), "Fly: OFF")
+local MobileAimToggleBtn = createMobileButton(UDim2.new(0, 145, 0, 20), "Mob.Aim: OFF")
+local FlyMobileBtn = createMobileButton(UDim2.new(0, 270, 0, 20), "Fly: OFF")
 
+-- Главное окно в стиле Glassmorphism
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size, MainFrame.Position, MainFrame.BackgroundColor3, MainFrame.BackgroundTransparency, MainFrame.Active, MainFrame.Draggable = UDim2.new(0, 680, 0, 450), UDim2.new(0.5, -340, 0.5, -225), Color3.fromRGB(8, 5, 14), 0.15, true, true
+MainFrame.Size, MainFrame.Position, MainFrame.BackgroundColor3, MainFrame.BackgroundTransparency, MainFrame.Active, MainFrame.Draggable = UDim2.new(0, 680, 0, 450), UDim2.new(0.5, -340, 0.5, -225), Color3.fromRGB(10, 4, 18), 0.12, true, true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 16)
 local MainStroke = Instance.new("UIStroke", MainFrame)
-MainStroke.Color, MainStroke.Transparency, MainStroke.Thickness = Color3.fromRGB(170, 70, 255), 0.15, 2
+MainStroke.Color, MainStroke.Transparency, MainStroke.Thickness = Color3.fromRGB(190, 75, 255), 0.1, 2.2
 
 local NeonGlow = Instance.new("Frame", MainFrame)
-NeonGlow.Size, NeonGlow.BackgroundColor3, NeonGlow.BorderSizePixel = UDim2.new(1, 0, 0, 3), Color3.fromRGB(220, 130, 255), 0
+NeonGlow.Size, NeonGlow.BackgroundColor3, NeonGlow.BorderSizePixel = UDim2.new(1, 0, 0, 3), Color3.fromRGB(235, 140, 255), 0
 
 ToggleUIMobileBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
 local Header = Instance.new("Frame", MainFrame)
-Header.Size, Header.BackgroundColor3, Header.BackgroundTransparency, Header.BorderSizePixel = UDim2.new(1, 0, 0, 54), Color3.fromRGB(14, 8, 24), 0.35, 0
+Header.Size, Header.BackgroundColor3, Header.BackgroundTransparency, Header.BorderSizePixel = UDim2.new(1, 0, 0, 54), Color3.fromRGB(18, 10, 32), 0.25, 0
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 16)
 local HeaderCover = Instance.new("Frame", Header)
-HeaderCover.Size, HeaderCover.Position, HeaderCover.BackgroundColor3, HeaderCover.BackgroundTransparency, HeaderCover.BorderSizePixel = UDim2.new(1, 0, 0, 10), UDim2.new(0, 0, 1, -10), Color3.fromRGB(14, 8, 24), 0.35, 0
+HeaderCover.Size, HeaderCover.Position, HeaderCover.BackgroundColor3, HeaderCover.BackgroundTransparency, HeaderCover.BorderSizePixel = UDim2.new(1, 0, 0, 10), UDim2.new(0, 0, 1, -10), Color3.fromRGB(18, 10, 32), 0.25, 0
 
 local Title = Instance.new("TextLabel", Header)
-Title.Size, Title.Position, Title.BackgroundTransparency, Title.Text, Title.TextColor3, Title.TextSize, Title.Font, Title.TextXAlignment = UDim2.new(1, -20, 1, 0), UDim2.new(0, 24, 0, 0), true, "TIMON HUB  ✦  ULTIMATE SUITE v4.6", Color3.fromRGB(250, 230, 255), 15, Enum.Font.GothamBold, Enum.TextXAlignment.Left
+Title.Size, Title.Position, Title.BackgroundTransparency, Title.Text, Title.TextColor3, Title.TextSize, Title.Font, Title.TextXAlignment = UDim2.new(1, -20, 1, 0), UDim2.new(0, 24, 0, 0), true, "TIMON HUB  ✦  ULTIMATE SUITE v5.1", Color3.fromRGB(255, 235, 255), 15, Enum.Font.GothamBold, Enum.TextXAlignment.Left
 
 local Sidebar = Instance.new("ScrollingFrame", MainFrame)
 Sidebar.Size, Sidebar.Position, Sidebar.BackgroundTransparency, Sidebar.BorderSizePixel, Sidebar.CanvasSize, Sidebar.ScrollBarThickness = UDim2.new(0, 175, 1, -70), UDim2.new(0, 12, 0, 62), true, 0, UDim2.new(0, 0, 0, 0), 2
@@ -97,7 +89,7 @@ ContentArea.Size, ContentArea.Position, ContentArea.BackgroundTransparency = UDi
 
 local function createTabContent()
     local sf = Instance.new("ScrollingFrame", ContentArea)
-    sf.Size, sf.BackgroundTransparency, sf.BorderSizePixel, sf.CanvasSize, sf.ScrollBarThickness, sf.Visible = UDim2.new(1, 0, 1, 0), true, 0, UDim2.new(0, 0, 0, 900), 3, false
+    sf.Size, sf.BackgroundTransparency, sf.BorderSizePixel, sf.CanvasSize, sf.ScrollBarThickness, sf.Visible = UDim2.new(1, 0, 1, 0), true, 0, UDim2.new(0, 0, 0, 950), 3, false
     local layout = Instance.new("UIListLayout", sf)
     layout.SortOrder, layout.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 10)
     return sf
@@ -108,10 +100,10 @@ CombatTab.Visible = true
 
 local function createTabButton(name, targetTab)
     local btn = Instance.new("TextButton", Sidebar)
-    btn.Size, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(16, 9, 26), 0.3, Color3.fromRGB(210, 185, 245), 13, Enum.Font.GothamMedium, name
+    btn.Size, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(20, 11, 35), 0.25, Color3.fromRGB(225, 190, 255), 13, Enum.Font.GothamMedium, name
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
     local stroke = Instance.new("UIStroke", btn)
-    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(110, 50, 160), 0.4, 1.2
+    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(130, 60, 185), 0.3, 1.2
     btn.MouseButton1Click:Connect(function()
         CombatTab.Visible, ESPTab.Visible, HitboxTab.Visible, PlayerTab.Visible, FlingTab.Visible, TrollTab.Visible, HamsterTab.Visible, SettingsTab.Visible = false, false, false, false, false, false, false, false
         targetTab.Visible = true
@@ -124,30 +116,30 @@ createTabButton("ESP & Visuals", ESPTab)
 createTabButton("Hitbox", HitboxTab)
 createTabButton("Player", PlayerTab)
 createTabButton("Fling & Anti", FlingTab)
-createTabButton("Troll", TrollTab)
+createTabButton("Troll & Fun", TrollTab)
 createTabButton("HamsterCombat", HamsterTab)
 createTabButton("Settings", SettingsTab)
 
 local function createLabel(parent, text)
     local lbl = Instance.new("TextLabel", parent)
-    lbl.Size, lbl.BackgroundTransparency, lbl.Text, lbl.TextColor3, lbl.TextSize, lbl.Font, lbl.TextXAlignment = UDim2.new(1, 0, 0, 24), true, text, Color3.fromRGB(175, 140, 220), 11, Enum.Font.GothamBold, Enum.TextXAlignment.Left
+    lbl.Size, lbl.BackgroundTransparency, lbl.Text, lbl.TextColor3, lbl.TextSize, lbl.Font, lbl.TextXAlignment = UDim2.new(1, 0, 0, 24), true, text, Color3.fromRGB(190, 150, 235), 11, Enum.Font.GothamBold, Enum.TextXAlignment.Left
 end
 
 local function createActionBtn(parent, text)
     local btn = Instance.new("TextButton", parent)
-    btn.Size, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(16, 9, 26), 0.3, Color3.fromRGB(240, 220, 255), 13, Enum.Font.GothamMedium, text
+    btn.Size, btn.BackgroundColor3, btn.BackgroundTransparency, btn.TextColor3, btn.TextSize, btn.Font, btn.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(20, 11, 35), 0.25, Color3.fromRGB(250, 225, 255), 13, Enum.Font.GothamMedium, text
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
     local stroke = Instance.new("UIStroke", btn)
-    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(110, 50, 160), 0.4, 1.2
+    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(130, 60, 185), 0.3, 1.2
     return btn
 end
 
 local function createInputBox(parent, placeholder)
     local box = Instance.new("TextBox", parent)
-    box.Size, box.BackgroundColor3, box.BackgroundTransparency, box.TextColor3, box.PlaceholderColor3, box.TextSize, box.Font, box.PlaceholderText, box.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(16, 9, 26), 0.3, Color3.fromRGB(240, 220, 255), Color3.fromRGB(140, 110, 185), 13, Enum.Font.GothamMedium, placeholder, ""
+    box.Size, box.BackgroundColor3, box.BackgroundTransparency, box.TextColor3, box.PlaceholderColor3, box.TextSize, box.Font, box.PlaceholderText, box.Text = UDim2.new(1, 0, 0, 42), Color3.fromRGB(20, 11, 35), 0.25, Color3.fromRGB(250, 225, 255), Color3.fromRGB(155, 120, 200), 13, Enum.Font.GothamMedium, placeholder, ""
     Instance.new("UICorner", box).CornerRadius = UDim.new(0, 10)
     local stroke = Instance.new("UIStroke", box)
-    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(110, 50, 160), 0.4, 1.2
+    stroke.Color, stroke.Transparency, stroke.Thickness = Color3.fromRGB(130, 60, 185), 0.3, 1.2
     return box
 end
 
@@ -162,7 +154,7 @@ local MobileAimFOVInput = createInputBox(CombatTab, "Mobile FOV (наприме�
 createLabel(CombatTab, "ВЫБОР ЧАСТИ ТЕЛА")
 local PartDropdownBtn = createActionBtn(CombatTab, "Target: Head")
 local PartFrame = Instance.new("Frame", CombatTab)
-PartFrame.Size, PartFrame.BackgroundColor3, PartFrame.BackgroundTransparency, PartFrame.Visible = UDim2.new(1, 0, 0, 140), Color3.fromRGB(12, 6, 20), 0.2, false
+PartFrame.Size, PartFrame.BackgroundColor3, PartFrame.BackgroundTransparency, PartFrame.Visible = UDim2.new(1, 0, 0, 140), Color3.fromRGB(14, 7, 25), 0.15, false
 Instance.new("UIListLayout", PartFrame).Padding = UDim.new(0, 5)
 
 for _, p in ipairs({{Name = "Голова (Head)", Part = "Head"}, {Name = "Торс (Torso)", Part = "UpperTorso"}, {Name = "Руки (Arms)", Part = "LeftLowerArm"}, {Name = "Ноги (Legs)", Part = "LeftLowerLeg"}}) do
@@ -206,10 +198,10 @@ local SpeedToggle = createActionBtn(PlayerTab, "WalkSpeed: OFF")
 local SpeedInput = createInputBox(PlayerTab, "Speed Value (например: 50)")
 local JumpToggle = createActionBtn(PlayerTab, "JumpPower: OFF")
 local JumpInput = createInputBox(PlayerTab, "Jump Value (например: 100)")
+
 createLabel(PlayerTab, "ПОЛЕТ (FLY)")
 local FlyToggle = createActionBtn(PlayerTab, "Fly: OFF")
 local FlyKeyBindBtn = createActionBtn(PlayerTab, "Fly Bind: F")
-local FlySpeedInput = createInputBox(PlayerTab, "Fly Speed (например: 50)")
 
 -- === FLING TAB ===
 createLabel(FlingTab, "МОДУЛЬ РАСКИДА (FLING)")
@@ -217,7 +209,9 @@ local InvisFlingToggle = createActionBtn(FlingTab, "Invis Fling: OFF")
 local AntiFlingToggle = createActionBtn(FlingTab, "Anti Fling (No Collision): OFF")
 
 -- === TROLL TAB ===
-createLabel(TrollTab, "ТРОЛЛИНГ И ФАН ФУНКЦИИ")
+createLabel(TrollTab, "ФАН И ТРОЛЛИНГ ФУНКЦИИ")
+local RainbowBodyToggle = createActionBtn(TrollTab, "Rainbow Body: OFF")
+local AutoClickerToggle = createActionBtn(TrollTab, "Auto-Clicker (Hamster): OFF")
 local VisualSpinToggle = createActionBtn(TrollTab, "Visual Spin: OFF")
 local InvisibleToggle = createActionBtn(TrollTab, "Invisible (Ghost): OFF")
 local JitterToggle = createActionBtn(TrollTab, "Jitter / Shake: OFF")
@@ -230,16 +224,18 @@ HamsterCounterLabel.Size, HamsterCounterLabel.Position, HamsterCounterLabel.Back
 local ClickerContainer = Instance.new("Frame", HamsterTab)
 ClickerContainer.Size, ClickerContainer.BackgroundTransparency = UDim2.new(1, 0, 1, -30), 1
 local HamsterClickBtn = Instance.new("TextButton", ClickerContainer)
-HamsterClickBtn.Size, HamsterClickBtn.Position, HamsterClickBtn.BackgroundColor3, HamsterClickBtn.BackgroundTransparency, HamsterClickBtn.Text, HamsterClickBtn.TextColor3, HamsterClickBtn.TextSize, HamsterClickBtn.Font = UDim2.new(0, 190, 0, 190), UDim2.new(0.5, -95, 0.5, -95), Color3.fromRGB(18, 10, 28), 0.2, "🐹", Color3.fromRGB(255, 255, 255), 68, Enum.Font.GothamBold
+HamsterClickBtn.Size, HamsterClickBtn.Position, HamsterClickBtn.BackgroundColor3, HamsterClickBtn.BackgroundTransparency, HamsterClickBtn.Text, HamsterClickBtn.TextColor3, HamsterClickBtn.TextSize, HamsterClickBtn.Font = UDim2.new(0, 190, 0, 190), UDim2.new(0.5, -95, 0.5, -95), Color3.fromRGB(22, 12, 38), 0.2, "🐹", Color3.fromRGB(255, 255, 255), 68, Enum.Font.GothamBold
 Instance.new("UICorner", HamsterClickBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", HamsterClickBtn).Color, Instance.new("UIStroke", HamsterClickBtn).Thickness = Color3.fromRGB(210, 130, 255), 3.5
+Instance.new("UIStroke", HamsterClickBtn).Color, Instance.new("UIStroke", HamsterClickBtn).Thickness = Color3.fromRGB(230, 140, 255), 3.5
 
-HamsterClickBtn.MouseButton1Click:Connect(function()
+local function tapHamster()
     HamsterCoins = HamsterCoins + 1
     HamsterCounterLabel.Text = "Hamster Coins: " .. HamsterCoins
     TweenService:Create(HamsterClickBtn, TweenInfo.new(0.05, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 165, 0, 165), Position = UDim2.new(0.5, -82.5, 0.5, -82.5)}):Play()
     task.delay(0.06, function() TweenService:Create(HamsterClickBtn, TweenInfo.new(0.05, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 190, 0, 190), Position = UDim2.new(0.5, -95, 0.5, -95)}):Play() end)
-end)
+end
+
+HamsterClickBtn.MouseButton1Click:Connect(tapHamster)
 
 -- === SETTINGS TAB ===
 createLabel(SettingsTab, "МЕНЮ КОНФИГОВ")
@@ -255,7 +251,7 @@ local function saveConfig(name)
     if not writefile then return end
     if name == "" then name = "default" end
     CurrentConfigName = name
-    local configData = {AssistActive = AssistActive, AssistKey = AssistKey and AssistKey.Name or "E", AssistSmooth = AssistSmooth, TargetPartName = TargetPartName, FOVEnabled = FOVEnabled, FOVRadius = FOVRadius, TouchAssistActive = TouchAssistActive, TouchAssistSmooth = TouchAssistSmooth, TouchAssistFOV = TouchAssistFOV, VisualsEnabled = VisualsEnabled, VisualsTransparency = VisualsTransparency, HitboxEnabled = HitboxEnabled, HitboxKey = HitboxKey and HitboxKey.Name or "Q", HitboxTargetName = HitboxTargetName, HitboxSize = HitboxSize, HitboxTransparency = HitboxTransparency, InvisFlingEnabled = InvisFlingEnabled, AntiFlingEnabled = AntiFlingEnabled, HamsterCoins = HamsterCoins, WalkSpeedEnabled = WalkSpeedEnabled, CustomWalkSpeed = CustomWalkSpeed, JumpPowerEnabled = JumpPowerEnabled, CustomJumpPower = CustomJumpPower, FlyEnabled = FlyEnabled, FlyKey = FlyKey and FlyKey.Name or "F", FlySpeed = FlySpeed}
+    local configData = {AssistActive = AssistActive, AssistKey = AssistKey and AssistKey.Name or "E", AssistSmooth = AssistSmooth, TargetPartName = TargetPartName, FOVEnabled = FOVEnabled, FOVRadius = FOVRadius, TouchAssistActive = TouchAssistActive, TouchAssistSmooth = TouchAssistSmooth, TouchAssistFOV = TouchAssistFOV, VisualsEnabled = VisualsEnabled, VisualsTransparency = VisualsTransparency, HitboxEnabled = HitboxEnabled, HitboxKey = HitboxKey and HitboxKey.Name or "Q", HitboxTargetName = HitboxTargetName, HitboxSize = HitboxSize, HitboxTransparency = HitboxTransparency, InvisFlingEnabled = InvisFlingEnabled, AntiFlingEnabled = AntiFlingEnabled, HamsterCoins = HamsterCoins, WalkSpeedEnabled = WalkSpeedEnabled, CustomWalkSpeed = CustomWalkSpeed, JumpPowerEnabled = JumpPowerEnabled, CustomJumpPower = CustomJumpPower, FlyEnabled = FlyEnabled, FlyKey = FlyKey and FlyKey.Name or "F"}
     pcall(function() writefile(ConfigFolder .. "/" .. name .. ".json", HttpService:JSONEncode(configData)) end)
 end
 
@@ -277,7 +273,6 @@ local function loadConfig(name)
             WalkSpeedEnabled, CustomWalkSpeed, JumpPowerEnabled, CustomJumpPower = data.WalkSpeedEnabled or false, data.CustomWalkSpeed or 16, data.JumpPowerEnabled or false, data.CustomJumpPower or 50
             FlyEnabled = data.FlyEnabled or false
             if data.FlyKey and Enum.KeyCode[data.FlyKey] then FlyKey = Enum.KeyCode[data.FlyKey]; FlyKeyBindBtn.Text = "Fly Bind: " .. FlyKey.Name end
-            FlySpeed = data.FlySpeed or 50
             ToggleBtn.Text = AssistActive and "Assist System: ON" or "Assist System: OFF"
             MobileAimToggle.Text = TouchAssistActive and "Mobile Assist: ON" or "Mobile Assist: OFF"
             MobileAimToggleBtn.Text = TouchAssistActive and "Mob.Aim: ON" or "Mob.Aim: OFF"
@@ -329,78 +324,158 @@ KeyBindBtn.MouseButton1Click:Connect(function() bindingAimKey, bindingFlyKey, bi
 FlyKeyBindBtn.MouseButton1Click:Connect(function() bindingFlyKey, bindingAimKey, bindingHitboxKey, FlyKeyBindBtn.Text = true, false, false, "Press any key..." end)
 HitboxKeyBindBtn.MouseButton1Click:Connect(function() bindingHitboxKey, bindingAimKey, bindingFlyKey, HitboxKeyBindBtn.Text = true, false, false, "Press any key..." end)
 
--- Стабильный классический Fly (BodyVelocity + BodyGyro)
+-- Интеграция ТОЙ САМОЙ функции полета ИЗ ТВОЕГО ИСХОДНОГО СКРИПТА
 local function toggleFlyFunc()
     FlyEnabled = not FlyEnabled
+    nowe = FlyEnabled
     FlyToggle.Text, FlyToggle.TextColor3 = FlyEnabled and "Fly: ON" or "Fly: OFF", FlyEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
     FlyMobileBtn.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
     
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp, hum = char:FindFirstChild("HumanoidRootPart"), char:FindFirstChildOfClass("Humanoid")
-    if not hrp or not hum then return end
-
-    if FlyEnabled then
-        hum.PlatformStand = true
-        if bg then bg:Destroy() end; if bv then bv:Destroy() end
-        bg = Instance.new("BodyGyro", hrp); bg.P, bg.MaxTorque, bg.CFrame = 9e4, Vector3.new(9e4, 9e4, 9e4), hrp.CFrame
-        bv = Instance.new("BodyVelocity", hrp); bv.Velocity, bv.MaxForce = Vector3.new(0, 0, 0), Vector3.new(9e4, 9e4, 9e4)
-
-        if flyConnection then flyConnection:Disconnect() end
-        flyConnection = RunService.RenderStepped:Connect(function()
-            if not FlyEnabled or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                if flyConnection then flyConnection:Disconnect() end; return
-            end
-            local currentHrp, currentHum = LocalPlayer.Character.HumanoidRootPart, LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if currentHum then currentHum.PlatformStand = true end
-            if bg and bv then
-                bg.CFrame = Camera.CFrame
-                local moveDir = Vector3.new(0, 0, 0)
-                local camCF = Camera.CFrame
-                pcall(function()
-                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCF.LookVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCF.LookVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCF.RightVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCF.RightVector end
-                end)
-                if controlModule then
-                    local rawMove = controlModule:GetMoveVector()
-                    if rawMove.Magnitude > 0 then moveDir = moveDir + (camCF.RightVector * rawMove.X + camCF.LookVector * rawMove.Z) end
+    local speaker = LocalPlayer
+    if nowe == true then
+        for i = 1, speeds do
+            spawn(function()
+                local hb = game:GetService("RunService").Heartbeat	
+                tpwalking = true
+                local chr = speaker.Character
+                local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+                while tpwalking and hb:Wait() and chr and hum and hum.Parent do
+                    if hum.MoveDirection.Magnitude > 0 then
+                        chr:TranslateBy(hum.MoveDirection)
+                    end
                 end
-                bv.Velocity = moveDir.Magnitude > 0 and (moveDir.Unit * FlySpeed) or Vector3.new(0, 0.1, 0)
+            end)
+        end
+        speaker.Character.Animate.Disabled = true
+        local Char = speaker.Character
+        local Hum = Char:FindFirstChildOfClass("Humanoid") or Char:FindFirstChildOfClass("AnimationController")
+        for i,v in next, Hum:GetPlayingAnimationTracks() do v:AdjustSpeed(0) end
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics,false)
+        speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming,false)
+        speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
+
+        spawn(function()
+            if speaker.Character:FindFirstChildOfClass("Humanoid").RigType == Enum.HumanoidRigType.R6 then
+                local torso = speaker.Character.Torso
+                local bg = Instance.new("BodyGyro", torso)
+                bg.P, bg.maxTorque, bg.cframe = 9e4, Vector3.new(9e9, 9e9, 9e9), torso.CFrame
+                local bv = Instance.new("BodyVelocity", torso)
+                bv.velocity, bv.maxForce = Vector3.new(0,0.1,0), Vector3.new(9e9, 9e9, 9e9)
+                speaker.Character.Humanoid.PlatformStand = true
+                
+                local ctrl = {f = 0, b = 0, l = 0, r = 0}
+                local lastctrl = {f = 0, b = 0, l = 0, r = 0}
+                local maxspeed, speed = 50, 0
+
+                while nowe == true and speaker.Character and speaker.Character:FindFirstChild("Humanoid") and speaker.Character.Humanoid.Health > 0 do
+                    game:GetService("RunService").RenderStepped:Wait()
+                    if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
+                        speed = math.clamp(speed + 0.5 + (speed/maxspeed), 0, maxspeed)
+                    elseif speed ~= 0 then
+                        speed = math.clamp(speed - 1, 0, maxspeed)
+                    end
+                    if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
+                        bv.velocity = ((workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - workspace.CurrentCamera.CoordinateFrame.p))*speed
+                        lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
+                    elseif speed ~= 0 then
+                        bv.velocity = ((workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - workspace.CurrentCamera.CoordinateFrame.p))*speed
+                    else
+                        bv.velocity = Vector3.new(0,0,0)
+                    end
+                    bg.cframe = workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/maxspeed),0,0)
+                end
+                bg:Destroy(); bv:Destroy()
+                if speaker.Character and speaker.Character:FindFirstChild("Humanoid") then
+                    speaker.Character.Humanoid.PlatformStand = false
+                end
+                speaker.Character.Animate.Disabled = false
+                tpwalking = false
+            else
+                local UpperTorso = speaker.Character.UpperTorso
+                local bg = Instance.new("BodyGyro", UpperTorso)
+                bg.P, bg.maxTorque, bg.cframe = 9e4, Vector3.new(9e9, 9e9, 9e9), UpperTorso.CFrame
+                local bv = Instance.new("BodyVelocity", UpperTorso)
+                bv.velocity, bv.maxForce = Vector3.new(0,0.1,0), Vector3.new(9e9, 9e9, 9e9)
+                speaker.Character.Humanoid.PlatformStand = true
+
+                local ctrl = {f = 0, b = 0, l = 0, r = 0}
+                local lastctrl = {f = 0, b = 0, l = 0, r = 0}
+                local maxspeed, speed = 50, 0
+
+                while nowe == true and speaker.Character and speaker.Character:FindFirstChild("Humanoid") and speaker.Character.Humanoid.Health > 0 do
+                    task.wait()
+                    if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
+                        speed = math.clamp(speed + 0.5 + (speed/maxspeed), 0, maxspeed)
+                    elseif speed ~= 0 then
+                        speed = math.clamp(speed - 1, 0, maxspeed)
+                    end
+                    if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
+                        bv.velocity = ((workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - workspace.CurrentCamera.CoordinateFrame.p))*speed
+                        lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
+                    elseif speed ~= 0 then
+                        bv.velocity = ((workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - workspace.CurrentCamera.CoordinateFrame.p))*speed
+                    else
+                        bv.velocity = Vector3.new(0,0,0)
+                    end
+                    bg.cframe = workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/maxspeed),0,0)
+                end
+                bg:Destroy(); bv:Destroy()
+                if speaker.Character and speaker.Character:FindFirstChild("Humanoid") then
+                    speaker.Character.Humanoid.PlatformStand = false
+                end
+                speaker.Character.Animate.Disabled = false
+                tpwalking = false
             end
         end)
     else
-        if flyConnection then flyConnection:Disconnect() end
-        if bg then bg:Destroy() end; if bv then bv:Destroy() end
-        if hum then hum.PlatformStand = false end
-        if hrp then hrp.Velocity = Vector3.new(0, 0, 0) end
+        nowe = false
+        tpwalking = false
+        if speaker.Character and speaker.Character:FindFirstChild("Humanoid") then
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics,true)
+            speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming,true)
+            speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+            speaker.Character.PlatformStand = false
+            speaker.Character.Animate.Disabled = false
+        end
     end
 end
 
--- Троллинг логика
-VisualSpinToggle.MouseButton1Click:Connect(function()
-    VisualSpinEnabled = not VisualSpinEnabled
-    VisualSpinToggle.Text, VisualSpinToggle.TextColor3 = VisualSpinEnabled and "Visual Spin: ON" or "Visuals Spin: OFF", VisualSpinEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
-end)
-
+RainbowBodyToggle.MouseButton1Click:Connect(function() RainbowBodyEnabled = not RainbowBodyEnabled; RainbowBodyToggle.Text, RainbowBodyToggle.TextColor3 = RainbowBodyEnabled and "Rainbow Body: ON" or "Rainbow Body: OFF", RainbowBodyEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250) end)
+AutoClickerToggle.MouseButton1Click:Connect(function() AutoClickerEnabled = not AutoClickerEnabled; AutoClickerToggle.Text, AutoClickerToggle.TextColor3 = AutoClickerEnabled and "Auto-Clicker (Hamster): ON" or "Auto-Clicker (Hamster): OFF", AutoClickerEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250) end)
+VisualSpinToggle.MouseButton1Click:Connect(function() VisualSpinEnabled = not VisualSpinEnabled; VisualSpinToggle.Text, VisualSpinToggle.TextColor3 = VisualSpinEnabled and "Visual Spin: ON" or "Visual Spin: OFF", VisualSpinEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250) end)
 InvisibleToggle.MouseButton1Click:Connect(function()
     InvisibleEnabled = not InvisibleEnabled
     InvisibleToggle.Text, InvisibleToggle.TextColor3 = InvisibleEnabled and "Invisible (Ghost): ON" or "Invisible (Ghost): OFF", InvisibleEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
     local char = LocalPlayer.Character
-    if char then
-        for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") or part:IsA("Decal") then
-                part.Transparency = InvisibleEnabled and 1 or (part.Name == "HumanoidRootPart" and 1 or 0)
-            end
-        end
-    end
+    if char then for _, part in ipairs(char:GetDescendants()) do if part:IsA("BasePart") or part:IsA("Decal") then part.Transparency = InvisibleEnabled and 1 or (part.Name == "HumanoidRootPart" and 1 or 0) end end end
 end)
-
-JitterToggle.MouseButton1Click:Connect(function()
-    JitterEnabled = not JitterEnabled
-    JitterToggle.Text, JitterToggle.TextColor3 = JitterEnabled and "Jitter / Shake: ON" or "Jitter / Shake: OFF", JitterEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250)
-end)
+JitterToggle.MouseButton1Click:Connect(function() JitterEnabled = not JitterEnabled; JitterToggle.Text, JitterToggle.TextColor3 = JitterEnabled and "Jitter / Shake: ON" or "Jitter / Shake: OFF", JitterEnabled and Color3.fromRGB(160, 255, 120) or Color3.fromRGB(230, 210, 250) end)
 
 local function toggleHitboxFunc()
     HitboxEnabled = not HitboxEnabled
@@ -458,7 +533,6 @@ JumpToggle.MouseButton1Click:Connect(function() JumpPowerEnabled = not JumpPower
 JumpInput.FocusLost:Connect(function() local val = tonumber(JumpInput.Text); if val then CustomJumpPower = val end end)
 FlyToggle.MouseButton1Click:Connect(toggleFlyFunc)
 FlyMobileBtn.MouseButton1Click:Connect(toggleFlyFunc)
-FlySpeedInput.FocusLost:Connect(function() local val = tonumber(FlySpeedInput.Text); if val then FlySpeed = val end end)
 
 local function getClosestTarget()
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -487,7 +561,8 @@ local function getClosestTarget()
     return LockedTarget
 end
 
-RunService.RenderStepped:Connect(function()
+local autoClickTimer = 0
+RunService.RenderStepped:Connect(function(dt)
     local activeFOV = TouchAssistActive and TouchAssistFOV or FOVRadius
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     if FOVCircle then
@@ -496,13 +571,20 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Position = TouchAssistActive and screenCenter or UserInputService:GetMouseLocation()
     end
 
+    if AutoClickerEnabled then
+        autoClickTimer = autoClickTimer + dt
+        if autoClickTimer >= 0.1 then
+            autoClickTimer = 0
+            tapHamster()
+        end
+    end
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             for _, part in ipairs(player.Character:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = not AntiFlingEnabled end end
         end
     end
 
-    -- Обработка Troll функций
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         local hrp = char.HumanoidRootPart
@@ -511,6 +593,13 @@ RunService.RenderStepped:Connect(function()
         end
         if JitterEnabled then
             hrp.CFrame = hrp.CFrame + Vector3.new(math.random(-0.3, 0.3), 0, math.random(-0.3, 0.3))
+        end
+        if RainbowBodyEnabled then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                end
+            end
         end
     end
 
@@ -581,7 +670,7 @@ RunService.RenderStepped:Connect(function()
                         end
                     end
                 else
-                    if VisualsMap[player] then if VisualsMap[player].Highlight then VisualsMap[Player].Highlight:Destroy() end if VisualsMap[player].Billboard then VisualsMap[player].Billboard:Destroy() end VisualsMap[player] = nil end
+                    if VisualsMap[player] then if VisualsMap[player].Highlight then VisualsMap[player].Highlight:Destroy() end if VisualsMap[player].Billboard then VisualsMap[player].Billboard:Destroy() end VisualsMap[player] = nil end
                 end
             else
                 if VisualsMap[player] then if VisualsMap[player].Highlight then VisualsMap[player].Highlight:Destroy() end if VisualsMap[player].Billboard then VisualsMap[player].Billboard:Destroy() end VisualsMap[player] = nil end
