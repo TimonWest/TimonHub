@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v3.4 — AimbotHold fix + оптимизация ESP/effects
+-- TIMON HUB v3.5 — StickyHold fix + Wall Check + ESP optimization
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -27,7 +27,7 @@ local S = {
         Enabled = false, Mode = "Cursor", Smooth = 0.25,
         CameraFOV = 200, MobileFOV = 200,
         Part = "Head", ShowFOV = true, StickyLock = true,
-        DistanceWeight = 1.0
+        DistanceWeight = 1.0, WallCheck = false
     },
     ESP = {
         Enabled = false,
@@ -578,7 +578,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v3.4"
+TitleLbl.Text = "⚡ TIMON HUB · v3.5"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -670,7 +670,7 @@ local launchXneoFlyGUI, closeXneoFlyGUI
 local OpenBtn
 
 -- ============================================================
--- TAB: AIMBOT
+-- TAB: AIMBOT (+ Wall Check)
 -- ============================================================
 local A = Tab("🎯 Aimbot")
 Section(A, "🎮 Основное")
@@ -680,6 +680,9 @@ Toggle(A, "⚡ Enable Aimbot",
 Toggle(A, "🔒 Sticky Lock",
     function() return S.Aimbot.StickyLock end,
     function(v) S.Aimbot.StickyLock = v end)
+Toggle(A, "🧱 Wall Check (не наводить сквозь стены)",
+    function() return S.Aimbot.WallCheck end,
+    function(v) S.Aimbot.WallCheck = v end)
 Dropdown(A, "🎯 Aim Mode", {"Cursor","Camera","Mobile"},
     function() return S.Aimbot.Mode end,
     function(v) S.Aimbot.Mode = v end)
@@ -1054,7 +1057,7 @@ Section(ST, "🛠 Действия")
 Button(ST, "🔄 Сбросить настройки", function()
     S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25
     S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
-    S.Aimbot.DistanceWeight=1
+    S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
     S.ESP.Enabled=false; S.Hitbox.Enabled=false
     S.Hitbox.NPCSupport=false
     S.Player.Fly=false
@@ -1245,7 +1248,7 @@ function ApplyFloatingLock()
 end
 
 -- ============================================================
--- AIMBOT — исправленный AimbotHold (IsKeyDown polling)
+-- AIMBOT — Wall Check + правильный StickyHold
 -- ============================================================
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false; fovCircle.Thickness = 1
@@ -1254,16 +1257,18 @@ fovCircle.Color = COL.accent; fovCircle.Transparency = 0.7
 local StickyTarget = nil
 local aimHoldDown = false
 local aimHoldAvailable = false
+-- флаг: hold на предыдущем кадре был зажат (для детекта re-press)
+local wasHoldActive = false
+-- кэш коллизий: результат wall check на кадр
+local wallCheckRayParams = RaycastParams.new()
+wallCheckRayParams.FilterType = Enum.RaycastFilterType.Exclude
+wallCheckRayParams.IgnoreWater = true
 
 pcall(function()
     local _ = UIS:IsKeyDown(Enum.KeyCode.LeftShift)
     aimHoldAvailable = true
 end)
 
--- Истина = aim разрешён прямо сейчас.
--- Cursor + бинд AimbotHold назначен → только пока клавиша зажата (polling + fallback).
--- Cursor + бинд НЕ назначен → всегда.
--- Camera/Mobile → всегда (hold на них не действует).
 local function IsCursorAimActive()
     if S.Aimbot.Mode ~= "Cursor" then return true end
     if not S.Binds.AimbotHold then return true end
@@ -1276,25 +1281,82 @@ local function IsCursorAimActive()
     return aimHoldDown
 end
 
-local function IsPlayerValid(pl)
+-- Проверка прямой видимости от камеры до part
+local function IsVisible(part)
+    if not part then return false end
+    local origin = Camera.CFrame.Position
+    local targetPos = part.Position
+    local dir = (targetPos - origin)
+    local dist = dir.Magnitude
+    if dist < 1 then return true end
+
+    -- обновляем фильтр: игнорируем самого игрока и его персонажа
+    local myChar = LP.Character
+    local ignore = {Camera}
+    if myChar then table.insert(ignore, myChar) end
+    wallCheckRayParams.FilterDescendantsInstances = ignore
+
+    local res = Workspace:Raycast(origin, dir, wallCheckRayParams)
+    if not res then return true end
+    -- допуск: если первое попадание — сама цель или её предок, видна
+    local hit = res.Instance
+    if hit == part then return true end
+    local cur = hit
+    while cur do
+        if cur == part or cur == part.Parent then return true end
+        cur = cur.Parent
+    end
+    -- иначе — стена перед целью
+    return false
+end
+
+local function IsPlayerValid(pl, requireVisible)
     if not pl or pl.Parent ~= Players then return false end
     local ch = pl.Character; if not ch then return false end
     local hum = ch:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return false end
     local part = ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")
     if not part then return false end
-    local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
-    return onScreen and sp.Z >= 0
+    if requireVisible and not IsVisible(part) then return false end
+    return true
 end
 
+-- sticky: пока бинд зажат — не переключаемся, если цель валидна в расширенных условиях
+-- (не сбрасываем из-за FOV или стены — sticky держится).
+-- при отпускании hold → sticky сбрасывается.
+-- повторное зажатие → новый поиск ближайшего по прицелу+дистанции.
 local function FindTarget()
+    local isCursor = (S.Aimbot.Mode == "Cursor")
+    local holdActive = isCursor and S.Binds.AimbotHold and IsCursorAimActive()
+
+    -- === STICKY HOLD: пока бинд зажат — не переключаемся с текущей цели ===
+    -- Пока зажато: sticky держится, даже если цель ушла из FOV / за стену.
+    -- Отпустил → сброс. Снова зажал → новый поиск.
     if S.Aimbot.StickyLock and StickyTarget then
-        if IsPlayerValid(StickyTarget) then
-            local ch = StickyTarget.Character
-            return ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")
-        else StickyTarget = nil end
+        if holdActive and wasHoldActive then
+            -- продолжаем держать ту же цель, не проверяя FOV/стену
+            if IsPlayerValid(StickyTarget, false) then
+                local ch = StickyTarget.Character
+                return ch and (ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")) or nil
+            else
+                StickyTarget = nil
+            end
+        elseif isCursor and S.Binds.AimbotHold and not holdActive then
+            -- бинд отпущен → sticky сброшен, цель не ищем
+            StickyTarget = nil
+            return nil
+        else
+            -- бинд не назначен (aim всегда активен) — старое поведение: sticky валидируется по стенке
+            if IsPlayerValid(StickyTarget, S.Aimbot.WallCheck) then
+                local ch = StickyTarget.Character
+                return ch and (ch:FindFirstChild(S.Aimbot.Part) or ch:FindFirstChild("Head")) or nil
+            else
+                StickyTarget = nil
+            end
+        end
     end
 
+    -- === ПОИСК НОВОЙ ЦЕЛИ ===
     local target, targetPlayer, bestScore = nil, nil, math.huge
     local cmpPos, fovLimit
     if S.Aimbot.Mode == "Cursor" then
@@ -1323,6 +1385,9 @@ local function FindTarget()
 
         local pixelDist = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
         if pixelDist > fovLimit then continue end
+
+        -- wall check: если включён — пропускаем цели за стеной
+        if S.Aimbot.WallCheck and not IsVisible(part) then continue end
 
         local worldDist = (part.Position - myPos).Magnitude
         local score = pixelDist + worldDist * S.Aimbot.DistanceWeight
@@ -1360,10 +1425,14 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
         fovCircle.Visible = false
     end
 
-    if not S.Aimbot.Enabled then StickyTarget = nil; return end
-    if not IsCursorAimActive() then return end
+    if not S.Aimbot.Enabled then StickyTarget = nil; wasHoldActive = false; return end
+    if not IsCursorAimActive() then
+        wasHoldActive = false
+        return
+    end
 
     local t = FindTarget()
+    wasHoldActive = true
     if not t then return end
 
     if S.Aimbot.Mode == "Cursor" then
@@ -1381,7 +1450,7 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
 end)
 
 -- ============================================================
--- ESP — оптимизировано: кэш ссылок, no FindFirstChild каждый кадр
+-- ESP
 -- ============================================================
 ESPObjs = {}
 
@@ -1400,7 +1469,6 @@ function RefreshESPColors()
     end
 end
 
--- Связи на респавн, чтобы отцепить после RemoveESP
 local espCharConn = {}
 
 local function refreshEspCache(d)
@@ -1468,7 +1536,7 @@ Players.PlayerRemoving:Connect(function(pl)
 end)
 
 -- ============================================================
--- HITBOX (Players) — кэш ссылок
+-- HITBOX (Players)
 -- ============================================================
 HitboxParts = {}
 
@@ -1561,7 +1629,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- NPC HITBOX — кэш src-ссылок
+-- NPC HITBOX
 -- ============================================================
 NPCCache = {}
 NPCHitboxes = {}
@@ -2049,9 +2117,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- PC FLY + ESP SYNC + HITBOX SYNC + EFFECTS
--- ESP — на каждом кадре (плавность)
--- Эффекты Troll/Fun — throttled 30 fps
+-- PC FLY + ESP SYNC + EFFECTS
 -- ============================================================
 local FlyBV, FlyBG
 local SpinBV, DiscoLight, FireEmitter
@@ -2088,7 +2154,7 @@ RunService.RenderStepped:Connect(function(dt)
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
     end
 
-    -- Hitbox sync — только кэш-ссылки, без FindFirstChild
+    -- Hitbox sync — кэш-ссылки
     if S.Hitbox.Enabled then
         for _, e in pairs(HitboxParts) do
             if e.head and e.srcHead and e.srcHead.Parent then
@@ -2112,7 +2178,7 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- ESP — каждый кадр, кэш ссылок
+    -- ESP — каждый кадр
     if S.ESP.Enabled then
         for _, d in pairs(ESPObjs) do
             local c = d.player.Character
@@ -2217,7 +2283,7 @@ end)
 local Actions = {}
 Actions.Aimbot = function()
     S.Aimbot.Enabled = not S.Aimbot.Enabled; RefreshAll(); MarkDirty()
-    if not S.Aimbot.Enabled then StickyTarget = nil end
+    if not S.Aimbot.Enabled then StickyTarget = nil; wasHoldActive = false end
     Notify("🎯 Aimbot: "..tostring(S.Aimbot.Enabled))
 end
 Actions.ESP = function()
@@ -2274,7 +2340,7 @@ Actions.AntiFling = function()
 end
 
 -- ============================================================
--- INPUT — AimbotHold первым (не зависит от gp)
+-- INPUT
 -- ============================================================
 UIS.InputBegan:Connect(function(input, gp)
     if getgenv().TIMON_LISTENING then
@@ -2289,7 +2355,6 @@ UIS.InputBegan:Connect(function(input, gp)
         return
     end
 
-    -- AimbotHold ставим ДО проверки gp
     if S.Binds.AimbotHold and input.KeyCode == S.Binds.AimbotHold then
         aimHoldDown = true
         return
@@ -2437,7 +2502,8 @@ getgenv().TIMON_UNLOAD = function()
     Workspace.Gravity = DEFAULT_GRAVITY
     StickyTarget = nil
     aimHoldDown = false
+    wasHoldActive = false
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v3.4 · AimbotHold fix + ESP optimized")
+Notify("⚡ Timon Hub v3.5 · StickyHold fix + WallCheck")
