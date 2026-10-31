@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v3.1 — XNEO FLY GUI integration + Scrollable Tabs + Anti Fling
+-- TIMON HUB v3.3 — Floating Button Lock + Cursor Aim Hold-Bind + XNEO Fly
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================================
 
@@ -61,6 +61,7 @@ local S = {
     },
     Hamster = { Coins = 0 },
     Binds = {}, MobileBtns = {},
+    FloatingLock = false, FloatingPos = {},
     AutoSave = true, ConfigName = "auto"
 }
 getgenv().TIMON_SETTINGS = S
@@ -125,6 +126,7 @@ local function packSettings()
         Troll = {}, Fun = {},
         Hamster = { Coins = S.Hamster.Coins },
         Binds = {}, MobileBtns = {}, AutoSave = S.AutoSave,
+        FloatingLock = S.FloatingLock, FloatingPos = S.FloatingPos,
     }
     for k, v in pairs(S.Aimbot) do d.Aimbot[k] = v end
     for k, v in pairs(S.ESP) do
@@ -168,6 +170,8 @@ local function applySettings(d)
     end
     if d.MobileBtns then for k,v in pairs(d.MobileBtns) do S.MobileBtns[k] = v end end
     if d.AutoSave ~= nil then S.AutoSave = d.AutoSave end
+    if d.FloatingLock ~= nil then S.FloatingLock = d.FloatingLock end
+    if d.FloatingPos then S.FloatingPos = d.FloatingPos end
 end
 local function saveConfig(name)
     ensureDir(); name = name or AUTOSAVE_FILE
@@ -574,7 +578,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v3.1"
+TitleLbl.Text = "⚡ TIMON HUB · v3.3"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -661,9 +665,9 @@ local function Tab(name)
     return sc
 end
 
--- Forward decl for XNEO FLY integration
 local XneoGui = nil
 local launchXneoFlyGUI, closeXneoFlyGUI
+local OpenBtn
 
 -- ============================================================
 -- TAB: AIMBOT
@@ -820,9 +824,8 @@ Section(P, "🪐 Gravity")
 Toggle(P, "🪐 Zero Gravity",
     function() return S.Player.ZeroGravity end,
     function(v) S.Player.ZeroGravity = v; applyGravityState() end)
-
 -- ============================================================
--- TAB: TROLL (InvisibleFling removed)
+-- TAB: TROLL
 -- ============================================================
 local T = Tab("😈 Troll")
 
@@ -923,17 +926,33 @@ Toggle(FN, "🎵 Random Emote Loop",
     function(v) S.Fun.RandomEmote = v end)
 
 -- ============================================================
--- TAB: BINDS
+-- TAB: BINDS — + Fix Floating Buttons
 -- ============================================================
 local B = Tab("🔗 Binds")
 Section(B, "⌨ Key Binds (ПК)")
-BindButton(B, "Aimbot", "🎯 Aimbot")
+BindButton(B, "Aimbot", "🎯 Aimbot Toggle")
+BindButton(B, "AimbotHold", "🎯 Cursor Aim (hold)")
 BindButton(B, "ESP", "👁 ESP")
 BindButton(B, "Hitbox", "📦 Hitbox")
 BindButton(B, "Fly", "✈ Fly")
 BindButton(B, "Noclip", "👻 Noclip")
 BindButton(B, "InfiniteJump", "♾ Infinite Jump")
 BindButton(B, "ZeroGravity", "🪐 Zero Gravity")
+Section(B, "📌 Floating Lock")
+Toggle(B, "🔒 Fix Floating Buttons",
+    function() return S.FloatingLock end,
+    function(v)
+        S.FloatingLock = v
+        ApplyFloatingLock()
+        MarkDirty()
+        Notify("🔒 Floating: "..(v and "LOCKED" or "FREE"))
+    end)
+Button(B, "🔄 Сбросить позиции кнопок", function()
+    S.FloatingPos = {}
+    RepositionAllFloatingBtns()
+    MarkDirty()
+    Notify("🔄 Позиции сброшены")
+end, {textColor = COL.accent2})
 Section(B, "📱 Floating Buttons (Mobile)")
 Toggle(B, "🎯 Aimbot Button",
     function() return S.MobileBtns.Aimbot == true end,
@@ -1043,6 +1062,9 @@ Button(ST, "🔄 Сбросить настройки", function()
     S.Player.Noclip=false; S.Player.InfiniteJump=false
     S.Player.ZeroGravity=false
     S.Troll.AntiFling=false
+    S.FloatingLock=false
+    S.FloatingPos={}
+    ApplyFloatingLock(); RepositionAllFloatingBtns()
     applyGravityState()
     RefreshAll(); MarkDirty(); Notify("⚙ Настройки сброшены")
 end)
@@ -1078,13 +1100,13 @@ local function applyLoadedSettings()
     end
     if S.Hitbox.NPCSupport then
         refreshNPCCache()
-        for model in pairs(NPCCache) do
-            pcall(ApplyNPCHitbox, model)
-        end
+        for model in pairs(NPCCache) do pcall(ApplyNPCHitbox, model) end
     end
     for action, state in pairs(S.MobileBtns) do
         ToggleMobileBtn(action, state)
     end
+    RepositionAllFloatingBtns()
+    ApplyFloatingLock()
     applyGravityState()
     if S.Player.MobileFly then
         if not XneoGui then launchXneoFlyGUI() end
@@ -1132,6 +1154,7 @@ function RefreshCfgList()
     end
 end
 RefreshCfgList()
+
 -- ============================================================
 -- GRAVITY STATE
 -- ============================================================
@@ -1146,13 +1169,101 @@ function applyGravityState()
 end
 
 -- ============================================================
--- AIMBOT
+-- FLOATING DRAG LAYER (lock-aware + persistance)
+-- ============================================================
+-- id: уникальный ключ ("OpenBtn", "Aimbot", "MobileFly" ...)
+-- defaultPos: UDim2 по умолчанию
+-- makeDraggable: локальная, уважает S.FloatingLock
+local AllFloating = {}  -- id -> {btn = Instance, defaultPos = UDim2}
+
+local function saveBtnPos(id, pos)
+    S.FloatingPos[id] = {
+        xS = pos.X.Scale, xO = pos.X.Offset,
+        yS = pos.Y.Scale, yO = pos.Y.Offset,
+    }
+end
+
+local function loadBtnPos(id, defaultPos)
+    local p = S.FloatingPos[id]
+    if p then
+        return UDim2.new(p.xS or 0, p.xO or 0, p.yS or 0, p.yO or 0)
+    end
+    return defaultPos
+end
+
+local function MakeDraggableLockable(frame, dragBar, id, defaultPos)
+    local dragging, dragStart, startPos
+    dragBar.InputBegan:Connect(function(input)
+        if S.FloatingLock then return end  -- 🔒 заблокировано
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = frame.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if not dragging then return end
+        if S.FloatingLock then dragging = false; return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+            local d = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale,
+                startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    UIS.InputEnded:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch) then
+            dragging = false
+            if id then saveBtnPos(id, frame.Position); MarkDirty() end
+        end
+    end)
+    if id then
+        AllFloating[id] = {btn = frame, defaultPos = defaultPos or frame.Position}
+    end
+end
+
+function RepositionAllFloatingBtns()
+    for id, entry in pairs(AllFloating) do
+        if entry.btn and entry.btn.Parent then
+            local pos = loadBtnPos(id, entry.defaultPos)
+            entry.btn.Position = pos
+        end
+    end
+end
+
+-- визуальная индикация лока: лёгкая подсветка рамки
+function ApplyFloatingLock()
+    for _, entry in pairs(AllFloating) do
+        local b = entry.btn
+        if b and b.Parent then
+            local s = b:FindFirstChildOfClass("UIStroke")
+            if s then
+                if S.FloatingLock then
+                    s.Color = Color3.fromRGB(120, 255, 160)
+                    s.Thickness = 2
+                else
+                    s.Color = COL.accent2
+                    s.Thickness = 2
+                end
+            end
+        end
+    end
+end
+
+-- ============================================================
+-- AIMBOT (с AimbotHold)
 -- ============================================================
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false; fovCircle.Thickness = 1
 fovCircle.Color = COL.accent; fovCircle.Transparency = 0.7
 
 local StickyTarget = nil
+local aimHoldDown = false
+
+local function IsCursorAimActive()
+    if not S.Binds.AimbotHold then return true end
+    return aimHoldDown
+end
 
 local function IsPlayerValid(pl)
     if not pl or pl.Parent ~= Players then return false end
@@ -1239,6 +1350,8 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
     end
 
     if not S.Aimbot.Enabled then StickyTarget = nil; return end
+    if S.Aimbot.Mode == "Cursor" and not IsCursorAimActive() then return end
+
     local t = FindTarget()
     if not t then return end
 
@@ -1510,9 +1623,7 @@ task.spawn(function()
     while task.wait(1) do
         if S.Hitbox.NPCSupport then
             refreshNPCCache()
-            for model in pairs(NPCCache) do
-                pcall(ApplyNPCHitbox, model)
-            end
+            for model in pairs(NPCCache) do pcall(ApplyNPCHitbox, model) end
             for model in pairs(NPCHitboxes) do
                 if not model.Parent or not NPCCache[model] then
                     RemoveNPCHitbox(model)
@@ -1523,16 +1634,11 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- XNEO FLY GUI — полный перенос FLY GUI V3
+-- XNEO FLY GUI
 -- ============================================================
 local XneoState = {
-    gui = nil,
-    nowe = false,
-    speeds = 1,
-    tpWalking = false,
-    bg = nil,
-    bv = nil,
-    flyLoopConn = nil,
+    gui = nil, nowe = false, speeds = 1, tpWalking = false,
+    bg = nil, bv = nil, flyLoopConn = nil,
 }
 
 local XNEO_STATES = {
@@ -1575,8 +1681,6 @@ local function xneoTurnOnFlight()
     if S.Player.Fly then S.Player.Fly = false; RefreshAll() end
 
     XneoState.nowe = true
-
-    -- tp-walk цикл (TranslateBy)
     XneoState.tpWalking = true
     XneoState.flyLoopConn = RunService.Heartbeat:Connect(function()
         if not XneoState.tpWalking then return end
@@ -1588,7 +1692,6 @@ local function xneoTurnOnFlight()
         end
     end)
 
-    -- отключить анимации и стейты
     local animate = chr:FindFirstChild("Animate")
     if animate then animate.Disabled = true end
     for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
@@ -1599,7 +1702,6 @@ local function xneoTurnOnFlight()
     end
     pcall(function() hum:ChangeState(Enum.HumanoidStateType.Swimming) end)
 
-    -- BodyGyro / BodyVelocity для стабилизации
     local part = (hum.RigType == Enum.HumanoidRigType.R6)
         and chr:FindFirstChild("Torso")
         or chr:FindFirstChild("UpperTorso")
@@ -1623,9 +1725,7 @@ local function xneoTurnOnFlight()
         while XneoState.nowe do
             task.wait()
             if XneoState.bg then
-                pcall(function()
-                    XneoState.bg.CFrame = Camera.CFrame
-                end)
+                pcall(function() XneoState.bg.CFrame = Camera.CFrame end)
             end
         end
     end)
@@ -1746,32 +1846,23 @@ function launchXneoFlyGUI()
     mini2.Visible = false
     corner(mini2, 6)
 
-    -- ==== кнопка fly ====
     onof.MouseButton1Click:Connect(function()
-        if XneoState.nowe then
-            xneoTurnOffFlight()
-        else
-            xneoTurnOnFlight()
-        end
+        if XneoState.nowe then xneoTurnOffFlight() else xneoTurnOnFlight() end
     end)
 
-    -- ==== UP / DOWN (тач и мышь) ====
     local upHeld = false
     up.MouseButton1Down:Connect(function()
         upHeld = true
         task.spawn(function()
             while upHeld do
                 local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    hrp.CFrame = hrp.CFrame * CFrame.new(0, 1, 0)
-                end
+                if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, 1, 0) end
                 task.wait()
             end
         end)
     end)
     local function upRelease() upHeld = false end
-    up.MouseButton1Up:Connect(upRelease)
-    up.MouseLeave:Connect(upRelease)
+    up.MouseButton1Up:Connect(upRelease); up.MouseLeave:Connect(upRelease)
 
     local downHeld = false
     down.MouseButton1Down:Connect(function()
@@ -1779,18 +1870,14 @@ function launchXneoFlyGUI()
         task.spawn(function()
             while downHeld do
                 local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    hrp.CFrame = hrp.CFrame * CFrame.new(0, -1, 0)
-                end
+                if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, -1, 0) end
                 task.wait()
             end
         end)
     end)
     local function downRelease() downHeld = false end
-    down.MouseButton1Up:Connect(downRelease)
-    down.MouseLeave:Connect(downRelease)
+    down.MouseButton1Up:Connect(downRelease); down.MouseLeave:Connect(downRelease)
 
-    -- ==== + / - ====
     plus.MouseButton1Click:Connect(function()
         XneoState.speeds = XneoState.speeds + 1
         speedLbl.Text = tostring(XneoState.speeds)
@@ -1806,12 +1893,8 @@ function launchXneoFlyGUI()
         end
     end)
 
-    -- ==== close ====
-    closebutton.MouseButton1Click:Connect(function()
-        closeXneoFlyGUI()
-    end)
+    closebutton.MouseButton1Click:Connect(function() closeXneoFlyGUI() end)
 
-    -- ==== minimize ====
     mini.MouseButton1Click:Connect(function()
         up.Visible = false; down.Visible = false; onof.Visible = false
         plus.Visible = false; speedLbl.Visible = false; mine.Visible = false
@@ -1827,10 +1910,8 @@ function launchXneoFlyGUI()
         closebutton.Position = UDim2.new(0, 0, -1, 27)
     end)
 
-    -- поднять флаг хаба и обновить кнопки
     S.Player.MobileFly = true
-    RefreshAll()
-    MarkDirty()
+    RefreshAll(); MarkDirty()
 end
 
 function closeXneoFlyGUI()
@@ -1841,8 +1922,7 @@ function closeXneoFlyGUI()
     end
     XneoState.speeds = 1
     S.Player.MobileFly = false
-    RefreshAll()
-    MarkDirty()
+    RefreshAll(); MarkDirty()
 end
 
 -- ============================================================
@@ -1862,7 +1942,6 @@ UIS.JumpRequest:Connect(function()
     end
 end)
 
--- Noclip
 task.spawn(function()
     while task.wait(0.1) do
         if S.Player.Noclip and LP.Character then
@@ -1873,7 +1952,6 @@ task.spawn(function()
     end
 end)
 
--- Chat Spam
 task.spawn(function()
     while task.wait(2) do
         if S.Troll.ChatSpam then
@@ -1886,16 +1964,13 @@ task.spawn(function()
     end
 end)
 
--- Random Emote
 task.spawn(function()
     while task.wait(3) do
         if S.Fun.RandomEmote then
             local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
             if hum then
                 local emotes = {"wave", "dance", "point", "laugh", "cheer"}
-                pcall(function()
-                    hum:PlayEmote(emotes[math.random(#emotes)])
-                end)
+                pcall(function() hum:PlayEmote(emotes[math.random(#emotes)]) end)
             end
         end
     end
@@ -1913,7 +1988,6 @@ task.spawn(function()
         if S.Troll.AntiFling and LP.Character then
             for _, p in ipairs(LP.Character:GetDescendants()) do
                 if p:IsA("BasePart") then
-                    -- не трогаем BodyGyro/BodyVelocity, которые XNEO использует на текущем персонаже
                     local skip = XneoState.nowe and (
                         p.Name == "Torso" or p.Name == "UpperTorso"
                     )
@@ -1947,7 +2021,6 @@ RunService.RenderStepped:Connect(function(dt)
     local ch = LP.Character
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
 
-    -- PC Fly (WASD) — не работает если XNEO включён
     if S.Player.Fly and not XneoState.nowe and hrp then
         if not FlyBV then
             FlyBV = Instance.new("BodyVelocity")
@@ -1973,7 +2046,6 @@ RunService.RenderStepped:Connect(function(dt)
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
     end
 
-    -- Hitbox CFrame sync
     if S.Hitbox.Enabled then
         for pl, e in pairs(HitboxParts) do
             local c = pl.Character
@@ -1990,7 +2062,6 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- NPC hitbox sync
     if S.Hitbox.NPCSupport then
         for model, e in pairs(NPCHitboxes) do
             if model.Parent then
@@ -2008,7 +2079,6 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- ESP
     if S.ESP.Enabled then
         for pl, d in pairs(ESPObjs) do
             local c = pl.Character
@@ -2047,7 +2117,6 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Troll: Spin
     if S.Troll.Spin and hrp then
         if not SpinBV or not SpinBV.Parent then
             SpinBV = Instance.new("BodyAngularVelocity")
@@ -2059,7 +2128,6 @@ RunService.RenderStepped:Connect(function(dt)
         SpinBV:Destroy(); SpinBV = nil
     end
 
-    -- Troll: Invisible Self
     if S.Troll.Invisible and ch then
         for _, p in ipairs(ch:GetDescendants()) do
             if p:IsA("BasePart") then p.LocalTransparencyModifier = 1
@@ -2067,7 +2135,6 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Fun: Rainbow
     if S.Fun.Rainbow and ch then
         local hue = tick() % 1
         for _, p in ipairs(ch:GetDescendants()) do
@@ -2078,7 +2145,6 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Fun: Disco
     if S.Fun.Disco and hrp then
         if not DiscoLight or not DiscoLight.Parent then
             DiscoLight = Instance.new("PointLight")
@@ -2091,7 +2157,6 @@ RunService.RenderStepped:Connect(function(dt)
         DiscoLight:Destroy(); DiscoLight = nil
     end
 
-    -- Fun: Fire Trail
     if S.Fun.FireTrail and hrp then
         if not FireEmitter or not FireEmitter.Parent then
             FireEmitter = Instance.new("ParticleEmitter")
@@ -2137,19 +2202,15 @@ Actions.Hitbox = function()
     Notify("📦 Hitbox: "..tostring(S.Hitbox.Enabled))
 end
 Actions.Fly = function()
-    if not S.Player.Fly and XneoState.nowe then
-        closeXneoFlyGUI()
-    end
+    if not S.Player.Fly and XneoState.nowe then closeXneoFlyGUI() end
     S.Player.Fly = not S.Player.Fly; RefreshAll(); MarkDirty()
     Notify("✈ Fly: "..tostring(S.Player.Fly))
 end
 Actions.MobileFly = function()
     if XneoState.gui then
-        closeXneoFlyGUI()
-        Notify("📱 XNEO Fly: OFF")
+        closeXneoFlyGUI(); Notify("📱 XNEO Fly: OFF")
     else
-        launchXneoFlyGUI()
-        Notify("📱 XNEO Fly: ON")
+        launchXneoFlyGUI(); Notify("📱 XNEO Fly: ON")
     end
 end
 Actions.ZeroGravity = function()
@@ -2176,7 +2237,7 @@ Actions.AntiFling = function()
 end
 
 -- ============================================================
--- INPUT (BINDS + LISTEN)
+-- INPUT
 -- ============================================================
 UIS.InputBegan:Connect(function(input, gp)
     if getgenv().TIMON_LISTENING then
@@ -2194,19 +2255,33 @@ UIS.InputBegan:Connect(function(input, gp)
     if input.KeyCode == Enum.KeyCode.LeftAlt then
         Main.Visible = not Main.Visible; return
     end
+    if S.Binds.AimbotHold and input.KeyCode == S.Binds.AimbotHold then
+        aimHoldDown = true
+        return
+    end
     for action, key in pairs(S.Binds) do
-        if input.KeyCode == key and Actions[action] then Actions[action]() end
+        if action ~= "AimbotHold" and input.KeyCode == key and Actions[action] then
+            Actions[action]()
+        end
+    end
+end)
+
+UIS.InputEnded:Connect(function(input, gp)
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+    if S.Binds.AimbotHold and input.KeyCode == S.Binds.AimbotHold then
+        aimHoldDown = false
     end
 end)
 
 -- ============================================================
--- MOBILE FLOATING BUTTONS
+-- MOBILE FLOATING BUTTONS — lock-aware + persistant
 -- ============================================================
 local MobileButtons = {}
 local MOBILE_POS_INDEX = 0
 
 function ToggleMobileBtn(action, show)
     if MobileButtons[action] then
+        if AllFloating[action] then AllFloating[action] = nil end
         MobileButtons[action]:Destroy(); MobileButtons[action] = nil
         MOBILE_POS_INDEX = math.max(0, MOBILE_POS_INDEX - 1)
     end
@@ -2214,7 +2289,8 @@ function ToggleMobileBtn(action, show)
     MOBILE_POS_INDEX = MOBILE_POS_INDEX + 1
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(0,58,0,58)
-    b.Position = UDim2.new(0, 20, 0, 120 + (MOBILE_POS_INDEX - 1) * 68)
+    local defaultPos = UDim2.new(0, 20, 0, 120 + (MOBILE_POS_INDEX - 1) * 68)
+    b.Position = loadBtnPos(action, defaultPos)
     b.BackgroundColor3 = COL.bg2; b.BackgroundTransparency = 0.1
     b.TextColor3 = COL.accent2; b.Font = Enum.Font.GothamBold
     b.TextSize = 11
@@ -2225,8 +2301,12 @@ function ToggleMobileBtn(action, show)
     }
     b.Text = LABEL[action] or action
     b.BorderSizePixel = 0
-    b.Parent = ScreenGui; corner(b, 29); stroke(b, COL.accent2, 2)
-    MakeDraggable(b, b)
+    b.Parent = ScreenGui; corner(b, 29)
+    local s = stroke(b, COL.accent2, 2)
+    if S.FloatingLock then
+        s.Color = Color3.fromRGB(120, 255, 160)
+    end
+    MakeDraggableLockable(b, b, action, defaultPos)
     local function activeState()
         if action == "Aimbot" then return S.Aimbot.Enabled
         elseif action == "Fly" then return S.Player.Fly
@@ -2256,14 +2336,17 @@ function ToggleMobileBtn(action, show)
     MobileButtons[action] = b
 end
 
-local OpenBtn = Instance.new("TextButton")
+-- ⚡ OpenBtn — тоже floating, тоже под локом
+OpenBtn = Instance.new("TextButton")
 OpenBtn.Size = UDim2.new(0,52,0,52)
-OpenBtn.Position = UDim2.new(0,20,1,-80)
+local openDefault = UDim2.new(0,20,1,-80)
+OpenBtn.Position = loadBtnPos("__OpenBtn", openDefault)
 OpenBtn.BackgroundColor3 = COL.bg2; OpenBtn.BackgroundTransparency = 0.1
 OpenBtn.TextColor3 = COL.accent2; OpenBtn.Font = Enum.Font.GothamBold
 OpenBtn.TextSize = 13; OpenBtn.Text = "⚡"; OpenBtn.BorderSizePixel = 0
-OpenBtn.Parent = ScreenGui; corner(OpenBtn, 26); stroke(OpenBtn, COL.accent2, 2)
-MakeDraggable(OpenBtn, OpenBtn)
+OpenBtn.Parent = ScreenGui; corner(OpenBtn, 26)
+stroke(OpenBtn, COL.accent2, 2)
+MakeDraggableLockable(OpenBtn, OpenBtn, "__OpenBtn", openDefault)
 OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
 
 -- ============================================================
@@ -2293,6 +2376,8 @@ for action, state in pairs(S.MobileBtns) do
     if state then ToggleMobileBtn(action, true) end
 end
 applyGravityState()
+ApplyFloatingLock()
+RepositionAllFloatingBtns()
 
 getgenv().TIMON_UNLOAD = function()
     pcall(function() closeXneoFlyGUI() end)
@@ -2309,7 +2394,8 @@ getgenv().TIMON_UNLOAD = function()
     if FlyBG then pcall(function() FlyBG:Destroy() end) end
     Workspace.Gravity = DEFAULT_GRAVITY
     StickyTarget = nil
+    aimHoldDown = false
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v3.1 · XNEO Fly GUI + Scrollable Tabs + Anti Fling")
+Notify("⚡ Timon Hub v3.3 · Fix Floating Buttons")
