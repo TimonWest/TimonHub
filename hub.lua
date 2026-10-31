@@ -1,5 +1,5 @@
--- ============================================================
--- TIMON HUB v2.9.2 — Scrollable Tabs + Native Mobile Walk Fly + Zero Gravity + Fling Suite
+-- ============================================================================
+-- TIMON HUB v2.9.3 — Scrollable Tabs + Native Joystick Mobile Fly + Zero Gravity + Fling Suite
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
 -- ============================================================
 
@@ -574,7 +574,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v2.9.2"
+TitleLbl.Text = "⚡ TIMON HUB · v2.9.3"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -796,14 +796,11 @@ Toggle(P, "♾ Infinite Jump",
 Toggle(P, "👻 Noclip",
     function() return S.Player.Noclip end,
     function(v) S.Player.Noclip = v end)
-Section(P, "✈ Fly")
-Toggle(P, "✈ Fly (ПК)",
-    function() return S.Player.Fly end,
-    function(v) S.Player.Fly = v end)
-Toggle(P, "📱 Mobile Fly (Native Joystick)",
+Section(P, "✈ Fly V3")
+Toggle(P, "📱 Mobile Fly V3 (Joystick)",
     function() return S.Player.MobileFly end,
     function(v) S.Player.MobileFly = v end)
-Slider(P, "🚀 Fly Speed", 10, 300,
+Slider(P, "🚀 Fly Speed", 1, 10,
     function() return S.Player.FlySpeed end,
     function(v) S.Player.FlySpeed = v end)
 Section(P, "🪐 Gravity")
@@ -942,9 +939,6 @@ Section(B, "📱 Floating Buttons (Mobile)")
 Toggle(B, "🎯 Aimbot Button",
     function() return S.MobileBtns.Aimbot == true end,
     function(v) S.MobileBtns.Aimbot = v; ToggleMobileBtn("Aimbot", v) end)
-Toggle(B, "✈ Fly Button (PC)",
-    function() return S.MobileBtns.Fly == true end,
-    function(v) S.MobileBtns.Fly = v; ToggleMobileBtn("Fly", v) end)
 Toggle(B, "📱 Mobile Fly Button",
     function() return S.MobileBtns.MobileFly == true end,
     function(v) S.MobileBtns.MobileFly = v; ToggleMobileBtn("MobileFly", v) end)
@@ -1675,15 +1669,85 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- FLY (PC) & MOBILE FLY (Native Joystick / MoveDirection)
+-- FLY (PC) & MOBILE FLY V3 (Pure Joystick & TranslateBy Logic)
 -- ============================================================
 local FlyBV, FlyBG
 local SpinBV, DiscoLight, FireEmitter
+
+-- Переменные для работы Fly V3 через джойстик
+local tpwalking = false
+
+task.spawn(function()
+    RunService.Heartbeat:Connect(function()
+        local chr = LP.Character
+        local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+        if S.Player.MobileFly and chr and hum and hum.Parent then
+            if hum.MoveDirection.Magnitude > 0 then
+                for i = 1, math.clamp(math.floor(S.Player.FlySpeed), 1, 10) do
+                    chr:TranslateBy(hum.MoveDirection * (0.6 * S.Player.FlySpeed))
+                end
+            end
+        end
+    end)
+end)
 
 RunService.RenderStepped:Connect(function(dt)
     local ch = LP.Character
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
     local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+
+    -- Управление состоянием анимаций и физики для Mobile Fly V3
+    if S.Player.MobileFly then
+        pcall(function()
+            ch.Animate.Disabled = true
+            local animController = ch:FindFirstChildOfClass("Humanoid") or ch:FindFirstChildOfClass("AnimationController")
+            if animController then
+                for _, track in next, animController:GetPlayingAnimationTracks() do
+                    track:AdjustSpeed(0)
+                end
+            end
+            hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Flying, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Running, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+            hum:ChangeState(Enum.HumanoidStateType.Swimming)
+            hum.PlatformStand = true
+        end)
+    else
+        pcall(function()
+            if ch then
+                ch.Animate.Disabled = false
+                hum.PlatformStand = false
+                hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.Flying, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.Landed, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.Running, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, true)
+                hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, true)
+                hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+            end
+        end)
+    end
 
     -- Fly PC (WASD + Space/Shift)
     if S.Player.Fly and hrp then
@@ -1704,41 +1768,9 @@ RunService.RenderStepped:Connect(function(dt)
         if UIS:IsKeyDown(Enum.KeyCode.D) then dir += Camera.CFrame.RightVector end
         if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
         if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir -= Vector3.new(0,1,0) end
-        FlyBV.Velocity = dir * S.Player.FlySpeed
+        FlyBV.Velocity = dir * S.Player.FlySpeed * 5
         FlyBG.CFrame = Camera.CFrame
-
-    -- Mobile Fly (Native Joystick / MoveDirection: куда стик повернул — туда и летим)
-    elseif S.Player.MobileFly and hrp and hum then
-        if not FlyBV then
-            FlyBV = Instance.new("BodyVelocity")
-            FlyBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            FlyBV.Parent = hrp
-        end
-        if not FlyBG then
-            FlyBG = Instance.new("BodyGyro")
-            FlyBG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            FlyBG.Parent = hrp
-        end
-        
-        -- Используем встроенный MoveDirection от стандартного джойстика Roblox
-        local moveDir = hum.MoveDirection
-        local camCF = Camera.CFrame
-        
-        -- Переводим направление стика относительно камеры
-        local flyVelocity = Vector3.zero
-        if moveDir.Magnitude > 0 then
-            -- Проекция камеры на плоскость пола для горизонтального движения стиком
-            local flatCamLook = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z).Unit
-            local flatCamRight = Vector3.new(camCF.RightVector.X, 0, camCF.RightVector.Z).Unit
-            
-            local worldMoveDir = (flatCamLook * -moveDir.Z) + (flatCamRight * moveDir.X)
-            flyVelocity = worldMoveDir.Unit * S.Player.FlySpeed
-        end
-        
-        FlyBV.Velocity = flyVelocity
-        FlyBG.CFrame = camCF
-
-    elseif FlyBV then
+    elseif FlyBV and not S.Player.Fly then
         FlyBV:Destroy(); FlyBV = nil
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
     end
@@ -1912,7 +1944,7 @@ Actions.Fly = function()
 end
 Actions.MobileFly = function()
     S.Player.MobileFly = not S.Player.MobileFly; RefreshAll(); MarkDirty()
-    Notify("📱 Mobile Fly (Joystick): "..tostring(S.Player.MobileFly))
+    Notify("📱 Mobile Fly V3: "..tostring(S.Player.MobileFly))
 end
 Actions.ZeroGravity = function()
     S.Player.ZeroGravity = not S.Player.ZeroGravity
@@ -2077,4 +2109,4 @@ getgenv().TIMON_UNLOAD = function()
     getgenv().TIMON_LOADED = false
 end
 
-Notify("⚡ Timon Hub v2.9.2 · Native Joystick Mobile Fly")
+Notify("⚡ Timon Hub v2.9.3 · Mobile Fly V3 Integrated")
