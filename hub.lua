@@ -1,6 +1,7 @@
 -- ============================================================================
--- TIMON HUB v4.5.2 — Beam + Fullbright + Hitbox + Coords + PowerESP + FPS Fix
+-- TIMON HUB v4.5.3 — Beam + Fullbright + Hitbox + Coords + PowerESP + FPS Fix
 -- language: Lua, file: timonhub.lua, runtime: Roblox Luau (executor)
+-- v4.5.3: reload-safe (CONNS), WalkSpeed/JumpPower toggles, unload cleanup
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -23,6 +24,20 @@ if not Camera then
     Camera = Workspace.CurrentCamera
 end
 local DEFAULT_GRAVITY = Workspace.Gravity
+
+-- FIX RELOAD-LEAK: трекер всех .Connect-соединений. Unload рвёт всё разом.
+local CONNS = {}
+local function trackConn(conn)
+    CONNS[#CONNS+1] = conn
+    return conn
+end
+-- FIX RELOAD-LEAK: трекер task.spawn-потоков (loops)
+local THREADS = {}
+local function trackThread(t)
+    THREADS[#THREADS+1] = t
+    return t
+end
+
 getgenv().TIMON_LOADED = true
 
 -- ============================================================
@@ -78,6 +93,7 @@ local S = {
         Fly = false, MobileFly = false, FlySpeed = 50,
         ZeroGravity = false,
         WalkSpeed = 16, JumpPower = 50,
+        WalkSpeedEnabled = true, JumpPowerEnabled = true,
         InfiniteJump = false, Noclip = false,
         AntiAFK = false,
         LazyMode = false,
@@ -143,14 +159,14 @@ local function MakeDraggable(frame, dragBar)
             end)
         end
     end)
-    UIS.InputChanged:Connect(function(input)
+    trackConn(UIS.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
         or input.UserInputType == Enum.UserInputType.Touch) then
             local d = input.Position - dragStart
             frame.Position = UDim2.new(startPos.X.Scale,
                 startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
         end
-    end)
+    end))
 end
 local CONFIG_DIR = "TimonHub"
 local AUTOSAVE_FILE = "autosave"
@@ -162,6 +178,9 @@ local function fileExists(p)
 end
 local function packC3(c) return {math.floor(c.R*255+0.5), math.floor(c.G*255+0.5), math.floor(c.B*255+0.5)} end
 local function unpackC3(t) return Color3.fromRGB(t[1] or 128, t[2] or 128, t[3] or 128) end
+
+-- FIX unpack: Luau предпочитает table.unpack
+local unpackFn = table.unpack or unpack
 
 local function packSettings()
     local d = {
@@ -208,7 +227,7 @@ local function applySettings(d)
     end end
     if d.Player then for k,v in pairs(d.Player) do
         if k == "SavedPos" and type(v) == "table" and #v >= 12 then
-            local ok, cf = pcall(function() return CFrame.new(unpack(v)) end)
+            local ok, cf = pcall(function() return CFrame.new(unpackFn(v)) end)
             if ok then S.Player.SavedPos = cf end
         elseif S.Player[k] ~= nil then S.Player[k] = v end
     end end
@@ -299,7 +318,6 @@ local function RefreshAll() for _, fn in ipairs(Refreshers) do pcall(fn) end end
 
 local ORDER = 0
 local function NextOrder() ORDER = ORDER + 1; return ORDER end
-
 local function Section(parent, text)
     local f = Instance.new("Frame")
     f.Size = UDim2.new(1,0,0,28); f.BackgroundTransparency = 1
@@ -389,14 +407,14 @@ local function Slider(parent, name, minV, maxV, getter, setter)
             drag = true; setX(i.Position.X)
         end
     end)
-    UIS.InputChanged:Connect(function(i)
+    trackConn(UIS.InputChanged:Connect(function(i)
         if drag and (i.UserInputType == Enum.UserInputType.MouseMovement
         or i.UserInputType == Enum.UserInputType.Touch) then setX(i.Position.X) end
-    end)
-    UIS.InputEnded:Connect(function(i)
+    end))
+    trackConn(UIS.InputEnded:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1
         or i.UserInputType == Enum.UserInputType.Touch then drag = false end
-    end)
+    end))
 end
 
 local function Dropdown(parent, name, options, getter, setter)
@@ -602,7 +620,7 @@ end
 
 ApplyMainSize()
 pcall(function()
-    Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(ApplyMainSize)
+    trackConn(Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(ApplyMainSize))
 end)
 
 local TitleBar = Instance.new("Frame")
@@ -615,7 +633,7 @@ corner(TitleBar, 16)
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1,-100,1,0); TitleLbl.Position = UDim2.new(0,16,0,0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ TIMON HUB · v4.5.2"
+TitleLbl.Text = "⚡ TIMON HUB · v4.5.3"
 TitleLbl.TextColor3 = COL.accent2; TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TitleBar
@@ -701,6 +719,7 @@ end
 
 local launchXneoFlyGUI, closeXneoFlyGUI
 local OpenBtn
+
 -- ============================================================
 -- TAB: COMBAT
 -- ============================================================
@@ -934,9 +953,15 @@ Toggle(H, "🎯 Enable NPC Hitbox",
 -- ============================================================
 local P = Tab("🏃 Player")
 Section(P, "🏃 Movement")
+Toggle(P, "⚡ Walk Speed Override",
+    function() return S.Player.WalkSpeedEnabled end,
+    function(v) S.Player.WalkSpeedEnabled = v end)
 Slider(P, "⚡ Walk Speed", 16, 300,
     function() return S.Player.WalkSpeed end,
     function(v) S.Player.WalkSpeed = v end)
+Toggle(P, "🦘 Jump Power Override",
+    function() return S.Player.JumpPowerEnabled end,
+    function(v) S.Player.JumpPowerEnabled = v end)
 Slider(P, "🦘 Jump Power", 50, 300,
     function() return S.Player.JumpPower end,
     function(v) S.Player.JumpPower = v end)
@@ -1118,7 +1143,7 @@ Toggle(B, "✈ Fly Button (PC)",
     function() return S.MobileBtns.Fly == true end,
     function(v) S.MobileBtns.Fly = v; ToggleMobileBtn("Fly", v) end)
 Toggle(B, "📱 Mobile Fly (XNEO) Button",
-    function() return S.MobileBtns.MobileFly == true end,
+    function() return S.MobileBtns.MobileFly == true or XneoState.gui ~= nil end,
     function(v) S.MobileBtns.MobileFly = v; ToggleMobileBtn("MobileFly", v) end)
 Toggle(B, "🪐 Zero Gravity Button",
     function() return S.MobileBtns.ZeroGravity == true end,
@@ -1228,6 +1253,8 @@ Button(ST, "🔄 Сбросить настройки", function()
     if XneoState.gui then closeXneoFlyGUI() end
     S.Player.Noclip=false; S.Player.InfiniteJump=false
     S.Player.ZeroGravity=false
+    S.Player.WalkSpeed=16; S.Player.JumpPower=50
+    S.Player.WalkSpeedEnabled=true; S.Player.JumpPowerEnabled=true
     S.Player.AntiAFK=false; stopAntiAFK()
     S.Player.FPSBooster=false; disableFPSBooster()
     S.Player.LowQuality=false; disableLowQuality()
@@ -1367,10 +1394,10 @@ function applyGravityState()
     end
 end
 
-LP.CharacterAdded:Connect(function()
+trackConn(LP.CharacterAdded:Connect(function()
     task.wait(0.5)
     if S.Player.ZeroGravity then applyGravityState() end
-end)
+end))
 
 local antiAFKThread = nil
 function startAntiAFK()
@@ -1384,7 +1411,7 @@ function startAntiAFK()
         end
     end)
     antiAFKThread = task.spawn(function()
-        while S.Player.AntiAFK do
+        while getgenv().TIMON_LOADED and S.Player.AntiAFK do
             task.wait(60)
             pcall(function()
                 local vu = game:GetService("VirtualUser")
@@ -1392,6 +1419,7 @@ function startAntiAFK()
                 vu:ClickButton2(Vector2.new())
             end)
         end
+        antiAFKThread = nil
     end)
 end
 function stopAntiAFK()
@@ -1516,7 +1544,7 @@ local function MakeDraggableLockable(frame, dragBar, id, defaultPos)
             dragging = true; dragStart = input.Position; startPos = frame.Position
         end
     end)
-    UIS.InputChanged:Connect(function(input)
+    trackConn(UIS.InputChanged:Connect(function(input)
         if not dragging then return end
         if S.FloatingLock then dragging = false; return end
         if input.UserInputType == Enum.UserInputType.MouseMovement
@@ -1525,14 +1553,14 @@ local function MakeDraggableLockable(frame, dragBar, id, defaultPos)
             frame.Position = UDim2.new(startPos.X.Scale,
                 startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
         end
-    end)
-    UIS.InputEnded:Connect(function(input)
+    end))
+    trackConn(UIS.InputEnded:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch) then
             dragging = false
             if id then saveBtnPos(id, frame.Position); MarkDirty() end
         end
-    end)
+    end))
     if id then
         AllFloating[id] = {btn = frame, defaultPos = defaultPos or frame.Position}
     end
@@ -1596,7 +1624,6 @@ local function xneoTurnOnFlight()
 
     XneoState.nowe = true
     XneoState.tpWalking = true
-    -- FIX B1: speeds теперь реально влияет на скорость полёта
     XneoState.flyLoopConn = RunService.Heartbeat:Connect(function()
         if not XneoState.tpWalking then return end
         local c = LP.Character
@@ -1615,7 +1642,6 @@ local function xneoTurnOnFlight()
     for _, st in ipairs(XNEO_STATES) do
         pcall(function() hum:SetStateEnabled(st, false) end)
     end
-    -- FIX B7: убран ChangeState(Swimming) после SetStateEnabled(false). Мёртвая строка.
 
     local part = (hum.RigType == Enum.HumanoidRigType.R6)
         and chr:FindFirstChild("Torso")
@@ -1637,7 +1663,7 @@ local function xneoTurnOnFlight()
 
     hum.PlatformStand = true
     task.spawn(function()
-        while XneoState.nowe do
+        while getgenv().TIMON_LOADED and XneoState.nowe do
             task.wait()
             if XneoState.bg then
                 pcall(function() XneoState.bg.CFrame = Camera.CFrame end)
@@ -1769,7 +1795,7 @@ function launchXneoFlyGUI()
     up.MouseButton1Down:Connect(function()
         upHeld = true
         task.spawn(function()
-            while upHeld do
+            while getgenv().TIMON_LOADED and upHeld do
                 local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, 1, 0) end
                 task.wait()
@@ -1783,7 +1809,7 @@ function launchXneoFlyGUI()
     down.MouseButton1Down:Connect(function()
         downHeld = true
         task.spawn(function()
-            while downHeld do
+            while getgenv().TIMON_LOADED and downHeld do
                 local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, -1, 0) end
                 task.wait()
@@ -1825,6 +1851,7 @@ function launchXneoFlyGUI()
     end)
 
     S.Player.MobileFly = true
+    S.MobileBtns.MobileFly = true
     RefreshAll(); MarkDirty()
 end
 
@@ -1836,6 +1863,7 @@ function closeXneoFlyGUI()
     end
     XneoState.speeds = 1
     S.Player.MobileFly = false
+    S.MobileBtns.MobileFly = false
     RefreshAll(); MarkDirty()
 end
 
@@ -2085,6 +2113,7 @@ local function tryMouse(dx, dy)
 end
 
 RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, function()
+    if not getgenv().TIMON_LOADED then return end
     if S.Aimbot.ShowFOV and S.Aimbot.Mode ~= "Cursor" then
         fovCircle.Visible = true
         fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
@@ -2184,7 +2213,7 @@ end)
 ESPObjs = {}
 NPCESPObjs = {}
 local espCharConn = {}
-local espAppearanceConn = {}  -- FIX B8: второе соединение больше не утекает
+local espAppearanceConn = {}
 
 local function applyHighlight(hl)
     hl.FillColor = S.ESP.FillColor
@@ -2269,7 +2298,6 @@ function CreateESP(pl)
         if c and e.hl then e.hl.Adornee = c; e.hl.Enabled = true end
         refreshEspCache(e)
     end)
-    -- FIX B8: сохраняем connection, чтобы отписать в RemoveESP
     pcall(function()
         if espAppearanceConn[pl] then
             pcall(function() espAppearanceConn[pl]:Disconnect() end)
@@ -2350,16 +2378,16 @@ function RemoveNPCESP(model)
     end
 end
 
-Players.PlayerAdded:Connect(function(pl)
+trackConn(Players.PlayerAdded:Connect(function(pl)
     pl.CharacterAdded:Connect(function()
         task.wait(0.5)
         if S.ESP.Enabled then CreateESP(pl) end
     end)
-end)
-Players.PlayerRemoving:Connect(function(pl)
+end))
+trackConn(Players.PlayerRemoving:Connect(function(pl)
     RemoveESP(pl)
     RemoveHitboxFor(pl)
-end)
+end))
 
 -- ============================================================
 -- HITBOX (Players)
@@ -2370,8 +2398,6 @@ local function createHitboxPart(name)
     local p = Instance.new("Part")
     p.Name = "TimonHub_HB_" .. name
     p.Anchored = true; p.CanCollide = false
-    -- B3: CanQuery=false осознанно. Аимбот screen-space (Cursor Mode), raycast не используется.
-    -- Если переключишь аим на raycast — поставь CanQuery=true.
     p.CanQuery = false; p.CanTouch = false
     p.Massless = true
     p.Material = Enum.Material.SmoothPlastic
@@ -2446,15 +2472,16 @@ function RefreshHitboxes()
     end
 end
 
-task.spawn(function()
-    while task.wait(0.3) do
+trackThread(task.spawn(function()
+    while getgenv().TIMON_LOADED do
+        task.wait(0.3)
         if S.Hitbox.Enabled then
             for _, pl in ipairs(Players:GetPlayers()) do
                 pcall(ApplyHitbox, pl)
             end
         end
     end
-end)
+end))
 
 -- ============================================================
 -- NPC HITBOX + CACHE
@@ -2495,7 +2522,6 @@ end
 function ApplyNPCHitbox(model)
     if not model or not model.Parent then return end
     if isPlayerCharacter(model) then return end
-    -- FIX B5: жёсткий гейт на Enabled. Выключил Hitbox — NPC-части не висят.
     if not (S.Hitbox.Enabled and S.Hitbox.NPCSupport) then
         RemoveNPCHitbox(model)
         return
@@ -2557,8 +2583,9 @@ function RemoveNPCHitbox(model)
     end
 end
 
-task.spawn(function()
-    while task.wait(1) do
+trackThread(task.spawn(function()
+    while getgenv().TIMON_LOADED do
+        task.wait(1)
         if S.Hitbox.Enabled and S.Hitbox.NPCSupport then
             refreshNPCCache()
             for model in pairs(NPCCache) do pcall(ApplyNPCHitbox, model) end
@@ -2571,11 +2598,12 @@ task.spawn(function()
             ClearAllNPCHitboxes()
         end
     end
-end)
+end))
 
 -- NPC ESP cache loop
-task.spawn(function()
-    while task.wait(1) do
+trackThread(task.spawn(function()
+    while getgenv().TIMON_LOADED do
+        task.wait(1)
         if S.ESP.NPCEnabled or S.Hitbox.NPCSupport or S.Aimbot.TargetNPCs then
             refreshNPCCache()
             if S.ESP.NPCEnabled then
@@ -2592,34 +2620,39 @@ task.spawn(function()
             end
         end
     end
-end)
+end))
 
 -- ============================================================
 -- PLAYER MODS
 -- ============================================================
-RunService.Heartbeat:Connect(function()
+trackConn(RunService.Heartbeat:Connect(function()
     local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
     if hum then
-        hum.WalkSpeed = S.Player.WalkSpeed
-        hum.JumpPower = S.Player.JumpPower
+        if S.Player.WalkSpeedEnabled then
+            hum.WalkSpeed = S.Player.WalkSpeed
+        end
+        if S.Player.JumpPowerEnabled then
+            hum.JumpPower = S.Player.JumpPower
+        end
     end
-end)
-UIS.JumpRequest:Connect(function()
+end))
+trackConn(UIS.JumpRequest:Connect(function()
     if S.Player.InfiniteJump then
         local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
         if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
     end
-end)
+end))
 
-task.spawn(function()
-    while task.wait(0.1) do
+trackThread(task.spawn(function()
+    while getgenv().TIMON_LOADED do
+        task.wait(0.1)
         if S.Player.Noclip and LP.Character then
             for _, p in ipairs(LP.Character:GetDescendants()) do
                 if p:IsA("BasePart") then p.CanCollide = false end
             end
         end
     end
-end)
+end))
 
 -- ============================================================
 -- ANTI FLING
@@ -2627,8 +2660,9 @@ end)
 local ANTI_FLING_PARTS = {
     "BodyVelocity","BodyAngularVelocity","BodyGyro","BodyThrust","BodyForce"
 }
-task.spawn(function()
-    while task.wait(0.1) do
+trackThread(task.spawn(function()
+    while getgenv().TIMON_LOADED do
+        task.wait(0.1)
         if S.Troll.AntiFling and LP.Character then
             for _, p in ipairs(LP.Character:GetDescendants()) do
                 if p:IsA("BasePart") then
@@ -2648,12 +2682,11 @@ task.spawn(function()
                         p.Velocity = Vector3.zero
                         p.RotVelocity = Vector3.zero
                     end
-                    -- FIX B2: убран CanCollide=false. AntiFling больше не noclip.
                 end
             end
         end
     end
-end)
+end))
 
 -- ============================================================
 -- HP BAR helper
@@ -2686,7 +2719,8 @@ local effectAccum = 0
 local EFFECT_INTERVAL = 1/30
 local lazyFrame = 0
 
-RunService.RenderStepped:Connect(function(dt)
+trackConn(RunService.RenderStepped:Connect(function(dt)
+    if not getgenv().TIMON_LOADED then return end
     local ch = LP.Character
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
 
@@ -2712,7 +2746,6 @@ RunService.RenderStepped:Connect(function(dt)
         FlyBV.Velocity = dir * S.Player.FlySpeed
         FlyBG.CFrame = Camera.CFrame
     else
-        -- FIX B9: чистим оба, независимо от того, какой успел появиться
         if FlyBV then FlyBV:Destroy(); FlyBV = nil end
         if FlyBG then FlyBG:Destroy(); FlyBG = nil end
     end
@@ -2891,8 +2924,7 @@ RunService.RenderStepped:Connect(function(dt)
             elseif p:IsA("Decal") then p.Transparency = 1 end
         end
     end
-end)
-
+end))
 -- ============================================================
 -- ACTIONS
 -- ============================================================
@@ -2971,7 +3003,8 @@ end
 -- ============================================================
 -- INPUT
 -- ============================================================
-UIS.InputBegan:Connect(function(input, gp)
+trackConn(UIS.InputBegan:Connect(function(input, gp)
+    if not getgenv().TIMON_LOADED then return end
     if getgenv().TIMON_LISTENING then
         if input.UserInputType == Enum.UserInputType.Keyboard then
             local action = getgenv().TIMON_LISTENING
@@ -2999,14 +3032,14 @@ UIS.InputBegan:Connect(function(input, gp)
             Actions[action]()
         end
     end
-end)
+end))
 
-UIS.InputEnded:Connect(function(input, gp)
+trackConn(UIS.InputEnded:Connect(function(input, gp)
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
     if S.Binds.AimbotHold and input.KeyCode == S.Binds.AimbotHold then
         aimHoldDown = false
     end
-end)
+end))
 
 -- ============================================================
 -- MOBILE FLOATING BUTTONS
@@ -3014,7 +3047,6 @@ end)
 local MobileButtons = {}
 local MOBILE_POS_INDEX = 0
 
--- FIX B4: реиндекс при удалении, чтобы кнопки не наезжали
 local function reindexMobileButtons()
     MOBILE_POS_INDEX = 0
     local sorted = {}
@@ -3104,7 +3136,7 @@ MakeDraggableLockable(OpenBtn, OpenBtn, "__OpenBtn", openDefault)
 OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
 
 -- ============================================================
--- FINAL
+-- FINAL INIT
 -- ============================================================
 for _, t in pairs(TabScrolls) do
     t.scroll.Visible = false; t.btn.BackgroundColor3 = COL.elem
@@ -3112,14 +3144,15 @@ end
 TabScrolls["🎯 Combat"].scroll.Visible = true
 TabScrolls["🎯 Combat"].btn.BackgroundColor3 = COL.accent
 
-task.spawn(function()
-    while task.wait(2) do
+trackThread(task.spawn(function()
+    while getgenv().TIMON_LOADED do
+        task.wait(2)
         if CONFIG_DIRTY and S.AutoSave then
             CONFIG_DIRTY = false
             pcall(function() saveConfig(AUTOSAVE_FILE) end)
         end
     end
-end)
+end))
 
 if S.ESP.Enabled then
     for _, p in ipairs(Players:GetPlayers()) do
@@ -3143,20 +3176,42 @@ if S.Player.FPSBooster then enableFPSBooster() end
 if S.Player.LowQuality then enableLowQuality() end
 if S.Player.Fullbright then enableFullbright() end
 
+-- ============================================================
+-- UNLOAD — reload-safe
+-- ============================================================
 getgenv().TIMON_UNLOAD = function()
+    -- 1. Стоп всех циклов сразу (флаг)
+    getgenv().TIMON_LOADED = false
+
+    -- 2. XNEO и восстановление состояний
     pcall(function() closeXneoFlyGUI() end)
     pcall(function() stopAntiAFK() end)
     pcall(function() disableFPSBooster() end)
     pcall(function() disableLowQuality() end)
     pcall(function() disableFullbright() end)
+
+    -- 3. Восстановить игровые значения персонажа
+    local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        pcall(function()
+            hum.WalkSpeed = 16
+            hum.JumpPower = 50
+        end)
+    end
+    pcall(function() Workspace.Gravity = DEFAULT_GRAVITY end)
+
+    -- 4. Снести GUI
     pcall(function() ScreenGui:Destroy() end)
-    -- FIX B6: собираем ключи явно, не мутируем таблицу во время pairs
+
+    -- 5. Снести ESP/NPC ESP — собираем ключи явно
     local espKeys = {}
     for p in pairs(ESPObjs) do espKeys[#espKeys+1] = p end
     for _, p in ipairs(espKeys) do RemoveESP(p) end
     local npcKeys = {}
     for m in pairs(NPCESPObjs) do npcKeys[#npcKeys+1] = m end
     for _, m in ipairs(npcKeys) do RemoveNPCESP(m) end
+
+    -- 6. Дисконнект всех связей
     for pl, conn in pairs(espCharConn) do
         pcall(function() conn:Disconnect() end)
     end
@@ -3165,19 +3220,40 @@ getgenv().TIMON_UNLOAD = function()
         pcall(function() conn:Disconnect() end)
     end
     espAppearanceConn = {}
+
+    -- 7. Hitboxes
     ClearAllHitboxes()
     ClearAllNPCHitboxes()
+
+    -- 8. Drawing API
     pcall(function() fovCircle:Remove() end)
     pcall(function() aimBeam:Remove() end)
     pcall(function() hitboxBox:Remove() end)
+
+    -- 9. Отвязать render step
     pcall(function() RunService:UnbindFromRenderStep("TIMON_AIM") end)
+
+    -- 10. Мобильные физические объекты
     if SpinBV then pcall(function() SpinBV:Destroy() end) end
     if FlyBV then pcall(function() FlyBV:Destroy() end) end
     if FlyBG then pcall(function() FlyBG:Destroy() end) end
-    Workspace.Gravity = DEFAULT_GRAVITY
+
+    -- 11. Отменить все trackThread-циклы
+    for _, t in ipairs(THREADS) do
+        pcall(function() task.cancel(t) end)
+    end
+    THREADS = {}
+
+    -- 12. Порвать все trackConn-соединения
+    for _, c in ipairs(CONNS) do
+        pcall(function() c:Disconnect() end)
+    end
+    CONNS = {}
+
+    -- 13. Сбросить state
     StickyTarget = nil; StickyTargetIsNPC = false
     aimHoldDown = false; wasHoldActive = false
-    getgenv().TIMON_LOADED = false
+    antiAFKThread = nil
 end
 
-Notify("⚡ Timon Hub v4.5.2 · Loaded!")
+Notify("⚡ Timon Hub v4.5.3 · Loaded!")
