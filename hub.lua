@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v4.6.0 — rebuild: polished UI, mobile-adaptive, LL namespace
+-- TIMON HUB v4.6.1 — Hitbox fix, deep NPC scan, XNEO load button, unload fix
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -29,7 +29,6 @@ local IS_MOBILE = UIS.TouchEnabled and not UIS.KeyboardEnabled
 local CONNS = {}
 local THREADS = {}
 
--- ЕДИНЫЙ NAMESPACE
 local LL = {}
 LL.CONNS = CONNS
 LL.THREADS = THREADS
@@ -37,15 +36,10 @@ LL.S = nil
 LL.ScreenGui = nil
 LL.Main = nil
 LL.UIScale = nil
+LL.xneoScriptRunning = false
 
-function LL.trackConn(c)
-    CONNS[#CONNS+1] = c
-    return c
-end
-function LL.trackThread(t)
-    THREADS[#THREADS+1] = t
-    return t
-end
+function LL.trackConn(c) CONNS[#CONNS+1] = c; return c end
+function LL.trackThread(t) THREADS[#THREADS+1] = t; return t end
 
 getgenv().TIMON_LOADED = true
 
@@ -88,7 +82,7 @@ LL.S = {
         NPCSupport=false
     },
     Player = {
-        Fly=false, MobileFly=false, FlySpeed=50,
+        Fly=false, FlySpeed=50,
         ZeroGravity=false,
         WalkSpeed=16, JumpPower=50,
         WalkSpeedEnabled=true, JumpPowerEnabled=true,
@@ -108,16 +102,12 @@ LL.S = {
         AutoHideOnMobile = true,
         GuiKeybind = Enum.KeyCode.LeftAlt,
         AnimationSpeed = 0.18,
+        Scale = 1.0,
+        CenterOnShow = true,
     },
 }
 local S = LL.S
 getgenv().TIMON_SETTINGS = S
-
-LL.Xneo = {
-    gui=nil, nowe=false, speeds=1, tpWalking=false,
-    tpGen=0, bg=nil, bv=nil, flyLoopConn=nil,
-}
-local XneoState = LL.Xneo
 
 LL.XNEO_STATES = {
     Enum.HumanoidStateType.Climbing, Enum.HumanoidStateType.FallingDown,
@@ -129,9 +119,6 @@ LL.XNEO_STATES = {
     Enum.HumanoidStateType.Seated, Enum.HumanoidStateType.StrafingNoPhysics,
 }
 
--- ============================================================
--- STATE TABLES
--- ============================================================
 LL.NPCCache = {}
 LL.NPCHitboxes = {}
 LL.NPCESPObjs = {}
@@ -148,13 +135,25 @@ LL.TabScrolls = {}
 LL.TabOrder = {}
 LL.CurrentTab = nil
 
--- character cache
 LL.Cache = {
     Character = nil,
     Humanoid = nil,
     HRP = nil,
     Camera = Camera,
     Viewport = Camera.ViewportSize,
+}
+
+LL.ScriptAvailable = {
+    WriteFile = (typeof(writefile) == "function"),
+    ReadFile = (typeof(readfile) == "function"),
+    IsFile = (typeof(isfile) == "function"),
+    IsFolder = (typeof(isfolder) == "function"),
+    MakeFolder = (typeof(makefolder) == "function"),
+    ListFiles = (typeof(listfiles) == "function"),
+    DeleteFile = (typeof(delfile) == "function"),
+    Drawing = (typeof(Drawing) == "table"),
+    Hookfunction = (typeof(hookfunction) == "function"),
+    GetConnections = (typeof(getconnections) == "function"),
 }
 -- ============================================================
 -- PALETTE
@@ -172,9 +171,6 @@ LL.COL = {
 }
 local COL = LL.COL
 
--- ============================================================
--- ANIMATION PRESETS
--- ============================================================
 LL.Anim = {
     Fast = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
     Normal = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
@@ -236,11 +232,10 @@ function LL.makeShadow(parent, radius, transparency)
     return s
 end
 
-LL.Refreshers = LL.Refreshers
 function LL.AddRefresh(fn) table.insert(LL.Refreshers, fn) end
 function LL.RefreshAll()
     for _, fn in ipairs(LL.Refreshers) do
-        local ok = pcall(fn)
+        pcall(fn)
     end
 end
 
@@ -248,12 +243,17 @@ LL.ORDER = 0
 function LL.NextOrder() LL.ORDER = LL.ORDER + 1; return LL.ORDER end
 
 -- ============================================================
--- CONFIG (async save)
+-- CONFIG (с проверкой экзекутора)
 -- ============================================================
 LL.CONFIG_DIR = "TimonHub"
 LL.AUTOSAVE_FILE = "autosave"
 LL.CONFIG_DIRTY = false
 LL.lastDirtyTime = 0
+LL.FS_AVAILABLE = LL.ScriptAvailable.WriteFile
+                     and LL.ScriptAvailable.ReadFile
+                     and LL.ScriptAvailable.IsFile
+                     and LL.ScriptAvailable.IsFolder
+                     and LL.ScriptAvailable.MakeFolder
 
 function LL.MarkDirty()
     LL.CONFIG_DIRTY = true
@@ -261,11 +261,13 @@ function LL.MarkDirty()
 end
 
 function LL.ensureDir()
+    if not LL.FS_AVAILABLE then return end
     pcall(function()
         if not isfolder(LL.CONFIG_DIR) then makefolder(LL.CONFIG_DIR) end
     end)
 end
 function LL.fileExists(p)
+    if not LL.FS_AVAILABLE then return false end
     local ok, r = pcall(function() return isfile(p) end)
     return ok and r
 end
@@ -388,6 +390,9 @@ function LL.applySettings(d)
 end
 
 function LL.saveConfig(name)
+    if not LL.FS_AVAILABLE then
+        return false, "writefile недоступен на этом экзекуторе"
+    end
     LL.ensureDir()
     name = name or LL.AUTOSAVE_FILE
     return pcall(function()
@@ -395,6 +400,7 @@ function LL.saveConfig(name)
     end)
 end
 function LL.loadConfigFile(name)
+    if not LL.FS_AVAILABLE then return false end
     name = name or LL.AUTOSAVE_FILE
     local path = LL.CONFIG_DIR.."/"..name..".json"
     if not LL.fileExists(path) then return false end
@@ -406,10 +412,12 @@ function LL.loadConfigFile(name)
     return true
 end
 function LL.deleteConfig(name)
+    if not LL.FS_AVAILABLE then return end
     pcall(function() delfile(LL.CONFIG_DIR.."/"..name..".json") end)
 end
 function LL.listConfigs()
     local out = {}
+    if not LL.FS_AVAILABLE then return out end
     pcall(function()
         if not isfolder(LL.CONFIG_DIR) then return end
         for _, file in ipairs(listfiles(LL.CONFIG_DIR)) do
@@ -421,9 +429,6 @@ function LL.listConfigs()
 end
 
 LL.ensureDir()
-if LL.fileExists(LL.CONFIG_DIR.."/"..LL.AUTOSAVE_FILE..".json") then
-    pcall(function() LL.loadConfigFile(LL.AUTOSAVE_FILE) end)
-end
 -- ============================================================
 -- SCREEN GUI
 -- ============================================================
@@ -437,7 +442,7 @@ if not ScreenGui.Parent then ScreenGui.Parent = LP:WaitForChild("PlayerGui") end
 LL.ScreenGui = ScreenGui
 
 -- ============================================================
--- NOTIFY QUEUE (throttled)
+-- NOTIFY QUEUE
 -- ============================================================
 LL.NotifyQueue = {}
 LL.NotifyActive = 0
@@ -455,8 +460,8 @@ function LL.processNotifyQueue()
                 return
             end
             local n = Instance.new("Frame")
-            n.Size = UDim2.new(0, 270, 0, 48)
-            n.Position = UDim2.new(1, -290, 1, -90)
+            n.Size = UDim2.new(0, 280, 0, 48)
+            n.Position = UDim2.new(1, -300, 1, -90)
             n.BackgroundColor3 = COL.bg2
             n.BackgroundTransparency = 0.02
             n.BorderSizePixel = 0
@@ -483,14 +488,14 @@ function LL.processNotifyQueue()
             l.TextXAlignment = Enum.TextXAlignment.Left
             l.Parent = n
             Tween:Create(n, LL.Anim.Normal,
-                {Position = UDim2.new(1, -290, 1, -110)}):Play()
+                {Position = UDim2.new(1, -300, 1, -110)}):Play()
             task.wait(2.4)
             if not getgenv().TIMON_LOADED or not n.Parent then
                 LL.NotifyActive = LL.NotifyActive - 1
                 return
             end
             Tween:Create(n, LL.Anim.Slow,
-                {Position = UDim2.new(1, -290, 1, -50), BackgroundTransparency = 1}):Play()
+                {Position = UDim2.new(1, -300, 1, -50), BackgroundTransparency = 1}):Play()
             Tween:Create(l, LL.Anim.Slow, {TextTransparency = 1}):Play()
             task.wait(0.35)
             if n.Parent then n:Destroy() end
@@ -513,7 +518,7 @@ function LL.Notify(txt)
 end
 
 -- ============================================================
--- SECTION (внутри скролла)
+-- SECTION
 -- ============================================================
 function LL.Section(parent, text)
     local f = Instance.new("Frame")
@@ -560,22 +565,21 @@ LL.UIScale = UIScale
 
 function LL.ApplyMainSize()
     local vp = Camera.ViewportSize
-    local baseW, baseH, scale
+    local baseW, baseH, baseScale
     if IS_MOBILE then
-        baseW, baseH, scale = 600, 460, 0.78
+        baseW, baseH, baseScale = 600, 460, 0.78
     else
-        baseW, baseH, scale = 760, 540, 1.0
+        baseW, baseH, baseScale = 760, 540, 1.0
     end
+    local userScale = LL.S.UI.Scale or 1.0
+    local finalScale = baseScale * userScale
     local maxW = vp.X * (IS_MOBILE and 0.96 or 0.85)
     local maxH = vp.Y * (IS_MOBILE and 0.88 or 0.85)
-    local finalW = math.min(baseW, maxW / scale)
-    local finalH = math.min(baseH, maxH / scale)
-    local oldPos = Main.Position
+    local finalW = math.min(baseW, maxW / finalScale)
+    local finalH = math.min(baseH, maxH / finalScale)
     Main.Size = UDim2.new(0, finalW, 0, finalH)
-    if oldPos.X.Offset == 0 and oldPos.Y.Offset == 0 and oldPos.X.Scale == 0.5 then
-        Main.Position = UDim2.new(0.5, -finalW * scale / 2, 0.5, -finalH * scale / 2)
-    end
-    UIScale.Scale = scale
+    Main.Position = UDim2.new(0.5, -finalW * finalScale / 2, 0.5, -finalH * finalScale / 2)
+    UIScale.Scale = finalScale
 end
 
 LL.ApplyMainSize()
@@ -600,7 +604,7 @@ local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -110, 1, 0)
 TitleLbl.Position = UDim2.new(0, 20, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "TIMON HUB  ·  v4.6.0"
+TitleLbl.Text = "TIMON HUB  ·  v4.6.1"
 TitleLbl.TextColor3 = Color3.new(1, 1, 1)
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16
@@ -628,7 +632,7 @@ end)
 CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
 
 -- ============================================================
--- DRAGGABLE (учитывает UIScale)
+-- DRAGGABLE
 -- ============================================================
 function LL.MakeDraggable(frame, dragBar)
     local dragging, dragStart, startPos
@@ -1190,7 +1194,7 @@ function LL.applyGravityState()
 end
 
 -- ============================================================
--- ANTI-AFK (умный)
+-- ANTI-AFK
 -- ============================================================
 LL.antiAFKThread = nil
 LL.lastUserAction = tick()
@@ -1198,14 +1202,14 @@ LL.lastUserAction = tick()
 function LL.startAntiAFK()
     if LL.antiAFKThread then return end
     local hookOk = false
-    pcall(function()
-        if typeof(hookfunction) == "function" and typeof(getconnections) == "function" then
+    if LL.ScriptAvailable.Hookfunction and LL.ScriptAvailable.GetConnections then
+        pcall(function()
             for _, c in ipairs(getconnections(LP.Idled)) do
                 if c and typeof(c.Disable) == "function" then c:Disable() end
             end
             hookOk = true
-        end
-    end)
+        end)
+    end
     if not hookOk then LL.Notify("Anti-AFK: fallback VirtualUser") end
     LL.antiAFKThread = LL.trackThread(task.spawn(function()
         while getgenv().TIMON_LOADED and LL.S.Player.AntiAFK do
@@ -1567,15 +1571,6 @@ LL.Tab("Player", function(parent)
     LL.Toggle(parent, "Fly (ПК)",
         function() return LL.S.Player.Fly end,
         function(v) LL.S.Player.Fly = v end)
-    LL.Toggle(parent, "Mobile Fly (XNEO GUI)",
-        function() return LL.S.Player.MobileFly == true and LL.Xneo.gui ~= nil end,
-        function(v)
-            if v then
-                if not LL.Xneo.gui then LL.launchXneoFlyGUI() end
-            else
-                if LL.Xneo.gui then LL.closeXneoFlyGUI() end
-            end
-        end)
     LL.Slider(parent, "Fly Speed (PC)", 10, 300,
         function() return LL.S.Player.FlySpeed end,
         function(v) LL.S.Player.FlySpeed = v end)
@@ -1637,6 +1632,298 @@ LL.Tab("Player", function(parent)
             LL.S.Player.Fullbright = v
             if v then LL.enableFullbright() else LL.disableFullbright() end
         end)
+
+    LL.Section(parent, "XNEO Mobile Fly")
+    LL.Button(parent, "Load XNEO Fly GUI", function()
+        if LL.xneoScriptRunning then
+            LL.Notify("XNEO уже запущен")
+            return
+        end
+        LL.Notify("Запуск XNEO...")
+        local ok, err = pcall(function()
+            local PlayerGui = LP:WaitForChild("PlayerGui", 5)
+            if not PlayerGui then error("PlayerGui не найден") end
+
+            local main = Instance.new("ScreenGui")
+            local Frame = Instance.new("Frame")
+            local up = Instance.new("TextButton")
+            local down = Instance.new("TextButton")
+            local onof = Instance.new("TextButton")
+            local TextLabel = Instance.new("TextLabel")
+            local plus = Instance.new("TextButton")
+            local speed = Instance.new("TextLabel")
+            local mine = Instance.new("TextButton")
+            local closebutton = Instance.new("TextButton")
+            local mini = Instance.new("TextButton")
+            local mini2 = Instance.new("TextButton")
+
+            main.Name = "main"
+            main.Parent = PlayerGui
+            main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            main.ResetOnSpawn = false
+
+            Frame.Parent = main
+            Frame.BackgroundColor3 = Color3.fromRGB(163, 255, 137)
+            Frame.BorderColor3 = Color3.fromRGB(103, 221, 213)
+            Frame.Position = UDim2.new(0.100320168, 0, 0.379746825, 0)
+            Frame.Size = UDim2.new(0, 190, 0, 57)
+            Frame.Active = true
+            Frame.Draggable = true
+
+            up.Name = "up"; up.Parent = Frame
+            up.BackgroundColor3 = Color3.fromRGB(79, 255, 152)
+            up.Size = UDim2.new(0, 44, 0, 28)
+            up.Font = Enum.Font.SourceSans
+            up.Text = "UP"
+            up.TextColor3 = Color3.fromRGB(0, 0, 0)
+            up.TextSize = 14
+
+            down.Name = "down"; down.Parent = Frame
+            down.BackgroundColor3 = Color3.fromRGB(215, 255, 121)
+            down.Position = UDim2.new(0, 0, 0.491228074, 0)
+            down.Size = UDim2.new(0, 44, 0, 28)
+            down.Font = Enum.Font.SourceSans
+            down.Text = "DOWN"
+            down.TextColor3 = Color3.fromRGB(0, 0, 0)
+            down.TextSize = 14
+
+            onof.Name = "onof"; onof.Parent = Frame
+            onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
+            onof.Position = UDim2.new(0.702823281, 0, 0.491228074, 0)
+            onof.Size = UDim2.new(0, 56, 0, 28)
+            onof.Font = Enum.Font.SourceSans
+            onof.Text = "fly"
+            onof.TextColor3 = Color3.fromRGB(0, 0, 0)
+            onof.TextSize = 14
+
+            TextLabel.Parent = Frame
+            TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
+            TextLabel.Position = UDim2.new(0.469327301, 0, 0, 0)
+            TextLabel.Size = UDim2.new(0, 100, 0, 28)
+            TextLabel.Font = Enum.Font.SourceSans
+            TextLabel.Text = "FLY GUI V3"
+            TextLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+            TextLabel.TextScaled = true
+            TextLabel.TextSize = 14
+            TextLabel.TextWrapped = true
+
+            plus.Name = "plus"; plus.Parent = Frame
+            plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
+            plus.Position = UDim2.new(0.231578946, 0, 0, 0)
+            plus.Size = UDim2.new(0, 45, 0, 28)
+            plus.Font = Enum.Font.SourceSans
+            plus.Text = "+"
+            plus.TextColor3 = Color3.fromRGB(0, 0, 0)
+            plus.TextScaled = true
+            plus.TextSize = 14
+            plus.TextWrapped = true
+
+            speed.Name = "speed"; speed.Parent = Frame
+            speed.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
+            speed.Position = UDim2.new(0.468421042, 0, 0.491228074, 0)
+            speed.Size = UDim2.new(0, 44, 0, 28)
+            speed.Font = Enum.Font.SourceSans
+            speed.Text = "1"
+            speed.TextColor3 = Color3.fromRGB(0, 0, 0)
+            speed.TextScaled = true
+            speed.TextSize = 14
+            speed.TextWrapped = true
+
+            mine.Name = "mine"; mine.Parent = Frame
+            mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
+            mine.Position = UDim2.new(0.231578946, 0, 0.491228074, 0)
+            mine.Size = UDim2.new(0, 45, 0, 29)
+            mine.Font = Enum.Font.SourceSans
+            mine.Text = "-"
+            mine.TextColor3 = Color3.fromRGB(0, 0, 0)
+            mine.TextScaled = true
+            mine.TextSize = 14
+            mine.TextWrapped = true
+
+            closebutton.Name = "Close"; closebutton.Parent = Frame
+            closebutton.BackgroundColor3 = Color3.fromRGB(225, 25, 0)
+            closebutton.Font = Enum.Font.SourceSans
+            closebutton.Size = UDim2.new(0, 45, 0, 28)
+            closebutton.Text = "X"
+            closebutton.TextSize = 30
+            closebutton.TextColor3 = Color3.fromRGB(0,0,0)
+            closebutton.Position = UDim2.new(0, 0, -1, 27)
+
+            mini.Name = "minimize"; mini.Parent = Frame
+            mini.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
+            mini.Font = Enum.Font.SourceSans
+            mini.Size = UDim2.new(0, 45, 0, 28)
+            mini.Text = "-"
+            mini.TextSize = 40
+            mini.TextColor3 = Color3.fromRGB(0,0,0)
+            mini.Position = UDim2.new(0, 44, -1, 27)
+
+            mini2.Name = "minimize2"; mini2.Parent = Frame
+            mini2.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
+            mini2.Font = Enum.Font.SourceSans
+            mini2.Size = UDim2.new(0, 45, 0, 28)
+            mini2.Text = "+"
+            mini2.TextSize = 40
+            mini2.TextColor3 = Color3.fromRGB(0,0,0)
+            mini2.Position = UDim2.new(0, 44, -1, 57)
+            mini2.Visible = false
+
+            local speeds = 1
+            local speaker = LP
+            local nowe = false
+            local tpwalking = false
+
+            onof.MouseButton1Down:Connect(function()
+                local hum = speaker.Character and speaker.Character:FindFirstChildOfClass("Humanoid")
+                if not hum then return end
+                if nowe == true then
+                    nowe = false
+                    tpwalking = false
+                    for _, st in ipairs(LL.XNEO_STATES) do
+                        pcall(function() hum:SetStateEnabled(st, true) end)
+                    end
+                    pcall(function() hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics) end)
+                    if speaker.Character:FindFirstChild("Animate") then
+                        speaker.Character.Animate.Disabled = false
+                    end
+                else
+                    nowe = true
+                    for _ = 1, speeds do
+                        spawn(function()
+                            local hb = RunService.Heartbeat
+                            tpwalking = true
+                            local chr = speaker.Character
+                            local h = chr and chr:FindFirstChildWhichIsA("Humanoid")
+                            while tpwalking and hb:Wait() and chr and h and h.Parent do
+                                if h.MoveDirection.Magnitude > 0 then
+                                    chr:TranslateBy(h.MoveDirection)
+                                end
+                            end
+                        end)
+                    end
+                    if speaker.Character:FindFirstChild("Animate") then
+                        speaker.Character.Animate.Disabled = true
+                    end
+                    for _, v in next, hum:GetPlayingAnimationTracks() do
+                        v:AdjustSpeed(0)
+                    end
+                    for _, st in ipairs(LL.XNEO_STATES) do
+                        pcall(function() hum:SetStateEnabled(st, false) end)
+                    end
+                    pcall(function() hum:ChangeState(Enum.HumanoidStateType.Swimming) end)
+                end
+
+                local char = speaker.Character
+                local h2 = char and char:FindFirstChildOfClass("Humanoid")
+                if not h2 then return end
+                local part = (h2.RigType == Enum.HumanoidRigType.R6)
+                    and char:FindFirstChild("Torso")
+                    or char:FindFirstChild("UpperTorso")
+                if not part then return end
+
+                local bg = Instance.new("BodyGyro", part)
+                bg.P = 9e4
+                bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+                bg.CFrame = part.CFrame
+                local bv = Instance.new("BodyVelocity", part)
+                bv.Velocity = Vector3.new(0, 0.1, 0)
+                bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+                if nowe == true then
+                    h2.PlatformStand = true
+                end
+                spawn(function()
+                    while nowe == true and getgenv().TIMON_LOADED and speaker.Character and speaker.Character:FindFirstChildOfClass("Humanoid") and speaker.Character:FindFirstChildOfClass("Humanoid").Health > 0 do
+                        RunService.RenderStepped:Wait()
+                        local cam = Workspace.CurrentCamera
+                        local ctrlF, ctrlB, ctrlL, ctrlR = 0,0,0,0
+                        if UIS:IsKeyDown(Enum.KeyCode.W) then ctrlF = 1 end
+                        if UIS:IsKeyDown(Enum.KeyCode.S) then ctrlB = -1 end
+                        if UIS:IsKeyDown(Enum.KeyCode.A) then ctrlL = -1 end
+                        if UIS:IsKeyDown(Enum.KeyCode.D) then ctrlR = 1 end
+                        if ctrlL + ctrlR ~= 0 or ctrlF + ctrlB ~= 0 then
+                            bv.Velocity = ((cam.CFrame.LookVector * (ctrlF+ctrlB)) + ((cam.CFrame * CFrame.new(ctrlL+ctrlR,(ctrlF+ctrlB)*.2,0).p) - cam.CFrame.p)) * 50
+                        else
+                            bv.Velocity = Vector3.new(0,0,0)
+                        end
+                        bg.CFrame = cam.CFrame
+                    end
+                    pcall(function() bg:Destroy() end)
+                    pcall(function() bv:Destroy() end)
+                    pcall(function()
+                        if speaker.Character and speaker.Character:FindFirstChildOfClass("Humanoid") then
+                            speaker.Character:FindFirstChildOfClass("Humanoid").PlatformStand = false
+                        end
+                        if speaker.Character:FindFirstChild("Animate") then
+                            speaker.Character.Animate.Disabled = false
+                        end
+                    end)
+                    tpwalking = false
+                end)
+            end)
+
+            up.MouseButton1Down:Connect(function()
+                spawn(function()
+                    while UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) and main.Parent do
+                        RunService.Heartbeat:Wait()
+                        local hrp = speaker.Character and speaker.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0,1,0) end
+                    end
+                end)
+            end)
+            down.MouseButton1Down:Connect(function()
+                spawn(function()
+                    while UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) and main.Parent do
+                        RunService.Heartbeat:Wait()
+                        local hrp = speaker.Character and speaker.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0,-1,0) end
+                    end
+                end)
+            end)
+
+            plus.MouseButton1Down:Connect(function()
+                speeds = speeds + 1
+                speed.Text = tostring(speeds)
+            end)
+            mine.MouseButton1Down:Connect(function()
+                if speeds <= 1 then
+                    speed.Text = "min 1"
+                    task.wait(1)
+                    speed.Text = tostring(speeds)
+                else
+                    speeds = speeds - 1
+                    speed.Text = tostring(speeds)
+                end
+            end)
+
+            closebutton.MouseButton1Click:Connect(function()
+                nowe = false
+                tpwalking = false
+                pcall(function() main:Destroy() end)
+                LL.xneoScriptRunning = false
+            end)
+
+            mini.MouseButton1Click:Connect(function()
+                up.Visible=false; down.Visible=false; onof.Visible=false
+                plus.Visible=false; speed.Visible=false; mine.Visible=false
+                mini.Visible=false; mini2.Visible=true
+                Frame.BackgroundTransparency=1
+                closebutton.Position = UDim2.new(0,0,-1,57)
+            end)
+            mini2.MouseButton1Click:Connect(function()
+                up.Visible=true; down.Visible=true; onof.Visible=true
+                plus.Visible=true; speed.Visible=true; mine.Visible=true
+                mini.Visible=true; mini2.Visible=false
+                Frame.BackgroundTransparency=0
+                closebutton.Position = UDim2.new(0,0,-1,27)
+            end)
+
+            LL.xneoScriptRunning = true
+        end)
+        if not ok then
+            LL.Notify("XNEO error: "..tostring(err))
+            LL.xneoScriptRunning = false
+        end
+    end)
 end)
 
 -- ============================================================
@@ -1684,17 +1971,6 @@ LL.Tab("Troll", function(parent)
                 end
             end
         end)
-
-    LL.Section(parent, "Teleport / Spectate")
-    LL.TextBox(parent, "Target Username", "username",
-        function() return "" end,
-        function(v) end)
-    LL.Button(parent, "Teleport to Player", function()
-        LL.Notify("Teleport: укажи юзера в поле и нажми — фича через Actions")
-    end)
-    LL.Button(parent, "Spectate Player", function()
-        LL.Notify("Spectate: в разработке для v4.6.1")
-    end)
 end)
 
 -- ============================================================
@@ -1776,6 +2052,50 @@ LL.Tab("Hamster", function(parent)
     end, {textColor = COL.accent2})
 end)
 -- ============================================================
+-- HITBOX TAB (возвращена)
+-- ============================================================
+LL.Tab("Hitbox", function(parent)
+    LL.Section(parent, "Toggle")
+    LL.Toggle(parent, "Enable Hitbox",
+        function() return LL.S.Hitbox.Enabled end,
+        function(v)
+            LL.S.Hitbox.Enabled = v
+            if not v then
+                LL.ClearAllHitboxes()
+                LL.ClearAllNPCHitboxes()
+            end
+        end)
+    LL.Section(parent, "Parts")
+    LL.Toggle(parent, "Head Hitbox",
+        function() return LL.S.Hitbox.HeadEnabled end,
+        function(v) LL.S.Hitbox.HeadEnabled = v; LL.RefreshHitboxes() end)
+    LL.Toggle(parent, "Body Hitbox",
+        function() return LL.S.Hitbox.BodyEnabled end,
+        function(v) LL.S.Hitbox.BodyEnabled = v; LL.RefreshHitboxes() end)
+    LL.Section(parent, "Sizes")
+    LL.Slider(parent, "Head Size", 1, 15,
+        function() return LL.S.Hitbox.HeadSize end,
+        function(v) LL.S.Hitbox.HeadSize = v; LL.RefreshHitboxes() end)
+    LL.Slider(parent, "Body Size", 2, 25,
+        function() return LL.S.Hitbox.BodySize end,
+        function(v) LL.S.Hitbox.BodySize = v; LL.RefreshHitboxes() end)
+    LL.Section(parent, "Visual")
+    LL.Slider(parent, "Transparency", 0, 1,
+        function() return LL.S.Hitbox.Transparency end,
+        function(v) LL.S.Hitbox.Transparency = v; LL.RefreshHitboxes() end)
+    LL.ColorPicker(parent, "Hitbox Color",
+        function() return LL.S.Hitbox.Color end,
+        function(v) LL.S.Hitbox.Color = v; LL.RefreshHitboxes() end)
+    LL.Section(parent, "NPC Hitbox")
+    LL.Toggle(parent, "Enable NPC Hitbox",
+        function() return LL.S.Hitbox.NPCSupport end,
+        function(v)
+            LL.S.Hitbox.NPCSupport = v
+            if not v then LL.ClearAllNPCHitboxes() end
+        end)
+end)
+
+-- ============================================================
 -- SETTINGS TAB
 -- ============================================================
 LL.Tab("Settings", function(parent)
@@ -1791,7 +2111,6 @@ LL.Tab("Settings", function(parent)
         S.ESP.Enabled=false; S.ESP.NPCEnabled=false; S.ESP.PowerMode=true
         S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
         S.Player.Fly=false
-        if LL.Xneo.gui then LL.closeXneoFlyGUI() end
         S.Player.Noclip=false; S.Player.InfiniteJump=false
         S.Player.ZeroGravity=false
         S.Player.WalkSpeed=16; S.Player.JumpPower=50
@@ -1808,71 +2127,64 @@ LL.Tab("Settings", function(parent)
         LL.RefreshAll(); LL.MarkDirty(); LL.Notify("Настройки сброшены")
     end)
     LL.Button(parent, "Выгрузить скрипт", function()
-        pcall(function() getgenv().TIMON_UNLOAD() end)
+        if getgenv().TIMON_UNLOAD then
+            pcall(getgenv().TIMON_UNLOAD)
+        else
+            LL.Notify("Unload не готов")
+        end
     end, {color = COL.accent2, hover = Color3.fromRGB(255, 120, 210), textColor = Color3.new(1,1,1)})
 
+    LL.Section(parent, "UI Settings")
+    LL.Slider(parent, "UI Scale", 0.6, 1.2,
+        function() return LL.S.UI.Scale end,
+        function(v)
+            LL.S.UI.Scale = v
+            LL.ApplyMainSize()
+        end)
+    LL.Toggle(parent, "Уведомления",
+        function() return LL.S.UI.Notifications end,
+        function(v) LL.S.UI.Notifications = v end)
+    LL.Toggle(parent, "Авто-скрытие GUI на мобиле",
+        function() return LL.S.UI.AutoHideOnMobile end,
+        function(v) LL.S.UI.AutoHideOnMobile = v end)
+
     LL.Section(parent, "Конфиги")
+    if not LL.FS_AVAILABLE then
+        local warnLbl = Instance.new("TextLabel")
+        warnLbl.Size = UDim2.new(1, 0, 0, 40)
+        warnLbl.BackgroundColor3 = COL.red
+        warnLbl.BackgroundTransparency = 0.7
+        warnLbl.BorderSizePixel = 0
+        warnLbl.LayoutOrder = LL.NextOrder()
+        warnLbl.Text = "⚠ Экзекутор не поддерживает файловую систему"
+        warnLbl.TextColor3 = COL.text
+        warnLbl.Font = Enum.Font.GothamBold
+        warnLbl.TextSize = 13
+        warnLbl.Parent = parent
+        LL.corner(warnLbl, 12)
+    end
     LL.TextBox(parent, "Имя конфига", "auto",
         function() return LL.S.ConfigName end,
         function(v) LL.S.ConfigName = (v ~= "" and v) or "auto" end)
     LL.Button(parent, "Сохранить (перезапись)", function()
         local name = LL.S.ConfigName or "auto"
-        if LL.saveConfig(name) then
+        local ok, err = LL.saveConfig(name)
+        if ok then
             LL.Notify("Сохранено: "..name)
             LL.RefreshCfgList()
-        else LL.Notify("Ошибка сохранения") end
-    end)
-
-    local function applyLoadedSettings()
-        LL.RefreshAll()
-        for _, fn in pairs(LL.BindRefreshers) do pcall(fn) end
-        for p in pairs(LL.ESPObjs) do LL.RemoveESP(p) end
-        for m in pairs(LL.NPCESPObjs) do LL.RemoveNPCESP(m) end
-        if LL.S.ESP.Enabled then
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= LP then LL.CreateESP(p) end
-            end
-        end
-        if LL.S.ESP.NPCEnabled then
-            LL.refreshNPCCache()
-            for m in pairs(LL.NPCCache) do
-                if not LL.isPlayerCharacter(m) then LL.CreateNPCESP(m) end
-            end
-        end
-        LL.ClearAllHitboxes()
-        LL.ClearAllNPCHitboxes()
-        if LL.S.Hitbox.Enabled then
-            for _, pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox, pl) end
-        end
-        if LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then
-            LL.refreshNPCCache()
-            for model in pairs(LL.NPCCache) do pcall(LL.ApplyNPCHitbox, model) end
-        end
-        for action, state in pairs(LL.S.MobileBtns) do
-            LL.ToggleMobileBtn(action, state)
-        end
-        LL.RepositionAllFloatingBtns()
-        LL.ApplyFloatingLock()
-        LL.applyGravityState()
-        if LL.S.Player.AntiAFK then LL.startAntiAFK() else LL.stopAntiAFK() end
-        if LL.S.Player.FPSBooster then LL.enableFPSBooster() else LL.disableFPSBooster() end
-        if LL.S.Player.LowQuality then LL.enableLowQuality() else LL.disableLowQuality() end
-        if LL.S.Player.Fullbright then LL.enableFullbright() else LL.disableFullbright() end
-        if LL.S.Player.MobileFly then
-            if not LL.Xneo.gui then LL.launchXneoFlyGUI() end
         else
-            if LL.Xneo.gui then LL.closeXneoFlyGUI() end
+            LL.Notify("Ошибка: "..tostring(err))
         end
-        LL.MarkDirty()
-    end
-    LL.applyLoadedSettingsFn = applyLoadedSettings
+    end)
 
     LL.Button(parent, "Загрузить", function()
         local name = LL.S.ConfigName or "auto"
         if LL.loadConfigFile(name) then
-            LL.applyLoadedSettingsFn()
+            LL.applyLoadedSettings()
             LL.Notify("Загружено: "..name)
-        else LL.Notify("Не найден: "..name) end
+        else
+            LL.Notify("Не найден: "..name)
+        end
     end)
     LL.Button(parent, "Удалить", function()
         local name = LL.S.ConfigName or "auto"
@@ -1902,7 +2214,7 @@ LL.Tab("Settings", function(parent)
     LL.stroke(cfgListLbl, COL.stroke, 1)
     LL.padding(cfgListLbl, 8, 16, 12, 8)
 
-    function LL.RefreshCfgList()
+    LL.RefreshCfgList = function()
         local list = LL.listConfigs()
         if #list == 0 then cfgListLbl.Text = "(пусто)"
         else
@@ -1911,18 +2223,10 @@ LL.Tab("Settings", function(parent)
         end
     end
     LL.RefreshCfgList()
-
-    LL.Section(parent, "UI")
-    LL.Toggle(parent, "Уведомления",
-        function() return LL.S.UI.Notifications end,
-        function(v) LL.S.UI.Notifications = v end)
-    LL.Toggle(parent, "Авто-скрытие GUI на мобиле",
-        function() return LL.S.UI.AutoHideOnMobile end,
-        function(v) LL.S.UI.AutoHideOnMobile = v end)
 end)
 
 -- ============================================================
--- BINDS TAB (с поиском)
+-- BINDS TAB
 -- ============================================================
 LL.Tab("Binds", function(parent)
     LL.Section(parent, "Key Binds")
@@ -2061,9 +2365,6 @@ LL.Tab("Binds", function(parent)
     LL.Toggle(parent, "Fly Button",
         function() return LL.S.MobileBtns.Fly == true end,
         function(v) LL.S.MobileBtns.Fly = v; LL.ToggleMobileBtn("Fly", v) end)
-    LL.Toggle(parent, "XNEO MobileFly Button",
-        function() return LL.S.MobileBtns.MobileFly == true end,
-        function(v) LL.S.MobileBtns.MobileFly = v; LL.ToggleMobileBtn("MobileFly", v) end)
     LL.Toggle(parent, "Zero Gravity Button",
         function() return LL.S.MobileBtns.ZeroGravity == true end,
         function(v) LL.S.MobileBtns.ZeroGravity = v; LL.ToggleMobileBtn("ZeroGravity", v) end)
@@ -2185,7 +2486,7 @@ LL.trackThread(task.spawn(function()
 end))
 
 -- ============================================================
--- NPC CACHE (инкрементальный)
+-- NPC CACHE (рекурсивный с троттлингом)
 -- ============================================================
 function LL.isPlayerCharacter(model)
     return Players:GetPlayerFromCharacter(model) ~= nil
@@ -2205,16 +2506,15 @@ end
 
 function LL.scanWorkspaceOnce()
     local newCache = {}
-    for _, child in ipairs(Workspace:GetChildren()) do
-        if child:IsA("Model") and LL.isNPC(child) then
-            newCache[child] = true
-        elseif child:IsA("Folder") or child:IsA("Model") then
-            local ok, sub = pcall(function() return child:GetChildren() end)
-            if ok and sub then
-                for _, sc in ipairs(sub) do
-                    if sc:IsA("Model") and LL.isNPC(sc) then newCache[sc] = true end
-                end
-            end
+    local count = 0
+    for _, d in ipairs(Workspace:GetDescendants()) do
+        if d:IsA("Model") and LL.isNPC(d) then
+            newCache[d] = true
+        end
+        count = count + 1
+        if count % 100 == 0 then
+            task.wait()
+            if not getgenv().TIMON_LOADED then return end
         end
     end
     LL.NPCCache = newCache
@@ -2305,11 +2605,10 @@ end))
 -- ============================================================
 -- DRAWING
 -- ============================================================
-LL.DRAW_AVAILABLE = (typeof(Drawing) == "table")
+LL.DRAW_AVAILABLE = LL.ScriptAvailable.Drawing
 LL.fovCircle = nil
 LL.aimBeam = nil
 LL.hitboxBox = nil
-LL.tracers = {}
 
 if LL.DRAW_AVAILABLE then
     pcall(function()
@@ -2713,9 +3012,6 @@ function LL.FindTarget()
     return nil
 end
 
--- ============================================================
--- AIM RENDER STEP
--- ============================================================
 RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, function()
     if not getgenv().TIMON_LOADED then return end
     if LL.S.Aimbot.ShowFOV and LL.S.Aimbot.Mode ~= "Cursor" and LL.fovCircle then
@@ -2808,230 +3104,6 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
 end)
 
 -- ============================================================
--- XNEO MOBILE FLY
--- ============================================================
-function LL.xneoStartTpWalking()
-    local gen = (LL.Xneo.tpGen or 0) + 1
-    LL.Xneo.tpGen = gen
-    LL.Xneo.tpWalking = true
-    for _ = 1, math.max(LL.Xneo.speeds, 1) do
-        LL.trackThread(task.spawn(function()
-            while getgenv().TIMON_LOADED and LL.Xneo.tpWalking and LL.Xneo.tpGen == gen do
-                task.wait()
-                local c = LL.Cache.Character
-                local h = LL.Cache.Humanoid
-                if not c or not h or h.Health <= 0 then break end
-                if h.MoveDirection.Magnitude > 0 then c:TranslateBy(h.MoveDirection) end
-            end
-        end))
-    end
-end
-
-function LL.xneoStopTpWalking()
-    LL.Xneo.tpWalking = false
-    LL.Xneo.tpGen = (LL.Xneo.tpGen or 0) + 1
-end
-
-function LL.xneoTurnOffFlight()
-    local chr = LL.Cache.Character
-    local hum = LL.Cache.Humanoid
-    LL.Xneo.nowe = false
-    LL.xneoStopTpWalking()
-    if LL.Xneo.flyLoopConn then
-        pcall(function() LL.Xneo.flyLoopConn:Disconnect() end)
-        LL.Xneo.flyLoopConn = nil
-    end
-    if LL.Xneo.bg then pcall(function() LL.Xneo.bg:Destroy() end); LL.Xneo.bg = nil end
-    if LL.Xneo.bv then pcall(function() LL.Xneo.bv:Destroy() end); LL.Xneo.bv = nil end
-    if chr and hum then
-        for _, st in ipairs(LL.XNEO_STATES) do
-            pcall(function() hum:SetStateEnabled(st, true) end)
-        end
-        pcall(function() hum:ChangeState(Enum.HumanoidStateType.Running) end)
-        hum.PlatformStand = false
-        local animate = chr:FindFirstChild("Animate")
-        if animate then animate.Disabled = false end
-    end
-end
-
-function LL.xneoTurnOnFlight()
-    local chr = LL.Cache.Character
-    local hum = LL.Cache.Humanoid
-    if not chr or not hum then return end
-    if LL.S.Player.Fly then LL.S.Player.Fly = false; LL.RefreshAll() end
-    LL.Xneo.nowe = true
-    LL.xneoStartTpWalking()
-    local animate = chr:FindFirstChild("Animate")
-    if animate then animate.Disabled = true end
-    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
-        pcall(function() track:AdjustSpeed(0) end)
-    end
-    for _, st in ipairs(LL.XNEO_STATES) do
-        pcall(function() hum:SetStateEnabled(st, false) end)
-    end
-    local part = (hum.RigType == Enum.HumanoidRigType.R6)
-        and chr:FindFirstChild("Torso") or chr:FindFirstChild("UpperTorso")
-    if part then
-        local al = Instance.new("AlignOrientation")
-        al.Mode = Enum.OrientationAlignmentMode.OneAttachment
-        al.MaxTorque = math.huge
-        al.Responsiveness = 200
-        local att = Instance.new("Attachment")
-        att.Parent = part
-        al.Attachment0 = att
-        al.Parent = part
-        LL.Xneo.bg = al
-        local lv = Instance.new("LinearVelocity")
-        lv.MaxForce = math.huge
-        lv.VectorVelocity = Vector3.new(0, 0.1, 0)
-        lv.Attachment0 = att
-        lv.Parent = part
-        LL.Xneo.bv = lv
-    end
-    hum.PlatformStand = true
-    LL.Xneo.flyLoopConn = RunService.RenderStepped:Connect(function()
-        if not getgenv().TIMON_LOADED or not LL.Xneo.nowe then return end
-        if LL.Xneo.bg and LL.Xneo.bg.Parent and LL.Xneo.bg.Attachment0 then
-            pcall(function()
-                LL.Xneo.bg.Attachment0.WorldCFrame = Camera.CFrame
-            end)
-        end
-        if LL.Xneo.bv and LL.Xneo.bv.Parent then
-            pcall(function() LL.Xneo.bv.VectorVelocity = Vector3.new(0, 0.1, 0) end)
-        end
-    end)
-end
-
-function LL.launchXneoFlyGUI()
-    if LL.Xneo.gui then return end
-    local main = Instance.new("ScreenGui")
-    main.Name = "XneoFlyGui"
-    main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    main.ResetOnSpawn = false
-    main.IgnoreGuiInset = true
-    pcall(function() main.Parent = CoreGui end)
-    if not main.Parent then main.Parent = LP:WaitForChild("PlayerGui") end
-    LL.Xneo.gui = main
-
-    local Frame = Instance.new("Frame")
-    Frame.Parent = main
-    Frame.BackgroundColor3 = COL.bg2
-    Frame.BorderColor3 = COL.accent
-    Frame.Position = UDim2.new(0.10, 0, 0.38, 0)
-    Frame.Size = UDim2.new(0, 210, 0, 64)
-    Frame.Active = true
-    Frame.Draggable = true
-    LL.corner(Frame, 12); LL.stroke(Frame, COL.accent, 1.5)
-    LL.gradient(Frame, COL.accent, COL.accent2, 25)
-
-    local function miniBtn(parent, text, color, pos, size)
-        local b = Instance.new("TextButton")
-        b.Parent = parent
-        b.BackgroundColor3 = color
-        b.Size = size or UDim2.new(0, 46, 0, 28)
-        b.Position = pos
-        b.Font = Enum.Font.GothamBold
-        b.Text = text
-        b.TextColor3 = Color3.fromRGB(0,0,0)
-        b.TextSize = 12
-        b.AutoButtonColor = false
-        LL.corner(b, 8)
-        return b
-    end
-
-    local title = Instance.new("TextLabel")
-    title.Parent = Frame
-    title.BackgroundColor3 = COL.accent
-    title.Position = UDim2.new(0, 100, 0, 4)
-    title.Size = UDim2.new(0, 100, 0, 26)
-    title.Font = Enum.Font.GothamBold
-    title.Text = "XNEO V3"
-    title.TextColor3 = Color3.new(1,1,1)
-    title.TextSize = 12
-    LL.corner(title, 8)
-
-    local up    = miniBtn(Frame, "UP", Color3.fromRGB(120,255,180), UDim2.new(0, 4, 0, 4))
-    local down  = miniBtn(Frame, "DN", Color3.fromRGB(200,255,120), UDim2.new(0, 4, 0, 34))
-    local plus  = miniBtn(Frame, "+", Color3.fromRGB(160,160,255), UDim2.new(0, 54, 0, 4))
-    local mine  = miniBtn(Frame, "-", Color3.fromRGB(120,220,255), UDim2.new(0, 54, 0, 34))
-    local speedLbl = Instance.new("TextLabel")
-    speedLbl.Parent = Frame
-    speedLbl.BackgroundColor3 = Color3.fromRGB(255,140,80)
-    speedLbl.Position = UDim2.new(0, 104, 0, 34)
-    speedLbl.Size = UDim2.new(0, 40, 0, 26)
-    speedLbl.Font = Enum.Font.GothamBold
-    speedLbl.Text = tostring(LL.Xneo.speeds)
-    speedLbl.TextColor3 = Color3.fromRGB(0,0,0)
-    speedLbl.TextSize = 13
-    LL.corner(speedLbl, 8)
-
-    local onof = miniBtn(Frame, "FLY", Color3.fromRGB(255,220,80), UDim2.new(0, 152, 0, 34), UDim2.new(0, 52, 0, 26))
-    local close = miniBtn(Frame, "X", Color3.fromRGB(255,90,120), UDim2.new(0, 152, 0, 4), UDim2.new(0, 52, 0, 26))
-
-    onof.MouseButton1Click:Connect(function()
-        if LL.Xneo.nowe then LL.xneoTurnOffFlight() else LL.xneoTurnOnFlight() end
-    end)
-
-    local upHeld = false
-    up.MouseButton1Down:Connect(function() upHeld = true end)
-    up.MouseButton1Up:Connect(function() upHeld = false end)
-    up.MouseLeave:Connect(function() upHeld = false end)
-    LL.trackThread(task.spawn(function()
-        while getgenv().TIMON_LOADED and LL.Xneo.gui do
-            task.wait()
-            if upHeld then
-                local hrp = LL.Cache.HRP
-                if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, 1, 0) end
-            end
-        end
-    end))
-    local downHeld = false
-    down.MouseButton1Down:Connect(function() downHeld = true end)
-    down.MouseButton1Up:Connect(function() downHeld = false end)
-    down.MouseLeave:Connect(function() downHeld = false end)
-    LL.trackThread(task.spawn(function()
-        while getgenv().TIMON_LOADED and LL.Xneo.gui do
-            task.wait()
-            if downHeld then
-                local hrp = LL.Cache.HRP
-                if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, -1, 0) end
-            end
-        end
-    end))
-
-    plus.MouseButton1Click:Connect(function()
-        LL.Xneo.speeds = LL.Xneo.speeds + 1
-        speedLbl.Text = tostring(LL.Xneo.speeds)
-        if LL.Xneo.nowe then LL.xneoStartTpWalking() end
-    end)
-    mine.MouseButton1Click:Connect(function()
-        if LL.Xneo.speeds > 1 then
-            LL.Xneo.speeds = LL.Xneo.speeds - 1
-            speedLbl.Text = tostring(LL.Xneo.speeds)
-            if LL.Xneo.nowe then LL.xneoStartTpWalking() end
-        end
-    end)
-
-    close.MouseButton1Click:Connect(function() LL.closeXneoFlyGUI() end)
-
-    LL.S.Player.MobileFly = true
-    LL.S.MobileBtns.MobileFly = true
-    LL.RefreshAll(); LL.MarkDirty()
-end
-
-function LL.closeXneoFlyGUI()
-    LL.xneoTurnOffFlight()
-    if LL.Xneo.gui then
-        pcall(function() LL.Xneo.gui:Destroy() end)
-        LL.Xneo.gui = nil
-    end
-    LL.Xneo.speeds = 1
-    LL.S.Player.MobileFly = false
-    LL.S.MobileBtns.MobileFly = false
-    LL.RefreshAll(); LL.MarkDirty()
-end
-
--- ============================================================
 -- FLOATING BUTTONS
 -- ============================================================
 function LL.saveBtnPos(id, pos)
@@ -3115,7 +3187,7 @@ function LL.ToggleMobileBtn(action, show)
     b.Font = Enum.Font.GothamBold
     b.TextSize = 11
     local LABEL = {
-        Aimbot="AIM", Fly="FLY", MobileFly="XNEO", ZeroGravity="GRAV",
+        Aimbot="AIM", Fly="FLY", ZeroGravity="GRAV",
         Noclip="NOCLIP", AntiFling="AFLNG", InfiniteJump="IJMP",
         ESP="ESP", Hitbox="HITBX"
     }
@@ -3131,7 +3203,6 @@ function LL.ToggleMobileBtn(action, show)
         elseif action == "ESP" then return LL.S.ESP.Enabled
         elseif action == "Hitbox" then return LL.S.Hitbox.Enabled
         elseif action == "Fly" then return LL.S.Player.Fly
-        elseif action == "MobileFly" then return LL.Xneo.gui ~= nil
         elseif action == "ZeroGravity" then return LL.S.Player.ZeroGravity
         elseif action == "Noclip" then return LL.S.Player.Noclip
         elseif action == "InfiniteJump" then return LL.S.Player.InfiniteJump
@@ -3155,6 +3226,33 @@ function LL.ToggleMobileBtn(action, show)
     end)
     LL.MobileButtons[action] = b
 end
+
+-- ============================================================
+-- OPEN BUTTON
+-- ============================================================
+local OpenBtn = Instance.new("TextButton")
+OpenBtn.Size = UDim2.new(0, 54, 0, 54)
+local openDefault = UDim2.new(0, 20, 1, -84)
+OpenBtn.Position = LL.loadBtnPos("__OpenBtn", openDefault)
+OpenBtn.BackgroundColor3 = COL.bg2
+OpenBtn.BackgroundTransparency = 0.05
+OpenBtn.TextColor3 = COL.accent2
+OpenBtn.Font = Enum.Font.GothamBold
+OpenBtn.TextSize = 16
+OpenBtn.Text = "T"
+OpenBtn.BorderSizePixel = 0
+OpenBtn.AutoButtonColor = false
+OpenBtn.Parent = ScreenGui
+LL.corner(OpenBtn, 27)
+LL.stroke(OpenBtn, COL.accent2, 2)
+LL.MakeDraggableLockable(OpenBtn, OpenBtn, "__OpenBtn", openDefault)
+OpenBtn.MouseEnter:Connect(function()
+    Tween:Create(OpenBtn, LL.Anim.Fast, {BackgroundColor3 = COL.elem}):Play()
+end)
+OpenBtn.MouseLeave:Connect(function()
+    Tween:Create(OpenBtn, LL.Anim.Fast, {BackgroundColor3 = COL.bg2}):Play()
+end)
+OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
 -- ============================================================
 -- ACTIONS
 -- ============================================================
@@ -3181,12 +3279,8 @@ LL.Actions.Hitbox = function()
     LL.Notify("Hitbox: "..tostring(LL.S.Hitbox.Enabled))
 end
 LL.Actions.Fly = function()
-    if not LL.S.Player.Fly and LL.Xneo.nowe then LL.closeXneoFlyGUI() end
     LL.S.Player.Fly = not LL.S.Player.Fly; LL.RefreshAll(); LL.MarkDirty()
     LL.Notify("Fly: "..tostring(LL.S.Player.Fly))
-end
-LL.Actions.MobileFly = function()
-    if LL.Xneo.gui then LL.closeXneoFlyGUI() else LL.launchXneoFlyGUI() end
 end
 LL.Actions.ZeroGravity = function()
     LL.S.Player.ZeroGravity = not LL.S.Player.ZeroGravity
@@ -3227,32 +3321,45 @@ LL.Actions.LoadPos = function()
 end
 
 -- ============================================================
--- OPEN BUTTON
+-- APPLY LOADED SETTINGS (глобальная, для автозагрузки)
 -- ============================================================
-local OpenBtn = Instance.new("TextButton")
-OpenBtn.Size = UDim2.new(0, 54, 0, 54)
-local openDefault = UDim2.new(0, 20, 1, -84)
-OpenBtn.Position = LL.loadBtnPos("__OpenBtn", openDefault)
-OpenBtn.BackgroundColor3 = COL.bg2
-OpenBtn.BackgroundTransparency = 0.05
-OpenBtn.TextColor3 = COL.accent2
-OpenBtn.Font = Enum.Font.GothamBold
-OpenBtn.TextSize = 16
-OpenBtn.Text = "T"
-OpenBtn.BorderSizePixel = 0
-OpenBtn.AutoButtonColor = false
-OpenBtn.Parent = ScreenGui
-LL.corner(OpenBtn, 27)
-LL.stroke(OpenBtn, COL.accent2, 2)
-LL.makeShadow(OpenBtn, 27, 0.6)
-LL.MakeDraggableLockable(OpenBtn, OpenBtn, "__OpenBtn", openDefault)
-OpenBtn.MouseEnter:Connect(function()
-    Tween:Create(OpenBtn, LL.Anim.Fast, {BackgroundColor3 = COL.elem}):Play()
-end)
-OpenBtn.MouseLeave:Connect(function()
-    Tween:Create(OpenBtn, LL.Anim.Fast, {BackgroundColor3 = COL.bg2}):Play()
-end)
-OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
+function LL.applyLoadedSettings()
+    LL.RefreshAll()
+    for _, fn in pairs(LL.BindRefreshers) do pcall(fn) end
+    for p in pairs(LL.ESPObjs) do LL.RemoveESP(p) end
+    for m in pairs(LL.NPCESPObjs) do LL.RemoveNPCESP(m) end
+    if LL.S.ESP.Enabled then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LP then LL.CreateESP(p) end
+        end
+    end
+    if LL.S.ESP.NPCEnabled then
+        LL.refreshNPCCache()
+        for m in pairs(LL.NPCCache) do
+            if not LL.isPlayerCharacter(m) then LL.CreateNPCESP(m) end
+        end
+    end
+    LL.ClearAllHitboxes()
+    LL.ClearAllNPCHitboxes()
+    if LL.S.Hitbox.Enabled then
+        for _, pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox, pl) end
+    end
+    if LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then
+        LL.refreshNPCCache()
+        for model in pairs(LL.NPCCache) do pcall(LL.ApplyNPCHitbox, model) end
+    end
+    for action, state in pairs(LL.S.MobileBtns) do
+        LL.ToggleMobileBtn(action, state)
+    end
+    LL.RepositionAllFloatingBtns()
+    LL.ApplyFloatingLock()
+    LL.applyGravityState()
+    if LL.S.Player.AntiAFK then LL.startAntiAFK() else LL.stopAntiAFK() end
+    if LL.S.Player.FPSBooster then LL.enableFPSBooster() else LL.disableFPSBooster() end
+    if LL.S.Player.LowQuality then LL.enableLowQuality() else LL.disableLowQuality() end
+    if LL.S.Player.Fullbright then LL.enableFullbright() else LL.disableFullbright() end
+    LL.MarkDirty()
+end
 
 -- ============================================================
 -- INPUT
@@ -3316,8 +3423,7 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
     local hrp = LL.Cache.HRP
     local hum = LL.Cache.Humanoid
 
-    -- PC Fly
-    if LL.S.Player.Fly and not LL.Xneo.nowe and hrp then
+    if LL.S.Player.Fly and hrp then
         if not LL.FlyBV then
             local att = hrp:FindFirstChild("TimonFlyAtt") or Instance.new("Attachment")
             att.Name = "TimonFlyAtt"; att.Parent = hrp
@@ -3356,7 +3462,6 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Noclip / WalkSpeed / JumpPower (каждый кадр — дёшево)
     if hum then
         if LL.S.Player.WalkSpeedEnabled then hum.WalkSpeed = LL.S.Player.WalkSpeed end
         if LL.S.Player.JumpPowerEnabled then hum.JumpPower = LL.S.Player.JumpPower end
@@ -3367,7 +3472,6 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- ESP / Tracer
     LL.lazyFrame = LL.lazyFrame + 1
     local skipESP = LL.S.Player.LazyMode and (LL.lazyFrame % 2 == 0)
 
@@ -3524,7 +3628,6 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Effects (throttled)
     LL.effectAccum = LL.effectAccum + dt
     if LL.effectAccum < LL.EFFECT_INTERVAL then return end
     LL.effectAccum = 0
@@ -3550,7 +3653,7 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
 
     if LL.S.Troll.AntiFling and ch then
         local ANTIFLING = {"BodyVelocity","BodyAngularVelocity","BodyGyro","BodyThrust","BodyForce"}
-        local skip = LL.Xneo.nowe or LL.S.Player.Fly
+        local skip = LL.S.Player.Fly
         if not skip then
             for _, p in ipairs(ch:GetDescendants()) do
                 if p:IsA("BasePart") then
@@ -3585,7 +3688,7 @@ end))
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
         task.wait(2)
-        if LL.CONFIG_DIRTY and LL.S.AutoSave and (tick() - LL.lastDirtyTime) >= 2 then
+        if LL.CONFIG_DIRTY and LL.S.AutoSave and LL.FS_AVAILABLE and (tick() - LL.lastDirtyTime) >= 2 then
             LL.CONFIG_DIRTY = false
             pcall(function() LL.saveConfig(LL.AUTOSAVE_FILE) end)
         end
@@ -3595,12 +3698,23 @@ end))
 -- ============================================================
 -- INIT
 -- ============================================================
-if LL.S.ESP.Enabled then
+-- Автозагрузка конфига при старте
+local autoloaded = false
+if LL.FS_AVAILABLE and LL.fileExists(LL.CONFIG_DIR.."/"..LL.AUTOSAVE_FILE..".json") then
+    local ok = pcall(function() LL.loadConfigFile(LL.AUTOSAVE_FILE) end)
+    if ok then
+        autoloaded = true
+        pcall(function() LL.RefreshAll() end)
+        pcall(function() LL.applyLoadedSettings() end)
+    end
+end
+
+if LL.S.ESP.Enabled and not autoloaded then
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LP then LL.CreateESP(p) end
     end
 end
-if LL.S.ESP.NPCEnabled then
+if LL.S.ESP.NPCEnabled and not autoloaded then
     LL.refreshNPCCache()
     for m in pairs(LL.NPCCache) do
         if not LL.isPlayerCharacter(m) then pcall(LL.CreateNPCESP, m) end
@@ -3616,54 +3730,86 @@ if LL.S.Player.AntiAFK then LL.startAntiAFK() end
 if LL.S.Player.FPSBooster then LL.enableFPSBooster() end
 if LL.S.Player.LowQuality then LL.enableLowQuality() end
 if LL.S.Player.Fullbright then LL.enableFullbright() end
-if LL.S.Player.MobileFly and not LL.Xneo.gui then
-    pcall(function() LL.launchXneoFlyGUI() end)
+
+if autoloaded then
+    LL.Notify("Timon Hub v4.6.1 · автозагрузка")
+else
+    LL.Notify("Timon Hub v4.6.1 · загружен")
 end
 
-LL.Notify("Timon Hub v4.6.0 · загружен")
-
 -- ============================================================
--- UNLOAD
+-- UNLOAD (пофикшенный — каждый шаг в своём pcall)
 -- ============================================================
 getgenv().TIMON_UNLOAD = function()
+    local function step(name, fn)
+        local ok, err = pcall(fn)
+        if not ok then warn("[TimonUnload] "..name..": "..tostring(err)) end
+    end
+
     getgenv().TIMON_LOADED = false
-    LL.xneoStopTpWalking()
-    pcall(function() LL.closeXneoFlyGUI() end)
-    pcall(function() LL.stopAntiAFK() end)
-    pcall(function() LL.disableFPSBooster() end)
-    pcall(function() LL.disableLowQuality() end)
-    pcall(function() LL.disableFullbright() end)
-    local hum = LL.Cache.Humanoid
-    if hum then
-        pcall(function()
+
+    step("xnEO", function()
+        if LL.xneoScriptRunning then
+            local pg = LP:FindFirstChild("PlayerGui")
+            if pg then
+                local m = pg:FindFirstChild("main")
+                if m then m:Destroy() end
+            end
+            LL.xneoScriptRunning = false
+        end
+    end)
+    step("antiAFK", function() LL.stopAntiAFK() end)
+    step("lighting", function()
+        LL.disableFPSBooster()
+        LL.disableLowQuality()
+        LL.disableFullbright()
+    end)
+    step("player", function()
+        local hum = LL.Cache.Humanoid
+        if hum then
             hum.WalkSpeed = LL.S.Player.OrigWalkSpeed or 16
             hum.JumpPower = LL.S.Player.OrigJumpPower or 50
-        end)
-    end
-    pcall(function() Workspace.Gravity = DEFAULT_GRAVITY end)
-    pcall(function() ScreenGui:Destroy() end)
-    if LL.Xneo.gui then pcall(function() LL.Xneo.gui:Destroy() end); LL.Xneo.gui = nil end
-    local espKeys = {}
-    for p in pairs(LL.ESPObjs) do espKeys[#espKeys+1] = p end
-    for _, p in ipairs(espKeys) do LL.RemoveESP(p) end
-    local npcKeys = {}
-    for m in pairs(LL.NPCESPObjs) do npcKeys[#npcKeys+1] = m end
-    for _, m in ipairs(npcKeys) do LL.RemoveNPCESP(m) end
-    for _, conn in pairs(LL.espCharConn) do pcall(function() conn:Disconnect() end) end
-    LL.espCharConn = {}
-    LL.ClearAllHitboxes(); LL.ClearAllNPCHitboxes()
-    if LL.fovCircle then pcall(function() LL.fovCircle:Remove() end) end
-    if LL.aimBeam then pcall(function() LL.aimBeam:Remove() end) end
-    if LL.hitboxBox then pcall(function() LL.hitboxBox:Remove() end) end
-    pcall(function() RunService:UnbindFromRenderStep("TIMON_AIM") end)
-    if LL.SpinAV then pcall(function() LL.SpinAV:Destroy() end) end
-    if LL.FlyBV then pcall(function() LL.FlyBV:Destroy() end) end
-    if LL.FlyBG then pcall(function() LL.FlyBG:Destroy() end) end
-    for _, t in ipairs(THREADS) do pcall(function() task.cancel(t) end) end
-    THREADS = {}
-    for _, c in ipairs(CONNS) do pcall(function() c:Disconnect() end) end
-    CONNS = {}
-    LL.StickyTarget = nil; LL.StickyTargetIsNPC = false
-    LL.aimHoldDown = false; LL.wasHoldActive = false
+        end
+        Workspace.Gravity = DEFAULT_GRAVITY
+    end)
+    step("esp", function()
+        for p in pairs(LL.ESPObjs) do LL.RemoveESP(p) end
+        for m in pairs(LL.NPCESPObjs) do LL.RemoveNPCESP(m) end
+    end)
+    step("espConns", function()
+        for _, conn in pairs(LL.espCharConn) do pcall(function() conn:Disconnect() end) end
+        LL.espCharConn = {}
+    end)
+    step("hitbox", function()
+        LL.ClearAllHitboxes()
+        LL.ClearAllNPCHitboxes()
+    end)
+    step("drawing", function()
+        if LL.fovCircle then LL.fovCircle:Remove() end
+        if LL.aimBeam then LL.aimBeam:Remove() end
+        if LL.hitboxBox then LL.hitboxBox:Remove() end
+    end)
+    step("aimRender", function() RunService:UnbindFromRenderStep("TIMON_AIM") end)
+    step("fly", function()
+        if LL.FlyBV then LL.FlyBV:Destroy() end
+        if LL.FlyBG then LL.FlyBG:Destroy() end
+        if LL.SpinAV then LL.SpinAV:Destroy() end
+    end)
+    step("gui", function()
+        if LL.ScreenGui then LL.ScreenGui:Destroy() end
+    end)
+    step("threads", function()
+        for _, t in ipairs(THREADS) do pcall(function() task.cancel(t) end) end
+        for i = #THREADS, 1, -1 do THREADS[i] = nil end
+    end)
+    step("conns", function()
+        for _, c in ipairs(CONNS) do pcall(function() c:Disconnect() end) end
+        for i = #CONNS, 1, -1 do CONNS[i] = nil end
+    end)
+
+    LL.StickyTarget = nil
+    LL.StickyTargetIsNPC = false
+    LL.aimHoldDown = false
+    LL.wasHoldActive = false
     LL.antiAFKThread = nil
 end
