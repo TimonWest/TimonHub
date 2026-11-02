@@ -412,6 +412,53 @@ function LL.Slider(parent, name, minV, maxV, getter, setter)
     end))
 end
 
+function LL.Slider(parent, name, minV, maxV, getter, setter)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, 0, 0, 58); f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.05
+    f.BorderSizePixel = 0; f.LayoutOrder = LL.NextOrder(); f.Parent = parent
+    LL.corner(f, 12); LL.stroke(f, COL.stroke, 1)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -20, 0, 18); lbl.Position = UDim2.new(0, 16, 0, 8); lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham; lbl.TextSize = 14
+    lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = f
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(1, -32, 0, 8); bar.Position = UDim2.new(0, 16, 0, 38)
+    bar.BackgroundColor3 = Color3.fromRGB(14, 10, 22); bar.BorderSizePixel = 0; bar.Parent = f
+    LL.corner(bar, 4)
+    local fill = Instance.new("Frame")
+    fill.BackgroundColor3 = COL.accent; fill.BorderSizePixel = 0; fill.Parent = bar
+    LL.corner(fill, 4); LL.gradient(fill, COL.accent, COL.accent2, 0)
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 14, 0, 14); dot.AnchorPoint = Vector2.new(0.5, 0.5)
+    dot.BackgroundColor3 = Color3.new(1, 1, 1); dot.BorderSizePixel = 0; dot.ZIndex = 3; dot.Parent = bar
+    LL.corner(dot, 7)
+    local function render()
+        local v = getter()
+        local rel = math.clamp((v - minV) / (maxV - minV), 0, 1)
+        fill.Size = UDim2.new(rel, 0, 1, 0)
+        dot.Position = UDim2.new(rel, 0, 0.5, 0)
+        lbl.Text = name .. ": " .. tostring(math.floor(v*100+0.5)/100)
+    end
+    render(); LL.AddRefresh(render)
+    local ca = Instance.new("TextButton")
+    ca.Size = UDim2.new(1, 16, 0, 30); ca.Position = UDim2.new(0, -8, 0, -11)
+    ca.BackgroundTransparency = 1; ca.Text = ""; ca.ZIndex = 10; ca.Parent = bar
+    local drag = false
+    local function setX(px)
+        local rel = math.clamp((px - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+        setter(minV + rel * (maxV - minV)); render(); LL.MarkDirty()
+    end
+    ca.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drag = true; setX(i.Position.X) end
+    end)
+    LL.trackConn(UIS.InputChanged:Connect(function(i)
+        if drag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then setX(i.Position.X) end
+    end))
+    LL.trackConn(UIS.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drag = false end
+    end))
+end
+
 function LL.Dropdown(parent, name, options, getter, setter)
     local f = Instance.new("Frame")
     f.Size = UDim2.new(1, 0, 0, 42); f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.05
@@ -703,7 +750,6 @@ function LL.ShowMainUI()
     LL.RefreshAll()
     LL.applyLoadedSettings()
 end
-
 function LL.BuildTabs(Main)
     local Left = Instance.new("ScrollingFrame")
     Left.Size = UDim2.new(0, 170, 1, -60)
@@ -871,238 +917,238 @@ function LL.BuildTabs(Main)
         LL.Toggle(parent, L.NPCDistance, function() return LL.S.ESP.NPCDistance end, function(v) LL.S.ESP.NPCDistance = v end)
         LL.Toggle(parent, L.NPCHPBar, function() return LL.S.ESP.NPCHPBar end, function(v) LL.S.ESP.NPCHPBar = v end)
     end)
-    LL.Tab("Player", function(parent)
-        local L = LL.Loc[LL.Language].Player
-        local function captureOriginals()
-            local hum = LL.Cache.Humanoid
-            if hum then
-                if not LL.S.Player.OrigWalkSpeed then LL.S.Player.OrigWalkSpeed = hum.WalkSpeed end
-                if not LL.S.Player.OrigJumpPower then LL.S.Player.OrigJumpPower = hum.JumpPower end
-            end
+LL.Tab("Player", function(parent)
+    local L = LL.Loc[LL.Language].Player
+    local function captureOriginals()
+        local hum = LL.Cache.Humanoid
+        if hum then
+            if not LL.S.Player.OrigWalkSpeed then LL.S.Player.OrigWalkSpeed = hum.WalkSpeed end
+            if not LL.S.Player.OrigJumpPower then LL.S.Player.OrigJumpPower = hum.JumpPower end
         end
-        LL.Section(parent, L.Movement)
-        LL.Toggle(parent, L.WalkSpeedEnabled, function() return LL.S.Player.WalkSpeedEnabled end, function(v)
-            if v then captureOriginals() end
-            LL.S.Player.WalkSpeedEnabled = v
-        end)
-        LL.Slider(parent, L.WalkSpeed, 16, 300, function() return LL.S.Player.WalkSpeed end, function(v) LL.S.Player.WalkSpeed = v end)
-        LL.Toggle(parent, L.JumpPowerEnabled, function() return LL.S.Player.JumpPowerEnabled end, function(v)
-            if v then captureOriginals() end
-            LL.S.Player.JumpPowerEnabled = v
-        end)
-        LL.Slider(parent, L.JumpPower, 50, 300, function() return LL.S.Player.JumpPower end, function(v) LL.S.Player.JumpPower = v end)
-        LL.Toggle(parent, L.InfiniteJump, function() return LL.S.Player.InfiniteJump end, function(v) LL.S.Player.InfiniteJump = v end)
-        LL.Toggle(parent, L.Noclip, function() return LL.S.Player.Noclip end, function(v) LL.S.Player.Noclip = v end)
-        LL.Section(parent, L.Fly)
-        LL.Toggle(parent, L.Fly, function() return LL.S.Player.Fly end, function(v) LL.S.Player.Fly = v end)
-        LL.Slider(parent, L.FlySpeed, 10, 300, function() return LL.S.Player.FlySpeed end, function(v) LL.S.Player.FlySpeed = v end)
-        LL.Section(parent, L.Gravity)
-        LL.Toggle(parent, L.ZeroGravity, function() return LL.S.Player.ZeroGravity end, function(v) LL.S.Player.ZeroGravity = v; LL.applyGravityState() end)
-        LL.Section(parent, L.Coordinates)
-        LL.Button(parent, L.SavePos, function()
-            local hrp = LL.Cache.HRP
-            if hrp then
-                LL.S.Player.SavedPos = hrp.CFrame
-                LL.MarkDirty()
-                LL.Notify("Позиция сохранена")
-            end
-        end)
-        LL.Button(parent, L.LoadPos, function()
-            local hrp = LL.Cache.HRP
-            if hrp and LL.S.Player.SavedPos then
-                hrp.CFrame = LL.S.Player.SavedPos
-                LL.Notify("Позиция загружена")
-            else
-                LL.Notify("Нет сохранённой позиции")
-            end
-        end)
-        LL.Button(parent, L.ClearPos, function()
-            LL.S.Player.SavedPos = nil
+    end
+    LL.Section(parent, L.Movement)
+    LL.Toggle(parent, L.WalkSpeedEnabled, function() return LL.S.Player.WalkSpeedEnabled end, function(v)
+        if v then captureOriginals() end
+        LL.S.Player.WalkSpeedEnabled = v
+    end)
+    LL.Slider(parent, L.WalkSpeed, 16, 300, function() return LL.S.Player.WalkSpeed end, function(v) LL.S.Player.WalkSpeed = v end)
+    LL.Toggle(parent, L.JumpPowerEnabled, function() return LL.S.Player.JumpPowerEnabled end, function(v)
+        if v then captureOriginals() end
+        LL.S.Player.JumpPowerEnabled = v
+    end)
+    LL.Slider(parent, L.JumpPower, 50, 300, function() return LL.S.Player.JumpPower end, function(v) LL.S.Player.JumpPower = v end)
+    LL.Toggle(parent, L.InfiniteJump, function() return LL.S.Player.InfiniteJump end, function(v) LL.S.Player.InfiniteJump = v end)
+    LL.Toggle(parent, L.Noclip, function() return LL.S.Player.Noclip end, function(v) LL.S.Player.Noclip = v end)
+    LL.Section(parent, L.Fly)
+    LL.Toggle(parent, L.Fly, function() return LL.S.Player.Fly end, function(v) LL.S.Player.Fly = v end)
+    LL.Slider(parent, L.FlySpeed, 10, 300, function() return LL.S.Player.FlySpeed end, function(v) LL.S.Player.FlySpeed = v end)
+    LL.Section(parent, L.Gravity)
+    LL.Toggle(parent, L.ZeroGravity, function() return LL.S.Player.ZeroGravity end, function(v) LL.S.Player.ZeroGravity = v; LL.applyGravityState() end)
+    LL.Section(parent, L.Coordinates)
+    LL.Button(parent, L.SavePos, function()
+        local hrp = LL.Cache.HRP
+        if hrp then
+            LL.S.Player.SavedPos = hrp.CFrame
             LL.MarkDirty()
-            LL.Notify("Позиция очищена")
-        end)
-        LL.Section(parent, L.Utility)
-        LL.Toggle(parent, L.AntiAFK, function() return LL.S.Player.AntiAFK end, function(v)
-            LL.S.Player.AntiAFK = v
-            if v then LL.startAntiAFK() else LL.stopAntiAFK() end
-        end)
-        LL.Toggle(parent, L.LazyMode, function() return LL.S.Player.LazyMode end, function(v) LL.S.Player.LazyMode = v end)
-        LL.Toggle(parent, L.FPSBooster, function() return LL.S.Player.FPSBooster end, function(v)
-            LL.S.Player.FPSBooster = v
-            if v then LL.enableFPSBooster() else LL.disableFPSBooster() end
-        end)
-        LL.Toggle(parent, L.LowQuality, function() return LL.S.Player.LowQuality end, function(v)
-            LL.S.Player.LowQuality = v
-            if v then LL.enableLowQuality() else LL.disableLowQuality() end
-        end)
-        LL.Toggle(parent, L.Fullbright, function() return LL.S.Player.Fullbright end, function(v)
-            LL.S.Player.Fullbright = v
-            if v then LL.enableFullbright() else LL.disableFullbright() end
-        end)
-        LL.Section(parent, L.XNEO)
-        LL.Button(parent, L.XNEOBtn, function()
-            if LL.Actions and LL.Actions.XNEO then
-                LL.Actions.XNEO()
-            else
-                LL.Notify("XNEO ещё не готов")
-            end
-        end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
-    end)
-    LL.Tab("Hitbox", function(parent)
-        local L = LL.Loc[LL.Language].Hitbox
-        LL.Section(parent, L.Who)
-        LL.Dropdown(parent, L.Mode,
-            {L.All, L.PlayersOnly, L.NPConly, L.Nobody},
-            function()
-                if LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then return L.All
-                elseif LL.S.Hitbox.Enabled and not LL.S.Hitbox.NPCSupport then return L.PlayersOnly
-                elseif not LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then return L.NPConly
-                else return L.Nobody end
-            end,
-            function(v)
-                if v == L.All then
-                    LL.S.Hitbox.Enabled = true
-                    LL.S.Hitbox.NPCSupport = true
-                elseif v == L.PlayersOnly then
-                    LL.S.Hitbox.Enabled = true
-                    LL.S.Hitbox.NPCSupport = false
-                    LL.ClearAllNPCHitboxes()
-                elseif v == L.NPConly then
-                    LL.S.Hitbox.Enabled = false
-                    LL.S.Hitbox.NPCSupport = true
-                    LL.ClearAllHitboxes()
-                else
-                    LL.S.Hitbox.Enabled = false
-                    LL.S.Hitbox.NPCSupport = false
-                    LL.ClearAllHitboxes()
-                    LL.ClearAllNPCHitboxes()
-                end
-            end)
-        LL.Toggle(parent, L.AutoRefresh, function() return LL.S.Hitbox.RealTimeRefresh end, function(v) LL.S.Hitbox.RealTimeRefresh = v end)
-        LL.Section(parent, L.Parts)
-        LL.Toggle(parent, L.HeadHitbox, function() return LL.S.Hitbox.HeadEnabled end, function(v) LL.S.Hitbox.HeadEnabled = v; LL.RefreshHitboxes() end)
-        LL.Toggle(parent, L.BodyHitbox, function() return LL.S.Hitbox.BodyEnabled end, function(v) LL.S.Hitbox.BodyEnabled = v; LL.RefreshHitboxes() end)
-        LL.Section(parent, L.Sizes)
-        LL.Slider(parent, L.RootSize, 2, 30, function() return LL.S.Hitbox.RootSize end, function(v) LL.S.Hitbox.RootSize = v; LL.RefreshHitboxes() end)
-        LL.Slider(parent, L.HeadSize, 1, 15, function() return LL.S.Hitbox.HeadSize end, function(v) LL.S.Hitbox.HeadSize = v; LL.RefreshHitboxes() end)
-        LL.Slider(parent, L.BodySize, 2, 25, function() return LL.S.Hitbox.BodySize end, function(v) LL.S.Hitbox.BodySize = v; LL.RefreshHitboxes() end)
-    end)
-    LL.Tab("Macro", function(parent)
-        local L = LL.Loc[LL.Language].Macro
-        LL.Section(parent, L.Settings)
-        LL.TextBox(parent, L.MacroName, "macro1", function() return LL.S.Macro.CurrentMacro end, function(v) LL.S.Macro.CurrentMacro = (v ~= "" and v) or "macro1" end)
-        LL.Slider(parent, L.SampleRate, 0.05, 1.0, function() return LL.S.Macro.SampleRate end, function(v) LL.S.Macro.SampleRate = math.floor(v * 100 + 0.5) / 100 end)
-        LL.Toggle(parent, L.Loop, function() return LL.S.Macro.Loop end, function(v) LL.S.Macro.Loop = v end)
-        LL.Toggle(parent, L.JumpDetection, function() return LL.S.Macro.JumpDetection end, function(v) LL.S.Macro.JumpDetection = v end)
-        LL.Section(parent, L.Advanced)
-        LL.Toggle(parent, L.IgnoreObstacles, function() return LL.S.Macro.IgnoreObstacles end, function(v)
-            LL.S.Macro.IgnoreObstacles = v
-            LL.Notify("Ignore Obstacles: "..(v and "ON" or "OFF"))
-        end)
-        LL.Toggle(parent, L.PushThrough, function() return LL.S.Macro.PushThrough end, function(v)
-            LL.S.Macro.PushThrough = v
-            LL.Notify("Push Through: "..(v and "ON" or "OFF"))
-        end)
-        LL.Section(parent, L.Record)
-        local recBtn = LL.Button(parent, L.StartRecord, function()
-            if LL.S.Macro.Recording then
-                LL.MacroStopRecording()
-            else
-                LL.MacroStartRecording()
-            end
-        end)
-        LL.MacroRecBtn = recBtn
-        LL.MacroRecBtnUpdate = function()
-            if LL.S.Macro.Recording then
-                recBtn.Text = L.StopRecord.." ("..tostring(#(LL.MacroRecord or {}))..")"
-                recBtn.BackgroundColor3 = COL.red
-                recBtn.TextColor3 = Color3.new(1,1,1)
-            else
-                recBtn.Text = L.StartRecord
-                recBtn.BackgroundColor3 = COL.elem
-                recBtn.TextColor3 = COL.text
-            end
+            LL.Notify("Позиция сохранена")
         end
-        LL.MacroRecBtnUpdate()
-        LL.AddRefresh(LL.MacroRecBtnUpdate)
-        LL.Section(parent, L.Play)
-        local playBtn = LL.Button(parent, L.PlayMacro, function()
-            if LL.S.Macro.Playing then
-                LL.MacroStopPlaying()
+    end)
+    LL.Button(parent, L.LoadPos, function()
+        local hrp = LL.Cache.HRP
+        if hrp and LL.S.Player.SavedPos then
+            hrp.CFrame = LL.S.Player.SavedPos
+            LL.Notify("Позиция загружена")
+        else
+            LL.Notify("Нет сохранённой позиции")
+        end
+    end)
+    LL.Button(parent, L.ClearPos, function()
+        LL.S.Player.SavedPos = nil
+        LL.MarkDirty()
+        LL.Notify("Позиция очищена")
+    end)
+    LL.Section(parent, L.Utility)
+    LL.Toggle(parent, L.AntiAFK, function() return LL.S.Player.AntiAFK end, function(v)
+        LL.S.Player.AntiAFK = v
+        if v then LL.startAntiAFK() else LL.stopAntiAFK() end
+    end)
+    LL.Toggle(parent, L.LazyMode, function() return LL.S.Player.LazyMode end, function(v) LL.S.Player.LazyMode = v end)
+    LL.Toggle(parent, L.FPSBooster, function() return LL.S.Player.FPSBooster end, function(v)
+        LL.S.Player.FPSBooster = v
+        if v then LL.enableFPSBooster() else LL.disableFPSBooster() end
+    end)
+    LL.Toggle(parent, L.LowQuality, function() return LL.S.Player.LowQuality end, function(v)
+        LL.S.Player.LowQuality = v
+        if v then LL.enableLowQuality() else LL.disableLowQuality() end
+    end)
+    LL.Toggle(parent, L.Fullbright, function() return LL.S.Player.Fullbright end, function(v)
+        LL.S.Player.Fullbright = v
+        if v then LL.enableFullbright() else LL.disableFullbright() end
+    end)
+    LL.Section(parent, L.XNEO)
+    LL.Button(parent, L.XNEOBtn, function()
+        if LL.Actions and LL.Actions.XNEO then
+            LL.Actions.XNEO()
+        else
+            LL.Notify("XNEO ещё не готов")
+        end
+    end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
+end)
+LL.Tab("Hitbox", function(parent)
+    local L = LL.Loc[LL.Language].Hitbox
+    LL.Section(parent, L.Who)
+    LL.Dropdown(parent, L.Mode,
+        {L.All, L.PlayersOnly, L.NPConly, L.Nobody},
+        function()
+            if LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then return L.All
+            elseif LL.S.Hitbox.Enabled and not LL.S.Hitbox.NPCSupport then return L.PlayersOnly
+            elseif not LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then return L.NPConly
+            else return L.Nobody end
+        end,
+        function(v)
+            if v == L.All then
+                LL.S.Hitbox.Enabled = true
+                LL.S.Hitbox.NPCSupport = true
+            elseif v == L.PlayersOnly then
+                LL.S.Hitbox.Enabled = true
+                LL.S.Hitbox.NPCSupport = false
+                LL.ClearAllNPCHitboxes()
+            elseif v == L.NPConly then
+                LL.S.Hitbox.Enabled = false
+                LL.S.Hitbox.NPCSupport = true
+                LL.ClearAllHitboxes()
             else
-                LL.MacroStartPlaying(LL.S.Macro.CurrentMacro)
-            end
-        end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
-        LL.AddRefresh(function()
-            if LL.S.Macro.Playing then
-                playBtn.Text = L.StopMacro
-                playBtn.BackgroundColor3 = COL.red
-            else
-                playBtn.Text = L.PlayMacro
-                playBtn.BackgroundColor3 = COL.accent
+                LL.S.Hitbox.Enabled = false
+                LL.S.Hitbox.NPCSupport = false
+                LL.ClearAllHitboxes()
+                LL.ClearAllNPCHitboxes()
             end
         end)
-        LL.Button(parent, L.StopAndReturn, function()
+    LL.Toggle(parent, L.AutoRefresh, function() return LL.S.Hitbox.RealTimeRefresh end, function(v) LL.S.Hitbox.RealTimeRefresh = v end)
+    LL.Section(parent, L.Parts)
+    LL.Toggle(parent, L.HeadHitbox, function() return LL.S.Hitbox.HeadEnabled end, function(v) LL.S.Hitbox.HeadEnabled = v; LL.RefreshHitboxes() end)
+    LL.Toggle(parent, L.BodyHitbox, function() return LL.S.Hitbox.BodyEnabled end, function(v) LL.S.Hitbox.BodyEnabled = v; LL.RefreshHitboxes() end)
+    LL.Section(parent, L.Sizes)
+    LL.Slider(parent, L.RootSize, 2, 30, function() return LL.S.Hitbox.RootSize end, function(v) LL.S.Hitbox.RootSize = v; LL.RefreshHitboxes() end)
+    LL.Slider(parent, L.HeadSize, 1, 15, function() return LL.S.Hitbox.HeadSize end, function(v) LL.S.Hitbox.HeadSize = v; LL.RefreshHitboxes() end)
+    LL.Slider(parent, L.BodySize, 2, 25, function() return LL.S.Hitbox.BodySize end, function(v) LL.S.Hitbox.BodySize = v; LL.RefreshHitboxes() end)
+end)
+LL.Tab("Macro", function(parent)
+    local L = LL.Loc[LL.Language].Macro
+    LL.Section(parent, L.Settings)
+    LL.TextBox(parent, L.MacroName, "macro1", function() return LL.S.Macro.CurrentMacro end, function(v) LL.S.Macro.CurrentMacro = (v ~= "" and v) or "macro1" end)
+    LL.Slider(parent, L.SampleRate, 0.05, 1.0, function() return LL.S.Macro.SampleRate end, function(v) LL.S.Macro.SampleRate = math.floor(v * 100 + 0.5) / 100 end)
+    LL.Toggle(parent, L.Loop, function() return LL.S.Macro.Loop end, function(v) LL.S.Macro.Loop = v end)
+    LL.Toggle(parent, L.JumpDetection, function() return LL.S.Macro.JumpDetection end, function(v) LL.S.Macro.JumpDetection = v end)
+    LL.Section(parent, L.Advanced)
+    LL.Toggle(parent, L.IgnoreObstacles, function() return LL.S.Macro.IgnoreObstacles end, function(v)
+        LL.S.Macro.IgnoreObstacles = v
+        LL.Notify("Ignore Obstacles: "..(v and "ON" or "OFF"))
+    end)
+    LL.Toggle(parent, L.PushThrough, function() return LL.S.Macro.PushThrough end, function(v)
+        LL.S.Macro.PushThrough = v
+        LL.Notify("Push Through: "..(v and "ON" or "OFF"))
+    end)
+    LL.Section(parent, L.Record)
+    local recBtn = LL.Button(parent, L.StartRecord, function()
+        if LL.S.Macro.Recording then
+            LL.MacroStopRecording()
+        else
+            LL.MacroStartRecording()
+        end
+    end)
+    LL.MacroRecBtn = recBtn
+    LL.MacroRecBtnUpdate = function()
+        if LL.S.Macro.Recording then
+            recBtn.Text = L.StopRecord.." ("..tostring(#(LL.MacroRecord or {}))..")"
+            recBtn.BackgroundColor3 = COL.red
+            recBtn.TextColor3 = Color3.new(1,1,1)
+        else
+            recBtn.Text = L.StartRecord
+            recBtn.BackgroundColor3 = COL.elem
+            recBtn.TextColor3 = COL.text
+        end
+    end
+    LL.MacroRecBtnUpdate()
+    LL.AddRefresh(LL.MacroRecBtnUpdate)
+    LL.Section(parent, L.Play)
+    local playBtn = LL.Button(parent, L.PlayMacro, function()
+        if LL.S.Macro.Playing then
             LL.MacroStopPlaying()
-            LL.MacroReturnToStart()
-        end, {color = COL.elemHover})
-        LL.Section(parent, L.Manage)
-        LL.Button(parent, L.SaveRecord, function()
-            if not LL.MacroRecord or #LL.MacroRecord < 2 then
-                LL.Notify("Нечего сохранять — запиши сначала")
-                return
-            end
-            local name = LL.S.Macro.CurrentMacro or "macro1"
-            LL.Macros[name] = LL.MacroRecord
-            LL.MacroRecord = nil
-            LL.Notify("Сохранён: "..name.." ("..#LL.Macros[name].." точек)")
-            if LL.MacroRefreshList then LL.MacroRefreshList() end
-            if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
-        end)
-        LL.Button(parent, L.DeleteCurrent, function()
-            local name = LL.S.Macro.CurrentMacro or "macro1"
-            LL.Macros[name] = nil
-            LL.Notify("Удалён: "..name)
-            if LL.MacroRefreshList then LL.MacroRefreshList() end
-        end, {textColor = COL.red})
-        LL.Button(parent, L.DeleteAll, function()
-            LL.Macros = {}
-            LL.MacroRecord = nil
-            LL.Notify("Все макросы удалены")
-            if LL.MacroRefreshList then LL.MacroRefreshList() end
-        end, {textColor = COL.red})
-        LL.Section(parent, L.List)
-        local listLbl = Instance.new("TextLabel")
-        listLbl.Size = UDim2.new(1, 0, 0, 120)
-        listLbl.BackgroundColor3 = COL.elem
-        listLbl.BackgroundTransparency = 0.05
-        listLbl.BorderSizePixel = 0
-        listLbl.LayoutOrder = LL.NextOrder()
-        listLbl.TextColor3 = COL.sub
-        listLbl.Font = Enum.Font.Gotham
-        listLbl.TextSize = 13
-        listLbl.TextWrapped = true
-        listLbl.TextXAlignment = Enum.TextXAlignment.Left
-        listLbl.TextYAlignment = Enum.TextYAlignment.Top
-        listLbl.Parent = parent
-        LL.corner(listLbl, 12)
-        LL.stroke(listLbl, COL.stroke, 1)
-        LL.padding(listLbl, 8, 12, 12, 8)
-        LL.MacroRefreshList = function()
-            local lines = {}
-            for name, pts in pairs(LL.Macros) do
-                table.insert(lines, "• "..name.." ("..#pts.." точек)")
-            end
-            if #lines == 0 then
-                listLbl.Text = L.Empty
-            else
-                table.sort(lines)
-                listLbl.Text = table.concat(lines, "\n")
-            end
+        else
+            LL.MacroStartPlaying(LL.S.Macro.CurrentMacro)
         end
-        LL.MacroRefreshList()
+    end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
+    LL.AddRefresh(function()
+        if LL.S.Macro.Playing then
+            playBtn.Text = L.StopMacro
+            playBtn.BackgroundColor3 = COL.red
+        else
+            playBtn.Text = L.PlayMacro
+            playBtn.BackgroundColor3 = COL.accent
+        end
     end)
-    LL.Tab("Settings", function(parent)
+    LL.Button(parent, L.StopAndReturn, function()
+        LL.MacroStopPlaying()
+        LL.MacroReturnToStart()
+    end, {color = COL.elemHover})
+    LL.Section(parent, L.Manage)
+    LL.Button(parent, L.SaveRecord, function()
+        if not LL.MacroRecord or #LL.MacroRecord < 2 then
+            LL.Notify("Нечего сохранять — запиши сначала")
+            return
+        end
+        local name = LL.S.Macro.CurrentMacro or "macro1"
+        LL.Macros[name] = LL.MacroRecord
+        LL.MacroRecord = nil
+        LL.Notify("Сохранён: "..name.." ("..#LL.Macros[name].." точек)")
+        if LL.MacroRefreshList then LL.MacroRefreshList() end
+        if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
+    end)
+    LL.Button(parent, L.DeleteCurrent, function()
+        local name = LL.S.Macro.CurrentMacro or "macro1"
+        LL.Macros[name] = nil
+        LL.Notify("Удалён: "..name)
+        if LL.MacroRefreshList then LL.MacroRefreshList() end
+    end, {textColor = COL.red})
+    LL.Button(parent, L.DeleteAll, function()
+        LL.Macros = {}
+        LL.MacroRecord = nil
+        LL.Notify("Все макросы удалены")
+        if LL.MacroRefreshList then LL.MacroRefreshList() end
+    end, {textColor = COL.red})
+    LL.Section(parent, L.List)
+    local listLbl = Instance.new("TextLabel")
+    listLbl.Size = UDim2.new(1, 0, 0, 120)
+    listLbl.BackgroundColor3 = COL.elem
+    listLbl.BackgroundTransparency = 0.05
+    listLbl.BorderSizePixel = 0
+    listLbl.LayoutOrder = LL.NextOrder()
+    listLbl.TextColor3 = COL.sub
+    listLbl.Font = Enum.Font.Gotham
+    listLbl.TextSize = 13
+    listLbl.TextWrapped = true
+    listLbl.TextXAlignment = Enum.TextXAlignment.Left
+    listLbl.TextYAlignment = Enum.TextYAlignment.Top
+    listLbl.Parent = parent
+    LL.corner(listLbl, 12)
+    LL.stroke(listLbl, COL.stroke, 1)
+    LL.padding(listLbl, 8, 12, 12, 8)
+    LL.MacroRefreshList = function()
+        local lines = {}
+        for name, pts in pairs(LL.Macros) do
+            table.insert(lines, "• "..name.." ("..#pts.." точек)")
+        end
+        if #lines == 0 then
+            listLbl.Text = L.Empty
+        else
+            table.sort(lines)
+            listLbl.Text = table.concat(lines, "\n")
+        end
+    end
+    LL.MacroRefreshList()
+end)
+LL.Tab("Settings", function(parent)
         local L = LL.Loc[LL.Language].Settings
         LL.Section(parent, L.Actions)
         LL.Button(parent, L.ResetSettings, function()
@@ -1331,8 +1377,8 @@ end
 function LL.refreshCharCache()
     local char = LP.Character
     LL.Cache.Character = char
-    LL.Cache.Humanoid = char and char:FindFirstChildOfClass("Humanoid") or nil
-    LL.Cache.HRP = char and char:FindFirstChild("HumanoidRootPart") or nil
+    LL.Cache.Humanoid = char and (char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 2)) or nil
+    LL.Cache.HRP = char and (char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 2)) or nil
 end
 LL.refreshCharCache()
 LL.trackConn(LP.CharacterAdded:Connect(function(char)
@@ -2144,10 +2190,16 @@ LL.MacroRecordLoopThread = nil
 LL.MacroJumpConn = nil
 function LL.MacroStartRecording()
     if LL.S.Macro.Recording then return end
-    if not LL.Cache.Character or not LL.Cache.Humanoid then
+    if LL.refreshCharCache then LL.refreshCharCache() end
+    local chr = LP.Character
+    local hum = chr and chr:FindFirstChildOfClass("Humanoid")
+    if not chr or not hum or hum.Health <= 0 then
         LL.Notify("Персонаж не загружен")
         return
     end
+    LL.Cache.Character = chr
+    LL.Cache.Humanoid = hum
+    LL.Cache.HRP = chr:FindFirstChild("HumanoidRootPart")
     LL.S.Macro.Recording = true
     LL.MacroRecord = {}
     if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
@@ -2163,13 +2215,13 @@ function LL.MacroStartRecording()
     end))
     LL.MacroRecordLoopThread = LL.trackThread(task.spawn(function()
         while getgenv().TIMON_LOADED and LL.S.Macro.Recording do
-            local chr = LL.Cache.Character
-            local hum = LL.Cache.Humanoid
-            if not chr or not hum or hum.Health <= 0 then
+            local chr2 = LL.Cache.Character
+            local hum2 = LL.Cache.Humanoid
+            if not chr2 or not hum2 or hum2.Health <= 0 then
                 LL.MacroStopRecording()
                 break
             end
-            local pos = chr.HumanoidRootPart and chr.HumanoidRootPart.Position
+            local pos = chr2.HumanoidRootPart and chr2.HumanoidRootPart.Position
             if pos then
                 table.insert(LL.MacroRecord, { pos = pos, jump = false })
                 if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
@@ -2199,6 +2251,11 @@ function LL.MacroStartPlaying(name)
     local points = LL.Macros[name]
     if not points or #points < 2 then
         LL.Notify("Макрос пуст: "..tostring(name))
+        return
+    end
+    if LL.refreshCharCache then LL.refreshCharCache() end
+    if not LP.Character or not LP.Character:FindFirstChildOfClass("Humanoid") then
+        LL.Notify("Персонаж не загружен")
         return
     end
     if LL.S.Macro.Playing then LL.MacroStopPlaying() end
@@ -2433,6 +2490,17 @@ LL.Actions.InfiniteJump = function()
     LL.S.Player.InfiniteJump = not LL.S.Player.InfiniteJump; LL.RefreshAll(); LL.MarkDirty()
     LL.Notify("InfJump: "..tostring(LL.S.Player.InfiniteJump))
 end
+LL.Actions.Fly = function()
+    LL.S.Player.Fly = not LL.S.Player.Fly
+    LL.RefreshAll(); LL.MarkDirty()
+    LL.Notify("Fly: "..tostring(LL.S.Player.Fly))
+end
+LL.Actions.ZeroGravity = function()
+    LL.S.Player.ZeroGravity = not LL.S.Player.ZeroGravity
+    if LL.applyGravityState then pcall(LL.applyGravityState) end
+    LL.RefreshAll(); LL.MarkDirty()
+    LL.Notify("ZeroGravity: "..tostring(LL.S.Player.ZeroGravity))
+end
 LL.Actions.AntiFling = function()
     LL.S.Troll.AntiFling = not LL.S.Troll.AntiFling; LL.RefreshAll(); LL.MarkDirty()
     LL.Notify("AntiFling: "..tostring(LL.S.Troll.AntiFling))
@@ -2666,66 +2734,66 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
                 if d.hpFill then d.hpFill.Visible = false end
                 if d.tracer then d.tracer.Visible = false end
                 if d.hl then d.hl.Enabled = false end
-                continue
-            end
-            local dist = (camPos - d.cacheHead.Position).Magnitude
-            if dist > LL.S.ESP.MaxDistance then
-                if d.name then d.name.Visible = false end
-                if d.dist then d.dist.Visible = false end
-                if d.hpBg then d.hpBg.Visible = false end
-                if d.hpFill then d.hpFill.Visible = false end
-                if d.tracer then d.tracer.Visible = false end
-                if d.hl then d.hl.Enabled = false end
-                continue
-            end
-            if d.hl then
-                d.hl.Enabled = true
-                if d.hl.Adornee ~= c and c then d.hl.Adornee = c end
-            end
-            local top = Camera:WorldToViewportPoint(d.cacheHead.Position + Vector3.new(0, 1, 0))
-            if top.Z <= 0 then
-                if d.name then d.name.Visible = false end
-                if d.dist then d.dist.Visible = false end
-                if d.hpBg then d.hpBg.Visible = false end
-                if d.hpFill then d.hpFill.Visible = false end
-                if d.tracer then d.tracer.Visible = false end
-                continue
-            end
-            if LL.S.ESP.ShowName and d.name then
-                d.name.Text = d.player.Name
-                d.name.Size = LL.S.ESP.NickSize
-                d.name.Color = LL.S.ESP.NickColor
-                d.name.Position = Vector2.new(top.X, top.Y - 24)
-                d.name.Visible = true
-            elseif d.name then d.name.Visible = false end
-            if LL.S.ESP.ShowHPBar and d.cacheHum and d.hpBg and d.hpFill then
-                local hpW, hpH = LL.S.ESP.HPBarWidth, LL.S.ESP.HPBarHeight
-                local bx = top.X - hpW/2
-                local by = top.Y - 34 - hpH
-                d.hpBg.Position = Vector2.new(bx, by)
-                d.hpBg.Size = Vector2.new(hpW, hpH)
-                d.hpBg.Visible = true
-                local pct = math.clamp(d.cacheHum.Health / math.max(d.cacheHum.MaxHealth,1), 0, 1)
-                d.hpFill.Position = Vector2.new(bx + 1, by + 1)
-                d.hpFill.Size = Vector2.new(math.max(0,(hpW-2)*pct), math.max(1, hpH-2))
-                if LL.S.ESP.HPDynamicColor then
-                    d.hpFill.Color = Color3.fromHSV((1/3)*pct, 1, 1)
-                else
-                    d.hpFill.Color = LL.S.ESP.HPBarColor
-                end
-                d.hpFill.Visible = true
             else
-                if d.hpBg then d.hpBg.Visible = false end
-                if d.hpFill then d.hpFill.Visible = false end
+                local dist = (camPos - d.cacheHead.Position).Magnitude
+                if dist > LL.S.ESP.MaxDistance then
+                    if d.name then d.name.Visible = false end
+                    if d.dist then d.dist.Visible = false end
+                    if d.hpBg then d.hpBg.Visible = false end
+                    if d.hpFill then d.hpFill.Visible = false end
+                    if d.tracer then d.tracer.Visible = false end
+                    if d.hl then d.hl.Enabled = false end
+                else
+                    if d.hl then
+                        d.hl.Enabled = true
+                        if d.hl.Adornee ~= c and c then d.hl.Adornee = c end
+                    end
+                    local top = Camera:WorldToViewportPoint(d.cacheHead.Position + Vector3.new(0, 1, 0))
+                    if top.Z <= 0 then
+                        if d.name then d.name.Visible = false end
+                        if d.dist then d.dist.Visible = false end
+                        if d.hpBg then d.hpBg.Visible = false end
+                        if d.hpFill then d.hpFill.Visible = false end
+                        if d.tracer then d.tracer.Visible = false end
+                    else
+                        if LL.S.ESP.ShowName and d.name then
+                            d.name.Text = d.player.Name
+                            d.name.Size = LL.S.ESP.NickSize
+                            d.name.Color = LL.S.ESP.NickColor
+                            d.name.Position = Vector2.new(top.X, top.Y - 24)
+                            d.name.Visible = true
+                        elseif d.name then d.name.Visible = false end
+                        if LL.S.ESP.ShowHPBar and d.cacheHum and d.hpBg and d.hpFill then
+                            local hpW, hpH = LL.S.ESP.HPBarWidth, LL.S.ESP.HPBarHeight
+                            local bx = top.X - hpW/2
+                            local by = top.Y - 34 - hpH
+                            d.hpBg.Position = Vector2.new(bx, by)
+                            d.hpBg.Size = Vector2.new(hpW, hpH)
+                            d.hpBg.Visible = true
+                            local pct = math.clamp(d.cacheHum.Health / math.max(d.cacheHum.MaxHealth,1), 0, 1)
+                            d.hpFill.Position = Vector2.new(bx + 1, by + 1)
+                            d.hpFill.Size = Vector2.new(math.max(0,(hpW-2)*pct), math.max(1, hpH-2))
+                            if LL.S.ESP.HPDynamicColor then
+                                d.hpFill.Color = Color3.fromHSV((1/3)*pct, 1, 1)
+                            else
+                                d.hpFill.Color = LL.S.ESP.HPBarColor
+                            end
+                            d.hpFill.Visible = true
+                        else
+                            if d.hpBg then d.hpBg.Visible = false end
+                            if d.hpFill then d.hpFill.Visible = false end
+                        end
+                        if LL.S.ESP.ShowDistance and d.dist then
+                            d.dist.Text = math.floor(dist).."m"
+                            d.dist.Position = Vector2.new(top.X, top.Y - 6)
+                            d.dist.Visible = true
+                        elseif d.dist then d.dist.Visible = false end
+                        if LL.S.ESP.TracerEnabled and d.tracer then
+                            drawTracerLine(d.tracer, vp.X/2, vp.Y, top.X, top.Y, LL.S.ESP.TracerFrom, LL.S.ESP.TracerTo)
+                        elseif d.tracer then d.tracer.Visible = false end
+                    end
+                end
             end
-            if LL.S.ESP.ShowDistance and d.dist then
-                d.dist.Text = math.floor(dist).."m"
-                d.dist.Position = Vector2.new(top.X, top.Y - 6)
-                d.dist.Visible = true
-            elseif d.dist then d.dist.Visible = false end
-            if LL.S.ESP.TracerEnabled and d.tracer then
-                drawTracerLine(d.tracer, vp.X/2, vp.Y, top.X, top.Y, LL.S.ESP.TracerFrom, LL.S.ESP.TracerTo)
-            elseif d.tracer then d.tracer.Visible = false end
         end
         if LL.S.ESP.NPCEnabled then
             for model, d in pairs(LL.NPCESPObjs) do
@@ -2735,67 +2803,67 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
                     if d.hpBg then d.hpBg.Visible = false end
                     if d.hpFill then d.hpFill.Visible = false end
                     if d.hl then d.hl.Enabled = false end
-                    continue
-                end
-                local head = model:FindFirstChild("Head")
-                local hum2 = model:FindFirstChildOfClass("Humanoid")
-                if not head or not hum2 then
-                    if d.name then d.name.Visible = false end
-                    if d.dist then d.dist.Visible = false end
-                    if d.hpBg then d.hpBg.Visible = false end
-                    if d.hpFill then d.hpFill.Visible = false end
-                    if d.hl then d.hl.Enabled = false end
-                    continue
-                end
-                local dist = (camPos - head.Position).Magnitude
-                if dist > LL.S.ESP.MaxDistance then
-                    if d.name then d.name.Visible = false end
-                    if d.dist then d.dist.Visible = false end
-                    if d.hpBg then d.hpBg.Visible = false end
-                    if d.hpFill then d.hpFill.Visible = false end
-                    if d.hl then d.hl.Enabled = false end
-                    continue
-                end
-                if d.hl then
-                    d.hl.Enabled = true
-                    if d.hl.Adornee ~= model then d.hl.Adornee = model end
-                end
-                local top = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,1,0))
-                if top.Z <= 0 then
-                    if d.name then d.name.Visible = false end
-                    if d.dist then d.dist.Visible = false end
-                    if d.hpBg then d.hpBg.Visible = false end
-                    if d.hpFill then d.hpFill.Visible = false end
-                    continue
-                end
-                if LL.S.ESP.NPCName and d.name then
-                    d.name.Text = model.Name
-                    d.name.Size = LL.S.ESP.NickSize
-                    d.name.Color = LL.S.ESP.NickColor
-                    d.name.Position = Vector2.new(top.X, top.Y - 24)
-                    d.name.Visible = true
-                elseif d.name then d.name.Visible = false end
-                if LL.S.ESP.NPCHPBar and hum2 and d.hpBg and d.hpFill then
-                    local hpW, hpH = LL.S.ESP.HPBarWidth, LL.S.ESP.HPBarHeight
-                    local bx = top.X - hpW/2
-                    local by = top.Y - 34 - hpH
-                    d.hpBg.Position = Vector2.new(bx, by)
-                    d.hpBg.Size = Vector2.new(hpW, hpH)
-                    d.hpBg.Visible = true
-                    local pct = math.clamp(hum2.Health / math.max(hum2.MaxHealth,1), 0, 1)
-                    d.hpFill.Position = Vector2.new(bx + 1, by + 1)
-                    d.hpFill.Size = Vector2.new(math.max(0,(hpW-2)*pct), math.max(1, hpH-2))
-                    d.hpFill.Color = LL.S.ESP.HPDynamicColor and Color3.fromHSV((1/3)*pct,1,1) or LL.S.ESP.HPBarColor
-                    d.hpFill.Visible = true
                 else
-                    if d.hpBg then d.hpBg.Visible = false end
-                    if d.hpFill then d.hpFill.Visible = false end
+                    local head = model:FindFirstChild("Head")
+                    local hum2 = model:FindFirstChildOfClass("Humanoid")
+                    if not head or not hum2 then
+                        if d.name then d.name.Visible = false end
+                        if d.dist then d.dist.Visible = false end
+                        if d.hpBg then d.hpBg.Visible = false end
+                        if d.hpFill then d.hpFill.Visible = false end
+                        if d.hl then d.hl.Enabled = false end
+                    else
+                        local dist = (camPos - head.Position).Magnitude
+                        if dist > LL.S.ESP.MaxDistance then
+                            if d.name then d.name.Visible = false end
+                            if d.dist then d.dist.Visible = false end
+                            if d.hpBg then d.hpBg.Visible = false end
+                            if d.hpFill then d.hpFill.Visible = false end
+                            if d.hl then d.hl.Enabled = false end
+                        else
+                            if d.hl then
+                                d.hl.Enabled = true
+                                if d.hl.Adornee ~= model then d.hl.Adornee = model end
+                            end
+                            local top = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,1,0))
+                            if top.Z <= 0 then
+                                if d.name then d.name.Visible = false end
+                                if d.dist then d.dist.Visible = false end
+                                if d.hpBg then d.hpBg.Visible = false end
+                                if d.hpFill then d.hpFill.Visible = false end
+                            else
+                                if LL.S.ESP.NPCName and d.name then
+                                    d.name.Text = model.Name
+                                    d.name.Size = LL.S.ESP.NickSize
+                                    d.name.Color = LL.S.ESP.NickColor
+                                    d.name.Position = Vector2.new(top.X, top.Y - 24)
+                                    d.name.Visible = true
+                                elseif d.name then d.name.Visible = false end
+                                if LL.S.ESP.NPCHPBar and hum2 and d.hpBg and d.hpFill then
+                                    local hpW, hpH = LL.S.ESP.HPBarWidth, LL.S.ESP.HPBarHeight
+                                    local bx = top.X - hpW/2
+                                    local by = top.Y - 34 - hpH
+                                    d.hpBg.Position = Vector2.new(bx, by)
+                                    d.hpBg.Size = Vector2.new(hpW, hpH)
+                                    d.hpBg.Visible = true
+                                    local pct = math.clamp(hum2.Health / math.max(hum2.MaxHealth,1), 0, 1)
+                                    d.hpFill.Position = Vector2.new(bx + 1, by + 1)
+                                    d.hpFill.Size = Vector2.new(math.max(0,(hpW-2)*pct), math.max(1, hpH-2))
+                                    d.hpFill.Color = LL.S.ESP.HPDynamicColor and Color3.fromHSV((1/3)*pct,1,1) or LL.S.ESP.HPBarColor
+                                    d.hpFill.Visible = true
+                                else
+                                    if d.hpBg then d.hpBg.Visible = false end
+                                    if d.hpFill then d.hpFill.Visible = false end
+                                end
+                                if LL.S.ESP.NPCDistance and d.dist then
+                                    d.dist.Text = math.floor(dist).."m"
+                                    d.dist.Position = Vector2.new(top.X, top.Y - 6)
+                                    d.dist.Visible = true
+                                elseif d.dist then d.dist.Visible = false end
+                            end
+                        end
+                    end
                 end
-                if LL.S.ESP.NPCDistance and d.dist then
-                    d.dist.Text = math.floor(dist).."m"
-                    d.dist.Position = Vector2.new(top.X, top.Y - 6)
-                    d.dist.Visible = true
-                elseif d.dist then d.dist.Visible = false end
             end
         end
     end
@@ -3157,8 +3225,8 @@ LL.Actions.XNEO = function()
                     if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
                         speed = speed+.5+(speed/maxspeed)
                         if speed > maxspeed then
-                            speed = maxspeed 
-end
+                            speed = maxspeed
+                        end
                     elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
                         speed = speed-1
                         if speed < 0 then
