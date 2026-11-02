@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v4.6.3 — NPC fixes + optimization + defaults off
+-- TIMON HUB v4.6.4 — real hitbox, real-time refresh, configs fix
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -71,16 +71,19 @@ LL.S = {
         HPDynamicColor=true,
         HPBarColor=Color3.fromRGB(110,255,170),
         NPCEnabled=false, NPCName=true, NPCDistance=false, NPCHPBar=true,
-        PowerMode=true, MaxDistance=1500,
+        MaxDistance=1500,
         TracerEnabled=false,
         TracerFrom=Color3.fromRGB(180,100,255),
         TracerTo=Color3.fromRGB(255,90,190),
+        RealTimeRefresh=false,
     },
     Hitbox = {
         Enabled=false, HeadEnabled=true, BodyEnabled=true,
-        HeadSize=3, BodySize=5,
+        HeadSize=3, BodySize=5, RootSize=12,
         Transparency=0.7, Color=Color3.fromRGB(160,120,200),
-        NPCSupport=false
+        NPCSupport=false,
+        RealTimeRefresh=true,
+        Visualize=true,
     },
     Player = {
         Fly=false, FlySpeed=50,
@@ -244,7 +247,7 @@ LL.ORDER = 0
 function LL.NextOrder() LL.ORDER = LL.ORDER + 1; return LL.ORDER end
 
 -- ============================================================
--- CONFIG
+-- CONFIG (fix: save/load, dirty state)
 -- ============================================================
 LL.CONFIG_DIR = "TimonHub_New"
 LL.AUTOSAVE_FILE = "autosave_new"
@@ -410,6 +413,7 @@ function LL.loadConfigFile(name)
     local ok2, data = pcall(function() return HttpService:JSONDecode(c) end)
     if not ok2 or not data then return false end
     LL.applySettings(data)
+    LL.CONFIG_DIRTY = false
     return true
 end
 function LL.deleteConfig(name)
@@ -605,7 +609,7 @@ local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -110, 1, 0)
 TitleLbl.Position = UDim2.new(0, 20, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "TIMON HUB  ·  v4.6.3"
+TitleLbl.Text = "TIMON HUB  ·  v4.6.4"
 TitleLbl.TextColor3 = Color3.new(1, 1, 1)
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16
@@ -688,7 +692,7 @@ LL.trackConn(LP.CharacterRemoving:Connect(function()
 end))
 LL.refreshCharCache()
 -- ============================================================
--- TOGGLE (без Tween, мгновенный, защищённый)
+-- TOGGLE
 -- ============================================================
 function LL.Toggle(parent, name, getter, setter)
     local f = Instance.new("Frame")
@@ -1455,10 +1459,9 @@ LL.Tab("ESP", function(parent)
     LL.Toggle(parent, "Enable ESP (Players)",
         function() return LL.S.ESP.Enabled end,
         function(v) LL.S.ESP.Enabled = v end)
-    LL.Section(parent, "Power Mode")
-    LL.Toggle(parent, "ESP после смерти",
-        function() return LL.S.ESP.PowerMode end,
-        function(v) LL.S.ESP.PowerMode = v end)
+    LL.Toggle(parent, "Auto-Refresh (real-time)",
+        function() return LL.S.ESP.RealTimeRefresh end,
+        function(v) LL.S.ESP.RealTimeRefresh = v end)
     LL.Slider(parent, "Max ESP Distance", 100, 3000,
         function() return LL.S.ESP.MaxDistance end,
         function(v) LL.S.ESP.MaxDistance = math.floor(v + 0.5) end)
@@ -2062,7 +2065,7 @@ LL.Tab("Hamster", function(parent)
     end, {textColor = COL.accent2})
 end)
 -- ============================================================
--- HITBOX TAB (4 режима)
+-- HITBOX TAB
 -- ============================================================
 LL.Tab("Hitbox", function(parent)
     LL.Section(parent, "Кому хитбоксы")
@@ -2093,25 +2096,37 @@ LL.Tab("Hitbox", function(parent)
                 LL.ClearAllNPCHitboxes()
             end
         end)
-    LL.Section(parent, "Parts")
+    LL.Toggle(parent, "Auto-Refresh (real-time)",
+        function() return LL.S.Hitbox.RealTimeRefresh end,
+        function(v) LL.S.Hitbox.RealTimeRefresh = v end)
+    LL.Toggle(parent, "Visualize (SelectionBox)",
+        function() return LL.S.Hitbox.Visualize end,
+        function(v)
+            LL.S.Hitbox.Visualize = v
+            LL.RefreshHitboxes()
+        end)
+    LL.Section(parent, "Части")
     LL.Toggle(parent, "Head Hitbox",
         function() return LL.S.Hitbox.HeadEnabled end,
         function(v) LL.S.Hitbox.HeadEnabled = v; LL.RefreshHitboxes() end)
     LL.Toggle(parent, "Body Hitbox",
         function() return LL.S.Hitbox.BodyEnabled end,
         function(v) LL.S.Hitbox.BodyEnabled = v; LL.RefreshHitboxes() end)
-    LL.Section(parent, "Sizes")
+    LL.Section(parent, "Размеры (реальный Size)")
+    LL.Slider(parent, "Root Size (HRP)", 2, 30,
+        function() return LL.S.Hitbox.RootSize end,
+        function(v) LL.S.Hitbox.RootSize = v; LL.RefreshHitboxes() end)
     LL.Slider(parent, "Head Size", 1, 15,
         function() return LL.S.Hitbox.HeadSize end,
         function(v) LL.S.Hitbox.HeadSize = v; LL.RefreshHitboxes() end)
     LL.Slider(parent, "Body Size", 2, 25,
         function() return LL.S.Hitbox.BodySize end,
         function(v) LL.S.Hitbox.BodySize = v; LL.RefreshHitboxes() end)
-    LL.Section(parent, "Visual")
-    LL.Slider(parent, "Transparency", 0, 1,
+    LL.Section(parent, "Визуал")
+    LL.Slider(parent, "Visual Transparency", 0, 1,
         function() return LL.S.Hitbox.Transparency end,
         function(v) LL.S.Hitbox.Transparency = v; LL.RefreshHitboxes() end)
-    LL.ColorPicker(parent, "Hitbox Color",
+    LL.ColorPicker(parent, "SelectionBox Color",
         function() return LL.S.Hitbox.Color end,
         function(v) LL.S.Hitbox.Color = v; LL.RefreshHitboxes() end)
 end)
@@ -2129,7 +2144,7 @@ LL.Tab("Settings", function(parent)
         S.Aimbot.JitterEnabled=false; S.Aimbot.Jitter=1.5
         S.Aimbot.HitboxVisualizer=false; S.Aimbot.AimAssistBeam=false
         S.Aimbot.MicroAdjust=false; S.Aimbot.MicroAdjustAmount=1.0
-        S.ESP.Enabled=false; S.ESP.NPCEnabled=false; S.ESP.PowerMode=true
+        S.ESP.Enabled=false; S.ESP.NPCEnabled=false
         S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
         S.Player.Fly=false
         S.Player.Noclip=false; S.Player.InfiniteJump=false
@@ -2405,80 +2420,114 @@ LL.Tab("Binds", function(parent)
         function(v) LL.S.MobileBtns.Hitbox = v; LL.ToggleMobileBtn("Hitbox", v) end)
 end)
 -- ============================================================
--- HITBOX LOGIC
+-- HITBOX LOGIC (реальный Size на HRP / Head / Torso)
 -- ============================================================
-function LL.createHitboxPart(character, name)
-    local p = Instance.new("Part")
-    p.Name = "TimonHub_HB_" .. name
-    p.Anchored = false
-    p.CanCollide = false
-    p.CanQuery = true
-    p.CanTouch = false
-    p.Massless = true
-    p.Material = Enum.Material.SmoothPlastic
-    p.Color = LL.S.Hitbox.Color
-    p.Transparency = LL.S.Hitbox.Transparency
-    p.Size = Vector3.new(1, 1, 1)
-    p.TopSurface = Enum.SurfaceType.Smooth
-    p.BottomSurface = Enum.SurfaceType.Smooth
-    p.Parent = character
-    return p
+function LL.applyHitboxToCharacter(entry, character)
+    if not character or not entry then return end
+    local hum = character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local head = character:FindFirstChild("Head")
+    local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+
+    if not entry.original then entry.original = {} end
+
+    if hrp then
+        if not entry.original.hrpSize then
+            entry.original.hrpSize = hrp.Size
+        end
+        if LL.S.Hitbox.BodyEnabled then
+            hrp.Size = Vector3.new(LL.S.Hitbox.RootSize, LL.S.Hitbox.RootSize, LL.S.Hitbox.RootSize)
+        else
+            hrp.Size = entry.original.hrpSize
+        end
+        hrp.CanCollide = false
+    end
+
+    if head then
+        if not entry.original.headSize then
+            entry.original.headSize = head.Size
+        end
+        if LL.S.Hitbox.HeadEnabled then
+            head.Size = Vector3.new(LL.S.Hitbox.HeadSize, LL.S.Hitbox.HeadSize, LL.S.Hitbox.HeadSize)
+        else
+            head.Size = entry.original.headSize
+        end
+    end
+
+    if torso then
+        if not entry.original.torsoSize then
+            entry.original.torsoSize = torso.Size
+        end
+        if LL.S.Hitbox.BodyEnabled then
+            torso.Size = Vector3.new(LL.S.Hitbox.BodySize, LL.S.Hitbox.BodySize, LL.S.Hitbox.BodySize)
+        else
+            torso.Size = entry.original.torsoSize
+        end
+    end
+
+    -- SelectionBox визуал на HRP
+    if LL.S.Hitbox.Visualize and hrp then
+        local box = hrp:FindFirstChild("TimonHub_HitboxVis")
+        if not box then
+            box = Instance.new("SelectionBox")
+            box.Name = "TimonHub_HitboxVis"
+            box.Adornee = hrp
+            box.LineThickness = 0.05
+            box.Parent = hrp
+        end
+        box.Color3 = LL.S.Hitbox.Color
+        box.Transparency = LL.S.Hitbox.Transparency
+        box.Visible = true
+    elseif hrp then
+        local box = hrp:FindFirstChild("TimonHub_HitboxVis")
+        if box then box:Destroy() end
+    end
 end
 
-function LL.weldTo(part, target)
-    if not part or not target then return end
-    local existing = part:FindFirstChild("TimonHub_Weld")
-    if existing and existing.Part0 == target then return end
-    if existing then existing:Destroy() end
-    part.CFrame = target.CFrame
-    local w = Instance.new("WeldConstraint")
-    w.Name = "TimonHub_Weld"
-    w.Part0 = target
-    w.Part1 = part
-    w.Parent = part
+function LL.restoreHitbox(entry)
+    if not entry or not entry.original then return end
+    local chr = entry.character
+    if chr then
+        local hrp = chr:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            if entry.original.hrpSize then hrp.Size = entry.original.hrpSize end
+            hrp.CanCollide = true
+            local box = hrp:FindFirstChild("TimonHub_HitboxVis")
+            if box then box:Destroy() end
+        end
+        local head = chr:FindFirstChild("Head")
+        if head and entry.original.headSize then
+            head.Size = entry.original.headSize
+        end
+        local torso = chr:FindFirstChild("UpperTorso") or chr:FindFirstChild("Torso")
+        if torso and entry.original.torsoSize then
+            torso.Size = entry.original.torsoSize
+        end
+    end
 end
 
 function LL.ApplyHitbox(pl)
     if pl == LP or not pl.Character then return end
     if not LL.S.Hitbox.Enabled then return end
-    local ch = pl.Character
     local entry = LL.HitboxParts[pl]
-    if not entry then entry = {}; LL.HitboxParts[pl] = entry end
-    if LL.S.Hitbox.HeadEnabled then
-        if not entry.head or not entry.head.Parent then
-            entry.head = LL.createHitboxPart(ch, "Head")
-        end
-        local head = ch:FindFirstChild("Head")
-        if head then
-            entry.head.Size = Vector3.new(LL.S.Hitbox.HeadSize, LL.S.Hitbox.HeadSize, LL.S.Hitbox.HeadSize)
-            entry.head.Color = LL.S.Hitbox.Color
-            entry.head.Transparency = LL.S.Hitbox.Transparency
-            LL.weldTo(entry.head, head)
-        end
-    elseif entry.head then
-        entry.head:Destroy(); entry.head = nil
+    if not entry then
+        entry = { character = pl.Character, original = {} }
+        LL.HitboxParts[pl] = entry
     end
-    if LL.S.Hitbox.BodyEnabled then
-        if not entry.body or not entry.body.Parent then
-            entry.body = LL.createHitboxPart(ch, "Body")
-        end
-        local torso = ch:FindFirstChild("UpperTorso") or ch:FindFirstChild("Torso")
-        if torso then
-            entry.body.Size = Vector3.new(LL.S.Hitbox.BodySize, LL.S.Hitbox.BodySize, LL.S.Hitbox.BodySize)
-            entry.body.Color = LL.S.Hitbox.Color
-            entry.body.Transparency = LL.S.Hitbox.Transparency
-            LL.weldTo(entry.body, torso)
-        end
-    elseif entry.body then
-        entry.body:Destroy(); entry.body = nil
+    if entry.character ~= pl.Character then
+        LL.restoreHitbox(entry)
+        entry.character = pl.Character
+        entry.original = {}
     end
+    LL.applyHitboxToCharacter(entry, pl.Character)
 end
 
 function LL.RemoveHitboxFor(pl)
     local e = LL.HitboxParts[pl]
     if e then
-        if e.head and e.head.Parent then e.head:Destroy() end
-        if e.body and e.body.Parent then e.body:Destroy() end
+        LL.restoreHitbox(e)
         LL.HitboxParts[pl] = nil
     end
 end
@@ -2500,17 +2549,18 @@ function LL.RefreshHitboxes()
     end
 end
 
+-- Обновление хитов у игроков (0.2с) — только если RealTime выключен
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
         task.wait(0.2)
-        if LL.S.Hitbox.Enabled then
+        if LL.S.Hitbox.Enabled and not LL.S.Hitbox.RealTimeRefresh then
             for _, pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox, pl) end
         end
     end
 end))
 
 -- ============================================================
--- NPC CACHE (рекурсивный + регулярный рескан)
+-- NPC CACHE
 -- ============================================================
 function LL.isPlayerCharacter(model)
     return Players:GetPlayerFromCharacter(model) ~= nil
@@ -2551,7 +2601,6 @@ function LL.refreshNPCCache()
     LL.scanWorkspaceOnce()
 end
 
--- DescendantAdded — ловим Humanoid / HRP / Torso (ПАТЧ: теперь мгновенно)
 LL.trackConn(Workspace.DescendantAdded:Connect(function(d)
     if d:IsA("Humanoid") or d.Name == "HumanoidRootPart" or d.Name == "Torso" or d.Name == "UpperTorso" then
         local m = d.Parent
@@ -2572,7 +2621,6 @@ LL.trackConn(Workspace.DescendantAdded:Connect(function(d)
     end
 end))
 
--- DescendantRemoving — чистим кэш и удаляем ESP/хитбокс мёртвых
 LL.trackConn(Workspace.DescendantRemoving:Connect(function(d)
     if d:IsA("Model") then
         if LL.NPCCache[d] then LL.NPCCache[d] = nil end
@@ -2581,7 +2629,6 @@ LL.trackConn(Workspace.DescendantRemoving:Connect(function(d)
     end
 end))
 
--- Регулярный рескан раз в 10 сек (только если NPC-фичи включены)
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
         task.wait(10)
@@ -2598,44 +2645,22 @@ function LL.ApplyNPCHitbox(model)
         LL.RemoveNPCHitbox(model); return
     end
     local entry = LL.NPCHitboxes[model]
-    if not entry then entry = {}; LL.NPCHitboxes[model] = entry end
-    if LL.S.Hitbox.HeadEnabled then
-        if not entry.head or not entry.head.Parent then
-            entry.head = LL.createHitboxPart(model, "NPCHead")
-        end
-        local head = model:FindFirstChild("Head")
-        if head then
-            entry.head.Size = Vector3.new(LL.S.Hitbox.HeadSize, LL.S.Hitbox.HeadSize, LL.S.Hitbox.HeadSize)
-            entry.head.Color = LL.S.Hitbox.Color
-            entry.head.Transparency = LL.S.Hitbox.Transparency
-            LL.weldTo(entry.head, head)
-        end
-    elseif entry.head then
-        entry.head:Destroy(); entry.head = nil
+    if not entry then
+        entry = { character = model, original = {} }
+        LL.NPCHitboxes[model] = entry
     end
-    if LL.S.Hitbox.BodyEnabled then
-        if not entry.body or not entry.body.Parent then
-            entry.body = LL.createHitboxPart(model, "NPCBody")
-        end
-        local torso = model:FindFirstChild("UpperTorso")
-            or model:FindFirstChild("Torso")
-            or model:FindFirstChild("HumanoidRootPart")
-        if torso then
-            entry.body.Size = Vector3.new(LL.S.Hitbox.BodySize, LL.S.Hitbox.BodySize, LL.S.Hitbox.BodySize)
-            entry.body.Color = LL.S.Hitbox.Color
-            entry.body.Transparency = LL.S.Hitbox.Transparency
-            LL.weldTo(entry.body, torso)
-        end
-    elseif entry.body then
-        entry.body:Destroy(); entry.body = nil
+    if entry.character ~= model then
+        LL.restoreHitbox(entry)
+        entry.character = model
+        entry.original = {}
     end
+    LL.applyHitboxToCharacter(entry, model)
 end
 
 function LL.RemoveNPCHitbox(model)
     local e = LL.NPCHitboxes[model]
     if e then
-        if e.head and e.head.Parent then e.head:Destroy() end
-        if e.body and e.body.Parent then e.body:Destroy() end
+        LL.restoreHitbox(e)
         LL.NPCHitboxes[model] = nil
     end
 end
@@ -2649,14 +2674,14 @@ end
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
         task.wait(1)
-        if LL.S.Hitbox.NPCSupport then
+        if LL.S.Hitbox.NPCSupport and not LL.S.Hitbox.RealTimeRefresh then
             for model in pairs(LL.NPCCache) do
                 if model.Parent then pcall(LL.ApplyNPCHitbox, model) end
             end
             for model in pairs(LL.NPCHitboxes) do
                 if not model.Parent or not LL.NPCCache[model] then LL.RemoveNPCHitbox(model) end
             end
-        elseif next(LL.NPCHitboxes) then
+        elseif not LL.S.Hitbox.NPCSupport and next(LL.NPCHitboxes) then
             LL.ClearAllNPCHitboxes()
         end
     end
@@ -3035,11 +3060,9 @@ function LL.FindTarget()
     end
 
     if targetNPCs then
-        -- Если кэш пуст или устарел — обновим не чаще раз в 2 сек
         if next(LL.NPCCache) == nil and (tick() - LL.lastNPCRescan) > 2 then
             pcall(LL.refreshNPCCache)
         end
-        -- Вычистка мёртвых
         for model in pairs(LL.NPCCache) do
             if not model.Parent then
                 LL.NPCCache[model] = nil
@@ -3437,7 +3460,7 @@ function LL.applyLoadedSettings()
     if LL.S.Player.FPSBooster then LL.enableFPSBooster() else LL.disableFPSBooster() end
     if LL.S.Player.LowQuality then LL.enableLowQuality() else LL.disableLowQuality() end
     if LL.S.Player.Fullbright then LL.enableFullbright() else LL.disableFullbright() end
-    LL.MarkDirty()
+    LL.CONFIG_DIRTY = false
 end
 
 -- ============================================================
@@ -3479,7 +3502,7 @@ LL.trackConn(UIS.InputEnded:Connect(function(input, gp)
 end))
 
 -- ============================================================
--- RENDER LOOP с ESP autosync
+-- RENDER LOOP
 -- ============================================================
 LL.FlyBV = nil
 LL.FlyBG = nil
@@ -3530,6 +3553,45 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
         end
     else
         for model in pairs(LL.NPCESPObjs) do pcall(LL.RemoveNPCESP, model) end
+    end
+
+    -- HITBOX REAL-TIME
+    if LL.S.Hitbox.RealTimeRefresh then
+        if LL.S.Hitbox.Enabled then
+            for _, pl in ipairs(Players:GetPlayers()) do
+                if pl ~= LP and pl.Character then
+                    pcall(LL.ApplyHitbox, pl)
+                end
+            end
+            for pl in pairs(LL.HitboxParts) do
+                if pl.Parent ~= Players or not pl.Character then
+                    pcall(LL.RemoveHitboxFor, pl)
+                end
+            end
+        end
+        if LL.S.Hitbox.NPCSupport then
+            for model in pairs(LL.NPCCache) do
+                if model.Parent and not LL.isPlayerCharacter(model) then
+                    pcall(LL.ApplyNPCHitbox, model)
+                end
+            end
+            for model in pairs(LL.NPCHitboxes) do
+                if not model.Parent or not LL.NPCCache[model] then
+                    pcall(LL.RemoveNPCHitbox, model)
+                end
+            end
+        end
+    end
+
+    -- ESP REAL-TIME (только highlight adornee sync)
+    if LL.S.ESP.RealTimeRefresh and LL.S.ESP.Enabled then
+        for _, d in pairs(LL.ESPObjs) do
+            local c = d.player.Character
+            if c ~= d.cacheChar then
+                LL.refreshEspCache(d)
+                if d.hl and c then d.hl.Adornee = c end
+            end
+        end
     end
 
     -- PC Fly
@@ -3796,14 +3858,15 @@ LL.trackConn(UIS.JumpRequest:Connect(function()
 end))
 
 -- ============================================================
--- AUTOSAVE LOOP
+-- AUTOSAVE LOOP (fix: saveConfig с маленькой s)
 -- ============================================================
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
         task.wait(2)
         if LL.CONFIG_DIRTY and LL.S.AutoSave and LL.FS_AVAILABLE and (tick() - LL.lastDirtyTime) >= 2 then
             LL.CONFIG_DIRTY = false
-            pcall(function() LL.SaveConfig(LL.AUTOSAVE_FILE) end)
+            local ok, err = LL.saveConfig(LL.AUTOSAVE_FILE)
+            if not ok then warn("[TimonAutosave] "..tostring(err)) end
         end
     end
 end))
@@ -3829,9 +3892,9 @@ if LL.S.Player.LowQuality then LL.enableLowQuality() end
 if LL.S.Player.Fullbright then LL.enableFullbright() end
 
 if autoloaded then
-    LL.Notify("Timon Hub v4.6.3 · автозагрузка")
+    LL.Notify("Timon Hub v4.6.4 · автозагрузка")
 else
-    LL.Notify("Timon Hub v4.6.3 · загружен")
+    LL.Notify("Timon Hub v4.6.4 · загружен")
 end
 
 -- ============================================================
@@ -3907,6 +3970,6 @@ getgenv().TIMON_UNLOAD = function()
     LL.StickyTarget = nil
     LL.StickyTargetIsNPC = false
     LL.aimHoldDown = false
-    LL.waHoldActive = false
+    LL.wasHoldActive = false
     LL.antiAFKThread = nil
 end
