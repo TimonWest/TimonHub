@@ -29,7 +29,7 @@ LL.xneoScriptRunning = false
 LL.lastNPCRescan = 0
 LL.Language = "ru"
 LL.KeyValidated = false
-LL.KEY_ENCRYPTED = "TEFSUDMzMw=="
+LL.SECRET_KEY = "LARP333"
 function LL.trackConn(c) CONNS[#CONNS+1] = c; return c end
 function LL.trackThread(t) THREADS[#THREADS+1] = t; return t end
 getgenv().TIMON_LOADED = true
@@ -45,7 +45,7 @@ LL.Loc = {
         Settings = {Actions="Действия",ResetSettings="Сбросить настройки",Unload="Выгрузить скрипт",UISettings="UI",UIScale="Масштаб UI",Notifications="Уведомления",AutoHideMobile="Авто-скрытие GUI на мобиле",Configs="Конфиги",ConfigName="Имя конфига",SaveConfig="Сохранить",LoadConfig="Загрузить",DeleteConfig="Удалить",AutoSave="Авто-сохранение",AvailableConfigs="Доступные конфиги",EmptyConfigs="(пусто)"},
         Binds = {Title="Бинды",Search="Поиск биндов...",Actions="Действия",Aimbot="Aimbot",AimbotHold="Удержание Aim",ESP="ESP",Hitbox="Hitbox",Fly="Полёт",Noclip="Noclip",InfiniteJump="Бесконечный прыжок",ZeroGravity="Нулевая гравитация",SavePos="Сохранить позицию",LoadPos="Загрузить позицию",Macro="Макрос (Play/Stop)",MacroRecord="Запись макроса",ResetBinds="Сбросить все бинды",FloatingLock="Фиксация кнопок",ResetPositions="Сбросить позиции кнопок",FloatingButtons="Плавающие кнопки"},
         Info = {Title="О скрипте LARP(T)",Owner="Владелец (Telegram)",Channel="Канал (Telegram)",Note="Примечание: Скрипт полностью бесплатный. Получить ключ навсегда можно здесь: @luaLARP (подпишись) и напиши @ForchanW, если ключ не опубликован в канале.",Free="Скрипт полностью бесплатный.",Key="Ключ навсегда: @luaLARP / @ForchanW"},
-        Key = {Title="Введите ключ для LARP(T)",Placeholder="Ключ доступа",Submit="Активировать",Skip="Пропустить (меню)",Error="Неверный ключ. Проверьте и попробуйте снова.",Success="Ключ активирован навсегда!"},
+        Key = {Title="Введите ключ для LARP(T)",Placeholder="Ключ доступа",Submit="Активировать",Error="Неверный ключ. Проверьте и попробуйте снова.",Success="Ключ активирован навсегда!"},
     },
     en = {
         Title = "LARP(T) · 333 SINISTER",
@@ -58,7 +58,7 @@ LL.Loc = {
         Settings = {Actions="Actions",ResetSettings="Reset Settings",Unload="Unload Script",UISettings="UI Settings",UIScale="UI Scale",Notifications="Notifications",AutoHideMobile="Auto-hide GUI on Mobile",Configs="Configs",ConfigName="Config Name",SaveConfig="Save",LoadConfig="Load",DeleteConfig="Delete",AutoSave="Auto-save",AvailableConfigs="Available Configs",EmptyConfigs="(empty)"},
         Binds = {Title="Binds",Search="Search binds...",Actions="Actions",Aimbot="Aimbot",AimbotHold="Aim Hold",ESP="ESP",Hitbox="Hitbox",Fly="Fly",Noclip="Noclip",InfiniteJump="Infinite Jump",ZeroGravity="Zero Gravity",SavePos="Save Position",LoadPos="Load Position",Macro="Macro (Play/Stop)",MacroRecord="Macro Record",ResetBinds="Reset All Binds",FloatingLock="Floating Lock",ResetPositions="Reset Button Positions",FloatingButtons="Floating Buttons"},
         Info = {Title="About LARP(T)",Owner="Owner (Telegram)",Channel="Channel (Telegram)",Note="Note: The script is 100% free. Get a forever key here: @luaLARP (subscribe) and message @ForchanW if the key is not posted in the channel.",Free="The script is 100% free.",Key="Forever key: @luaLARP / @ForchanW"},
-        Key = {Title="Enter LARP(T) Key",Placeholder="Access key",Submit="Activate",Skip="Skip (menu)",Error="Invalid key. Check and try again.",Success="Key activated forever!"},
+        Key = {Title="Enter LARP(T) Key",Placeholder="Access key",Submit="Activate",Error="Invalid key. Check and try again.",Success="Key activated forever!"},
     },
 }
 function LL.T(section, key)
@@ -67,36 +67,8 @@ function LL.T(section, key)
     if tbl and tbl[section] and tbl[section][key] then return tbl[section][key] end
     return key
 end
-function LL.DecryptKey(encoded)
-    local b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-    local decoded = ""
-    local i = 1
-    while i <= #encoded do
-        local c1 = b64:find(encoded:sub(i, i), 1, true)
-        local c2 = b64:find(encoded:sub(i+1, i+1), 1, true)
-        local c3 = b64:find(encoded:sub(i+2, i+2), 1, true)
-        local c4 = b64:find(encoded:sub(i+3, i+3), 1, true)
-        if not c1 or not c2 then break end
-        c1 = c1 - 1; c2 = c2 - 1
-        c3 = (c3 or 1) - 1; c4 = (c4 or 1) - 1
-        local b1 = math.floor(c1 * 4 + c2 / 16)
-        local b2 = (c2 % 16) * 16 + math.floor(c3 / 4)
-        local b3 = (c3 % 4) * 64 + c4
-        decoded = decoded .. string.char(b1)
-        if c3 ~= 0 then decoded = decoded .. string.char(b2) end
-        if c4 ~= 0 then decoded = decoded .. string.char(b3) end
-        i = i + 4
-    end
-    local xorKey = 0x5A
-    local result = ""
-    for j = 1, #decoded do
-        result = result .. string.char(bit32.bxor(string.byte(decoded, j), xorKey))
-    end
-    return result
-end
 function LL.CheckKey(input)
-    local decoded = LL.DecryptKey(LL.KEY_ENCRYPTED)
-    return input == decoded
+    return input == LL.SECRET_KEY
 end
 LL.S = {
     Aimbot = {Enabled=false, Mode="Camera", Smooth=0.25, CameraFOV=200, MobileFOV=200, Part="Head", ShowFOV=true, StickyLock=true, DistanceWeight=1.0, WallCheck=false, PredictLead=false, BulletSpeed=1000, LeadMultiplier=1.0, HitscanMode=false, TargetPlayers=true, TargetNPCs=false, JitterEnabled=false, Jitter=1.5, HitboxVisualizer=false, AimAssistBeam=false, MicroAdjust=false, MicroAdjustAmount=1.0, FOVColor = Color3.fromRGB(155,90,255), TracerColor = Color3.fromRGB(255,90,190)},
@@ -493,8 +465,8 @@ end
 function LL.ShowKeyScreen()
     local keyGui = Instance.new("Frame")
     keyGui.Name = "KeyScreen"
-    keyGui.Size = UDim2.new(0, 360, 0, 240)
-    keyGui.Position = UDim2.new(0.5, -180, 0.5, -120)
+    keyGui.Size = UDim2.new(0, 360, 0, 220)
+    keyGui.Position = UDim2.new(0.5, -180, 0.5, -110)
     keyGui.BackgroundColor3 = COL.bg
     keyGui.BorderSizePixel = 0
     keyGui.Parent = ScreenGui
@@ -552,19 +524,24 @@ function LL.ShowKeyScreen()
             submitBtn.BackgroundColor3 = COL.accent
         end
     end)
-    local skipBtn = Instance.new("TextButton")
-    skipBtn.Size = UDim2.new(1, -32, 0, 30)
-    skipBtn.Position = UDim2.new(0, 16, 0, 190)
-    skipBtn.BackgroundTransparency = 1
-    skipBtn.Text = LL.T("Key", "Skip")
-    skipBtn.TextColor3 = COL.sub
-    skipBtn.Font = Enum.Font.Gotham
-    skipBtn.TextSize = 13
-    skipBtn.Parent = keyGui
-    skipBtn.MouseButton1Click:Connect(function()
-        keyGui:Destroy()
-        LL.ShowMainUI()
-    end)
+end
+function LL.RebuildUI()
+    if LL.Main then
+        LL.Main:Destroy()
+        LL.Main = nil
+    end
+    for tn, t in pairs(LL.TabScrolls) do
+        if t.scroll then t.scroll:Destroy() end
+        if t.btn then t.btn:Destroy() end
+    end
+    LL.TabScrolls = {}
+    LL.TabOrder = {}
+    LL.CurrentTab = nil
+    LL.Refreshers = {}
+    LL.BindRefreshers = {}
+    LL.AllFloating = {}
+    LL.MobileButtons = {}
+    LL.ShowMainUI()
 end
 function LL.ShowMainUI()
     if LL.Main then return end
@@ -628,9 +605,8 @@ function LL.ShowMainUI()
     LL.corner(LangBtn, 8)
     LangBtn.MouseButton1Click:Connect(function()
         LL.Language = LL.Language == "ru" and "en" or "ru"
-        LangBtn.Text = LL.Language == "ru" and "RU" or "EN"
         LL.Notify("Language: " .. LL.Language:upper())
-        if LL.RebuildUI then pcall(LL.RebuildUI) end
+        LL.RebuildUI()
     end)
     local CloseBtn = Instance.new("TextButton")
     CloseBtn.Size = UDim2.new(0, 32, 0, 32); CloseBtn.Position = UDim2.new(1, -44, 0.5, -16)
@@ -830,6 +806,7 @@ function LL.BuildTabs(Main)
         LL.Toggle(parent, L.NPCDistance, function() return LL.S.ESP.NPCDistance end, function(v) LL.S.ESP.NPCDistance = v end)
         LL.Toggle(parent, L.NPCHPBar, function() return LL.S.ESP.NPCHPBar end, function(v) LL.S.ESP.NPCHPBar = v end)
     end)
+end
 LL.Tab("Player", function(parent)
     local L = LL.Loc[LL.Language].Player
     local function captureOriginals()
