@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v4.6.4 — real hitbox, real-time refresh, configs fix
+-- TIMON HUB v4.6.5 — real invisible hitbox, path recorder, no selectionbox
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -80,10 +80,8 @@ LL.S = {
     Hitbox = {
         Enabled=false, HeadEnabled=true, BodyEnabled=true,
         HeadSize=3, BodySize=5, RootSize=12,
-        Transparency=0.7, Color=Color3.fromRGB(160,120,200),
         NPCSupport=false,
         RealTimeRefresh=true,
-        Visualize=true,
     },
     Player = {
         Fly=false, FlySpeed=50,
@@ -98,6 +96,14 @@ LL.S = {
     },
     Troll = { Spin=false, Invisible=false, AntiFling=false },
     Hamster = { Coins=0 },
+    Macro = {
+        Recording = false,
+        Playing = false,
+        CurrentMacro = "macro1",
+        Loop = true,
+        SampleRate = 0.2,
+        JumpDetection = true,
+    },
     Binds = {}, MobileBtns = {},
     FloatingLock=false, FloatingPos={},
     AutoSave=true, ConfigName="auto",
@@ -138,6 +144,9 @@ LL.BindRefreshers = {}
 LL.TabScrolls = {}
 LL.TabOrder = {}
 LL.CurrentTab = nil
+LL.Macros = {}
+LL.MacroRecord = nil
+LL.MacroPlayThread = nil
 
 LL.Cache = {
     Character = nil,
@@ -247,7 +256,7 @@ LL.ORDER = 0
 function LL.NextOrder() LL.ORDER = LL.ORDER + 1; return LL.ORDER end
 
 -- ============================================================
--- CONFIG (fix: save/load, dirty state)
+-- CONFIG
 -- ============================================================
 LL.CONFIG_DIR = "TimonHub_New"
 LL.AUTOSAVE_FILE = "autosave_new"
@@ -290,7 +299,7 @@ function LL.packSettings()
         Hamster={Coins=S.Hamster.Coins}, Binds={}, MobileBtns={},
         AutoSave=S.AutoSave, FloatingLock=S.FloatingLock,
         FloatingPos=S.FloatingPos, ConfigName=S.ConfigName,
-        UI={},
+        UI={}, Macro={},
     }
     for k,v in pairs(S.Aimbot) do
         if type(v)=="Color3" then d.Aimbot[k]=LL.packC3(v) else d.Aimbot[k]=v end
@@ -299,7 +308,7 @@ function LL.packSettings()
         if type(v)=="Color3" then d.ESP[k]=LL.packC3(v) else d.ESP[k]=v end
     end
     for k,v in pairs(S.Hitbox) do
-        if type(v)=="Color3" then d.Hitbox[k]=LL.packC3(v) else d.Hitbox[k]=v end
+        d.Hitbox[k]=v
     end
     for k,v in pairs(S.Player) do
         if k=="SavedPos" then
@@ -317,6 +326,7 @@ function LL.packSettings()
         if typeof(v)=="EnumItem" then d.UI[k]=tostring(v):gsub("Enum.KeyCode.","")
         else d.UI[k]=v end
     end
+    for k,v in pairs(S.Macro) do d.Macro[k]=v end
     return d
 end
 
@@ -344,9 +354,7 @@ function LL.applySettings(d)
     if d.Hitbox then
         for k,v in pairs(d.Hitbox) do
             if S.Hitbox[k]~=nil then
-                if type(S.Hitbox[k])=="Color3" and type(v)=="table" then
-                    S.Hitbox[k]=LL.unpackC3(v)
-                else S.Hitbox[k]=v end
+                S.Hitbox[k]=v
             end
         end
     end
@@ -389,6 +397,11 @@ function LL.applySettings(d)
             elseif S.UI[k]~=nil then
                 S.UI[k]=v
             end
+        end
+    end
+    if d.Macro then
+        for k,v in pairs(d.Macro) do
+            if S.Macro[k]~=nil then S.Macro[k]=v end
         end
     end
 end
@@ -609,7 +622,7 @@ local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -110, 1, 0)
 TitleLbl.Position = UDim2.new(0, 20, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "TIMON HUB  ·  v4.6.4"
+TitleLbl.Text = "TIMON HUB  ·  v4.6.5"
 TitleLbl.TextColor3 = Color3.new(1, 1, 1)
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16
@@ -1878,192 +1891,146 @@ LL.Tab("Player", function(parent)
                     while UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) and main.Parent do
                         RunService.Heartbeat:Wait()
                         local hrp = speaker.Character and speaker.Character:FindFirstChild("HumanoidRootPart")
-                        if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0,1,0) end
-                    end
-                end)
-            end)
-            down.MouseButton1Down:Connect(function()
-                spawn(function()
-                    while UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) and main.Parent do
-                        RunService.Heartbeat:Wait()
-                        local hrp = speaker.Character and speaker.Character:FindFirstChild("HumanoidRootPart")
-                        if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0,-1,0) end
-                    end
-                end)
-            end)
+                        if hrp then hrp.CFrame = hrp.CFrame * CFrame
+-- ============================================================
+-- MACRO TAB (Path Recorder)
+-- ============================================================
+LL.Tab("Macro", function(parent)
+    LL.Section(parent, "Информация")
+    local infoLbl = Instance.new("TextLabel")
+    infoLbl.Size = UDim2.new(1, 0, 0, 60)
+    infoLbl.BackgroundColor3 = COL.elem
+    infoLbl.BackgroundTransparency = 0.05
+    infoLbl.BorderSizePixel = 0
+    infoLbl.LayoutOrder = LL.NextOrder()
+    infoLbl.Text = "Записывает движение через MoveTo (без телепорта).\nНе записывает клики по UI игры.\nРаботает в симуляторах, FPS, песочницах."
+    infoLbl.TextColor3 = COL.sub
+    infoLbl.Font = Enum.Font.Gotham
+    infoLbl.TextSize = 12
+    infoLbl.TextWrapped = true
+    infoLbl.TextXAlignment = Enum.TextXAlignment.Left
+    infoLbl.TextYAlignment = Enum.TextYAlignment.Top
+    infoLbl.Parent = parent
+    LL.corner(infoLbl, 12)
+    LL.stroke(infoLbl, COL.stroke, 1)
+    LL.padding(infoLbl, 8, 12, 12, 8)
 
-            plus.MouseButton1Down:Connect(function()
-                speeds = speeds + 1
-                speed.Text = tostring(speeds)
-            end)
-            mine.MouseButton1Down:Connect(function()
-                if speeds <= 1 then
-                    speed.Text = "min 1"
-                    task.wait(1)
-                    speed.Text = tostring(speeds)
-                else
-                    speeds = speeds - 1
-                    speed.Text = tostring(speeds)
-                end
-            end)
-
-            closebutton.MouseButton1Click:Connect(function()
-                nowe = false
-                tpwalking = false
-                pcall(function() main:Destroy() end)
-                LL.xneoScriptRunning = false
-            end)
-
-            mini.MouseButton1Click:Connect(function()
-                up.Visible=false; down.Visible=false; onof.Visible=false
-                plus.Visible=false; speed.Visible=false; mine.Visible=false
-                mini.Visible=false; mini2.Visible=true
-                Frame.BackgroundTransparency=1
-                closebutton.Position = UDim2.new(0,0,-1,57)
-            end)
-            mini2.MouseButton1Click:Connect(function()
-                up.Visible=true; down.Visible=true; onof.Visible=true
-                plus.Visible=true; speed.Visible=true; mine.Visible=true
-                mini.Visible=true; mini2.Visible=false
-                Frame.BackgroundTransparency=0
-                closebutton.Position = UDim2.new(0,0,-1,27)
-            end)
-
-            LL.xneoScriptRunning = true
+    LL.Section(parent, "Настройки")
+    LL.TextBox(parent, "Имя макроса", "macro1",
+        function() return LL.S.Macro.CurrentMacro end,
+        function(v)
+            LL.S.Macro.CurrentMacro = (v ~= "" and v) or "macro1"
         end)
-        if not ok then
-            LL.Notify("XNEO error: "..tostring(err))
-            LL.xneoScriptRunning = false
+    LL.Slider(parent, "Sample Rate (сек)", 0.05, 1.0,
+        function() return LL.S.Macro.SampleRate end,
+        function(v) LL.S.Macro.SampleRate = math.floor(v * 100 + 0.5) / 100 end)
+    LL.Toggle(parent, "Loop (цикл)",
+        function() return LL.S.Macro.Loop end,
+        function(v) LL.S.Macro.Loop = v end)
+    LL.Toggle(parent, "Записывать прыжки",
+        function() return LL.S.Macro.JumpDetection end,
+        function(v) LL.S.Macro.JumpDetection = v end)
+
+    LL.Section(parent, "Запись")
+    local recBtn = LL.Button(parent, "🔴 Начать запись", function()
+        if LL.S.Macro.Recording then
+            LL.MacroStopRecording()
+        else
+            LL.MacroStartRecording()
         end
     end)
-end)
-
--- ============================================================
--- TROLL TAB
--- ============================================================
-LL.Tab("Troll", function(parent)
-    LL.Section(parent, "Движение")
-    LL.Toggle(parent, "Spin Self",
-        function() return LL.S.Troll.Spin end,
-        function(v) LL.S.Troll.Spin = v end)
-    LL.Button(parent, "Fling Self", function()
-        local hrp = LL.Cache.HRP
-        if hrp then
-            local av = Instance.new("AngularVelocity")
-            av.MaxTorque = math.huge
-            av.AngularVelocity = Vector3.new(0, 60, 0)
-            av.Parent = hrp
-            task.wait(0.4)
-            pcall(function() av:Destroy() end)
-            LL.Notify("Fling!")
+    LL.AddRefresh(function()
+        if LL.S.Macro.Recording then
+            recBtn.Text = "⏹ Остановить запись ("..tostring(#(LL.MacroRecord or {}))..")"
+            recBtn.BackgroundColor3 = COL.red
+            recBtn.TextColor3 = Color3.new(1,1,1)
+        else
+            recBtn.Text = "🔴 Начать запись"
+            recBtn.BackgroundColor3 = COL.elem
+            recBtn.TextColor3 = COL.text
         end
-    end, {color = COL.accent2, hover = Color3.fromRGB(255, 120, 210), textColor = Color3.new(1,1,1)})
+    end)
 
-    LL.Section(parent, "Внешность")
-    LL.Toggle(parent, "Invisible Self (local)",
-        function() return LL.S.Troll.Invisible end,
-        function(v)
-            LL.S.Troll.Invisible = v
-            if not v and LL.Cache.Character then
-                for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
-                    if p:IsA("BasePart") then p.LocalTransparencyModifier = 0
-                    elseif p:IsA("Decal") then p.Transparency = 0 end
-                end
-            end
-        end)
+    LL.Section(parent, "Воспроизведение")
+    local playBtn = LL.Button(parent, "▶ Запустить макрос", function()
+        if LL.S.Macro.Playing then
+            LL.MacroStopPlaying()
+        else
+            LL.MacroStartPlaying(LL.S.Macro.CurrentMacro)
+        end
+    end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
+    LL.AddRefresh(function()
+        if LL.S.Macro.Playing then
+            playBtn.Text = "⏹ Остановить воспроизведение"
+            playBtn.BackgroundColor3 = COL.red
+        else
+            playBtn.Text = "▶ Запустить макрос"
+            playBtn.BackgroundColor3 = COL.accent
+        end
+    end)
+    LL.Button(parent, "⏸ Остановить и вернуться в начало", function()
+        LL.MacroStopPlaying()
+        LL.MacroReturnToStart()
+    end, {color = COL.elemHover})
 
-    LL.Section(parent, "Anti Fling")
-    LL.Toggle(parent, "Anti Fling",
-        function() return LL.S.Troll.AntiFling end,
-        function(v)
-            LL.S.Troll.AntiFling = v
-            if not v and LL.Cache.Character then
-                for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
-                    if p:IsA("BasePart") then p.CanCollide = true end
-                end
-            end
-        end)
-end)
+    LL.Section(parent, "Управление макросами")
+    LL.Button(parent, "💾 Сохранить запись как макрос", function()
+        if not LL.MacroRecord or #LL.MacroRecord < 2 then
+            LL.Notify("Нечего сохранять — запиши сначала")
+            return
+        end
+        local name = LL.S.Macro.CurrentMacro or "macro1"
+        LL.Macros[name] = LL.MacroRecord
+        LL.MacroRecord = nil
+        LL.Notify("Сохранён: "..name.." ("..#LL.Macros[name].." точек)")
+        if LL.MacroRefreshList then LL.MacroRefreshList() end
+    end)
+    LL.Button(parent, "🗑 Удалить текущий макрос", function()
+        local name = LL.S.Macro.CurrentMacro or "macro1"
+        LL.Macros[name] = nil
+        LL.Notify("Удалён: "..name)
+        if LL.MacroRefreshList then LL.MacroRefreshList() end
+    end, {textColor = COL.red})
+    LL.Button(parent, "🗑 Удалить все макросы", function()
+        LL.Macros = {}
+        LL.MacroRecord = nil
+        LL.Notify("Все макросы удалены")
+        if LL.MacroRefreshList then LL.MacroRefreshList() end
+    end, {textColor = COL.red})
 
--- ============================================================
--- HAMSTER TAB
--- ============================================================
-LL.Tab("Hamster", function(parent)
-    local coinLbl = Instance.new("TextLabel")
-    coinLbl.Size = UDim2.new(1, 0, 0, 52)
-    coinLbl.BackgroundColor3 = COL.bg2
-    coinLbl.BackgroundTransparency = 0.05
-    coinLbl.BorderSizePixel = 0
-    coinLbl.LayoutOrder = -1
-    coinLbl.Font = Enum.Font.GothamBold
-    coinLbl.TextSize = 22
-    coinLbl.TextColor3 = Color3.fromRGB(255, 215, 0)
-    coinLbl.TextXAlignment = Enum.TextXAlignment.Right
-    coinLbl.Text = tostring(LL.S.Hamster.Coins) .. " монет"
-    coinLbl.Parent = parent
-    LL.corner(coinLbl, 12)
-    LL.stroke(coinLbl, Color3.fromRGB(255, 215, 0), 1.5)
-    LL.padding(coinLbl, 0, 0, 16, 0)
+    LL.Section(parent, "Список макросов")
+    local listLbl = Instance.new("TextLabel")
+    listLbl.Size = UDim2.new(1, 0, 0, 120)
+    listLbl.BackgroundColor3 = COL.elem
+    listLbl.BackgroundTransparency = 0.05
+    listLbl.BorderSizePixel = 0
+    listLbl.LayoutOrder = LL.NextOrder()
+    listLbl.TextColor3 = COL.sub
+    listLbl.Font = Enum.Font.Gotham
+    listLbl.TextSize = 13
+    listLbl.TextWrapped = true
+    listLbl.TextXAlignment = Enum.TextXAlignment.Left
+    listLbl.TextYAlignment = Enum.TextYAlignment.Top
+    listLbl.Parent = parent
+    LL.corner(listLbl, 12)
+    LL.stroke(listLbl, COL.stroke, 1)
+    LL.padding(listLbl, 8, 12, 12, 8)
 
-    local function refreshCoin()
-        coinLbl.Text = tostring(LL.S.Hamster.Coins) .. " монет"
+    LL.MacroRefreshList = function()
+        local lines = {}
+        for name, pts in pairs(LL.Macros) do
+            table.insert(lines, "• "..name.." ("..#pts.." точек)")
+        end
+        if #lines == 0 then
+            listLbl.Text = "(нет макросов)"
+        else
+            table.sort(lines)
+            listLbl.Text = table.concat(lines, "\n")
+        end
     end
-    LL.AddRefresh(refreshCoin)
-
-    local spamBtn = Instance.new("TextButton")
-    spamBtn.Size = UDim2.new(0, 170, 0, 170)
-    spamBtn.AnchorPoint = Vector2.new(0.5, 0.5)
-    spamBtn.Position = UDim2.new(0.5, 0, 0.55, 0)
-    spamBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 100)
-    spamBtn.BorderSizePixel = 0
-    spamBtn.Text = "🐹"
-    spamBtn.Font = Enum.Font.GothamBold
-    spamBtn.TextSize = 100
-    spamBtn.AutoButtonColor = false
-    spamBtn.LayoutOrder = LL.NextOrder()
-    spamBtn.ZIndex = 5
-    spamBtn.Parent = parent
-    LL.corner(spamBtn, 85)
-    LL.stroke(spamBtn, Color3.fromRGB(255, 180, 0), 3)
-
-    local spamLabel = Instance.new("TextLabel")
-    spamLabel.Size = UDim2.new(1, 0, 0, 34)
-    spamLabel.BackgroundTransparency = 1
-    spamLabel.LayoutOrder = LL.NextOrder()
-    spamLabel.Text = "ЖМИ ХОМЯКА"
-    spamLabel.Font = Enum.Font.GothamBold
-    spamLabel.TextSize = 16
-    spamLabel.TextColor3 = COL.accent2
-    spamLabel.Parent = parent
-
-    local spamInfo = Instance.new("TextLabel")
-    spamInfo.Size = UDim2.new(1, 0, 0, 28)
-    spamInfo.BackgroundTransparency = 1
-    spamInfo.LayoutOrder = LL.NextOrder()
-    spamInfo.Text = "Каждый клик = +1 монета"
-    spamInfo.Font = Enum.Font.Gotham
-    spamInfo.TextSize = 13
-    spamInfo.TextColor3 = COL.sub
-    spamInfo.Parent = parent
-
-    local clickCooldown = false
-    spamBtn.MouseButton1Click:Connect(function()
-        if clickCooldown then return end
-        clickCooldown = true
-        LL.S.Hamster.Coins = LL.S.Hamster.Coins + 1
-        refreshCoin(); LL.MarkDirty()
-        Tween:Create(spamBtn, LL.Anim.Fast, {Size = UDim2.new(0, 150, 0, 150)}):Play()
-        task.delay(0.09, function()
-            Tween:Create(spamBtn, LL.Anim.Fast, {Size = UDim2.new(0, 170, 0, 170)}):Play()
-        end)
-        task.delay(0.05, function() clickCooldown = false end)
-    end)
-
-    LL.Button(parent, "Сбросить монеты", function()
-        LL.S.Hamster.Coins = 0; refreshCoin(); LL.MarkDirty()
-        LL.Notify("Монеты сброшены")
-    end, {textColor = COL.accent2})
+    LL.MacroRefreshList()
 end)
+
 -- ============================================================
 -- HITBOX TAB
 -- ============================================================
@@ -2099,12 +2066,6 @@ LL.Tab("Hitbox", function(parent)
     LL.Toggle(parent, "Auto-Refresh (real-time)",
         function() return LL.S.Hitbox.RealTimeRefresh end,
         function(v) LL.S.Hitbox.RealTimeRefresh = v end)
-    LL.Toggle(parent, "Visualize (SelectionBox)",
-        function() return LL.S.Hitbox.Visualize end,
-        function(v)
-            LL.S.Hitbox.Visualize = v
-            LL.RefreshHitboxes()
-        end)
     LL.Section(parent, "Части")
     LL.Toggle(parent, "Head Hitbox",
         function() return LL.S.Hitbox.HeadEnabled end,
@@ -2122,13 +2083,6 @@ LL.Tab("Hitbox", function(parent)
     LL.Slider(parent, "Body Size", 2, 25,
         function() return LL.S.Hitbox.BodySize end,
         function(v) LL.S.Hitbox.BodySize = v; LL.RefreshHitboxes() end)
-    LL.Section(parent, "Визуал")
-    LL.Slider(parent, "Visual Transparency", 0, 1,
-        function() return LL.S.Hitbox.Transparency end,
-        function(v) LL.S.Hitbox.Transparency = v; LL.RefreshHitboxes() end)
-    LL.ColorPicker(parent, "SelectionBox Color",
-        function() return LL.S.Hitbox.Color end,
-        function(v) LL.S.Hitbox.Color = v; LL.RefreshHitboxes() end)
 end)
 
 -- ============================================================
@@ -2364,6 +2318,7 @@ LL.Tab("Binds", function(parent)
     addBind("ZeroGravity", "Zero Gravity")
     addBind("SavePos", "Save Position")
     addBind("LoadPos", "Load Position")
+    addBind("Macro", "Macro Play/Stop")
 
     searchBox:GetPropertyChangedSignal("Text"):Connect(function()
         local q = string.lower(searchBox.Text)
@@ -2418,9 +2373,12 @@ LL.Tab("Binds", function(parent)
     LL.Toggle(parent, "Hitbox Button",
         function() return LL.S.MobileBtns.Hitbox == true end,
         function(v) LL.S.MobileBtns.Hitbox = v; LL.ToggleMobileBtn("Hitbox", v) end)
+    LL.Toggle(parent, "Macro Button",
+        function() return LL.S.MobileBtns.Macro == true end,
+        function(v) LL.S.MobileBtns.Macro = v; LL.ToggleMobileBtn("Macro", v) end)
 end)
 -- ============================================================
--- HITBOX LOGIC (реальный Size на HRP / Head / Torso)
+-- HITBOX LOGIC (реальный Size, невидимый через LocalTransparencyModifier)
 -- ============================================================
 function LL.applyHitboxToCharacter(entry, character)
     if not character or not entry then return end
@@ -2437,10 +2395,17 @@ function LL.applyHitboxToCharacter(entry, character)
         if not entry.original.hrpSize then
             entry.original.hrpSize = hrp.Size
         end
+        if not entry.original.hrpTransparency then
+            entry.original.hrpTransparency = hrp.Transparency
+        end
         if LL.S.Hitbox.BodyEnabled then
             hrp.Size = Vector3.new(LL.S.Hitbox.RootSize, LL.S.Hitbox.RootSize, LL.S.Hitbox.RootSize)
+            hrp.Transparency = 1
+            hrp.LocalTransparencyModifier = 1
         else
             hrp.Size = entry.original.hrpSize
+            hrp.Transparency = entry.original.hrpTransparency
+            hrp.LocalTransparencyModifier = 0
         end
         hrp.CanCollide = false
     end
@@ -2449,10 +2414,17 @@ function LL.applyHitboxToCharacter(entry, character)
         if not entry.original.headSize then
             entry.original.headSize = head.Size
         end
+        if not entry.original.headTransparency then
+            entry.original.headTransparency = head.Transparency
+        end
         if LL.S.Hitbox.HeadEnabled then
             head.Size = Vector3.new(LL.S.Hitbox.HeadSize, LL.S.Hitbox.HeadSize, LL.S.Hitbox.HeadSize)
+            head.Transparency = 1
+            head.LocalTransparencyModifier = 1
         else
             head.Size = entry.original.headSize
+            head.Transparency = entry.original.headTransparency
+            head.LocalTransparencyModifier = 0
         end
     end
 
@@ -2460,29 +2432,18 @@ function LL.applyHitboxToCharacter(entry, character)
         if not entry.original.torsoSize then
             entry.original.torsoSize = torso.Size
         end
+        if not entry.original.torsoTransparency then
+            entry.original.torsoTransparency = torso.Transparency
+        end
         if LL.S.Hitbox.BodyEnabled then
             torso.Size = Vector3.new(LL.S.Hitbox.BodySize, LL.S.Hitbox.BodySize, LL.S.Hitbox.BodySize)
+            torso.Transparency = 1
+            torso.LocalTransparencyModifier = 1
         else
             torso.Size = entry.original.torsoSize
+            torso.Transparency = entry.original.torsoTransparency
+            torso.LocalTransparencyModifier = 0
         end
-    end
-
-    -- SelectionBox визуал на HRP
-    if LL.S.Hitbox.Visualize and hrp then
-        local box = hrp:FindFirstChild("TimonHub_HitboxVis")
-        if not box then
-            box = Instance.new("SelectionBox")
-            box.Name = "TimonHub_HitboxVis"
-            box.Adornee = hrp
-            box.LineThickness = 0.05
-            box.Parent = hrp
-        end
-        box.Color3 = LL.S.Hitbox.Color
-        box.Transparency = LL.S.Hitbox.Transparency
-        box.Visible = true
-    elseif hrp then
-        local box = hrp:FindFirstChild("TimonHub_HitboxVis")
-        if box then box:Destroy() end
     end
 end
 
@@ -2493,17 +2454,21 @@ function LL.restoreHitbox(entry)
         local hrp = chr:FindFirstChild("HumanoidRootPart")
         if hrp then
             if entry.original.hrpSize then hrp.Size = entry.original.hrpSize end
+            hrp.Transparency = entry.original.hrpTransparency or 0
+            hrp.LocalTransparencyModifier = 0
             hrp.CanCollide = true
-            local box = hrp:FindFirstChild("TimonHub_HitboxVis")
-            if box then box:Destroy() end
         end
         local head = chr:FindFirstChild("Head")
-        if head and entry.original.headSize then
-            head.Size = entry.original.headSize
+        if head then
+            if entry.original.headSize then head.Size = entry.original.headSize end
+            head.Transparency = entry.original.headTransparency or 0
+            head.LocalTransparencyModifier = 0
         end
         local torso = chr:FindFirstChild("UpperTorso") or chr:FindFirstChild("Torso")
-        if torso and entry.original.torsoSize then
-            torso.Size = entry.original.torsoSize
+        if torso then
+            if entry.original.torsoSize then torso.Size = entry.original.torsoSize end
+            torso.Transparency = entry.original.torsoTransparency or 0
+            torso.LocalTransparencyModifier = 0
         end
     end
 end
@@ -2549,7 +2514,6 @@ function LL.RefreshHitboxes()
     end
 end
 
--- Обновление хитов у игроков (0.2с) — только если RealTime выключен
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
         task.wait(0.2)
@@ -2874,6 +2838,129 @@ LL.trackConn(Players.PlayerRemoving:Connect(function(pl)
     LL.RemoveESP(pl)
     LL.RemoveHitboxFor(pl)
 end))
+
+-- ============================================================
+-- PATH RECORDER (MoveTo, без телепорта)
+-- ============================================================
+LL.MacroRecordLoopThread = nil
+
+function LL.MacroStartRecording()
+    if LL.S.Macro.Recording then return end
+    if not LL.Cache.Character or not LL.Cache.Humanoid then
+        LL.Notify("Персонаж не загружен")
+        return
+    end
+    LL.S.Macro.Recording = true
+    LL.MacroRecord = {}
+    local lastJump = false
+
+    LL.MacroRecordLoopThread = LL.trackThread(task.spawn(function()
+        while getgenv().TIMON_LOADED and LL.S.Macro.Recording do
+            local chr = LL.Cache.Character
+            local hum = LL.Cache.Humanoid
+            if not chr or not hum or hum.Health <= 0 then
+                LL.MacroStopRecording()
+                break
+            end
+            local pos = chr.HumanoidRootPart and chr.HumanoidRootPart.Position
+            if pos then
+                local jumpNow = (hum:GetState() == Enum.HumanoidStateType.Jumping)
+                    or (hum:GetState() == Enum.HumanoidStateType.Freefall)
+                local isJump = LL.S.Macro.JumpDetection and jumpNow and not lastJump
+                table.insert(LL.MacroRecord, { pos = pos, jump = isJump })
+                lastJump = jumpNow
+            end
+            task.wait(LL.S.Macro.SampleRate)
+        end
+    end))
+    LL.Notify("Запись пошла")
+end
+
+function LL.MacroStopRecording()
+    if not LL.S.Macro.Recording then return end
+    LL.S.Macro.Recording = false
+    if LL.MacroRecordLoopThread then
+        pcall(function() task.cancel(LL.MacroRecordLoopThread) end)
+        LL.MacroRecordLoopThread = nil
+    end
+    local count = LL.MacroRecord and #LL.MacroRecord or 0
+    LL.Notify("Запись остановлена: "..tostring(count).." точек")
+end
+
+function LL.MacroStartPlaying(name)
+    name = name or LL.S.Macro.CurrentMacro
+    local points = LL.Macros[name]
+    if not points or #points < 2 then
+        LL.Notify("Макрос пуст: "..tostring(name))
+        return
+    end
+    if LL.S.Macro.Playing then
+        LL.MacroStopPlaying()
+    end
+    LL.S.Macro.Playing = true
+    LL.MacroPlayThread = LL.trackThread(task.spawn(function()
+        local startPos = points[1].pos
+        while getgenv().TIMON_LOADED and LL.S.Macro.Playing do
+            for i, pt in ipairs(points) do
+                if not LL.S.Macro.Playing or not getgenv().TIMON_LOADED then break end
+                local chr = LL.Cache.Character
+                local hum = LL.Cache.Humanoid
+                if not chr or not hum or hum.Health <= 0 then
+                    LL.S.Macro.Playing = false
+                    break
+                end
+                hum:MoveTo(pt.pos)
+                if pt.jump then
+                    task.wait(0.1)
+                    pcall(function() hum.Jump = true end)
+                end
+                local t0 = tick()
+                while (chr.HumanoidRootPart.Position - pt.pos).Magnitude > 2
+                      and (tick() - t0) < 5
+                      and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
+                    task.wait(0.1)
+                end
+            end
+            if not LL.S.Macro.Loop then
+                LL.S.Macro.Playing = false
+                break
+            end
+            local chr = LL.Cache.Character
+            local hum = LL.Cache.Humanoid
+            if chr and hum and hum.Health > 0 then
+                hum:MoveTo(startPos)
+                local t0 = tick()
+                while (chr.HumanoidRootPart.Position - startPos).Magnitude > 2
+                      and (tick() - t0) < 10
+                      and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
+                    task.wait(0.1)
+                end
+            end
+        end
+        LL.S.Macro.Playing = false
+    end))
+    LL.Notify("Макрос запущен: "..name)
+end
+
+function LL.MacroStopPlaying()
+    if not LL.S.Macro.Playing then return end
+    LL.S.Macro.Playing = false
+    if LL.MacroPlayThread then
+        pcall(function() task.cancel(LL.MacroPlayThread) end)
+        LL.MacroPlayThread = nil
+    end
+    local hum = LL.Cache.Humanoid
+    if hum then pcall(function() hum:MoveTo(LL.Cache.HRP.Position) end) end
+    LL.Notify("Макрос остановлен")
+end
+
+function LL.MacroReturnToStart()
+    local name = LL.S.Macro.CurrentMacro
+    local points = LL.Macros[name]
+    if not points or #points < 1 then return end
+    local hum = LL.Cache.Humanoid
+    if hum then hum:MoveTo(points[1].pos) end
+end
 -- ============================================================
 -- AIMBOT
 -- ============================================================
@@ -3283,7 +3370,7 @@ function LL.ToggleMobileBtn(action, show)
     local LABEL = {
         Aimbot="AIM", Fly="FLY", ZeroGravity="GRAV",
         Noclip="NOCLIP", AntiFling="AFLNG", InfiniteJump="IJMP",
-        ESP="ESP", Hitbox="HITBX"
+        ESP="ESP", Hitbox="HITBX", Macro="MACRO"
     }
     b.Text = LABEL[action] or action
     b.BorderSizePixel = 0
@@ -3302,6 +3389,7 @@ function LL.ToggleMobileBtn(action, show)
         elseif action == "Noclip" then return LL.S.Player.Noclip
         elseif action == "InfiniteJump" then return LL.S.Player.InfiniteJump
         elseif action == "AntiFling" then return LL.S.Troll.AntiFling
+        elseif action == "Macro" then return LL.S.Macro.Playing
         end
         return false
     end
@@ -3415,6 +3503,13 @@ LL.Actions.LoadPos = function()
         LL.Notify("Позиция загружена")
     else LL.Notify("Нет позиции") end
 end
+LL.Actions.Macro = function()
+    if LL.S.Macro.Playing then
+        LL.MacroStopPlaying()
+    else
+        LL.MacroStartPlaying(LL.S.Macro.CurrentMacro)
+    end
+end
 
 -- ============================================================
 -- APPLY LOADED SETTINGS
@@ -3422,6 +3517,8 @@ end
 function LL.applyLoadedSettings()
     LL.RefreshAll()
     for _, fn in pairs(LL.BindRefreshers) do pcall(fn) end
+    if LL.MacroStopPlaying then pcall(LL.MacroStopPlaying) end
+    if LL.MacroStopRecording then pcall(LL.MacroStopRecording) end
     if LL.S.ESP.Enabled then
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LP and not LL.ESPObjs[p] then pcall(LL.CreateESP, p) end
@@ -3579,17 +3676,6 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
                 if not model.Parent or not LL.NPCCache[model] then
                     pcall(LL.RemoveNPCHitbox, model)
                 end
-            end
-        end
-    end
-
-    -- ESP REAL-TIME (только highlight adornee sync)
-    if LL.S.ESP.RealTimeRefresh and LL.S.ESP.Enabled then
-        for _, d in pairs(LL.ESPObjs) do
-            local c = d.player.Character
-            if c ~= d.cacheChar then
-                LL.refreshEspCache(d)
-                if d.hl and c then d.hl.Adornee = c end
             end
         end
     end
@@ -3858,7 +3944,7 @@ LL.trackConn(UIS.JumpRequest:Connect(function()
 end))
 
 -- ============================================================
--- AUTOSAVE LOOP (fix: saveConfig с маленькой s)
+-- AUTOSAVE LOOP
 -- ============================================================
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
@@ -3892,9 +3978,9 @@ if LL.S.Player.LowQuality then LL.enableLowQuality() end
 if LL.S.Player.Fullbright then LL.enableFullbright() end
 
 if autoloaded then
-    LL.Notify("Timon Hub v4.6.4 · автозагрузка")
+    LL.Notify("Timon Hub v4.6.5 · автозагрузка")
 else
-    LL.Notify("Timon Hub v4.6.4 · загружен")
+    LL.Notify("Timon Hub v4.6.5 · загружен")
 end
 
 -- ============================================================
@@ -3908,6 +3994,10 @@ getgenv().TIMON_UNLOAD = function()
 
     getgenv().TIMON_LOADED = false
 
+    step("macro", function()
+        if LL.MacroStopPlaying then LL.MacroStopPlaying() end
+        if LL.MacroStopRecording then LL.MacroStopRecording() end
+    end)
     step("xneo", function()
         if LL.xneoScriptRunning then
             local pg = LP:FindFirstChild("PlayerGui")
