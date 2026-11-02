@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v4.6.6 — fixed startup, macro, xneo, esp, hitbox
+-- TIMON HUB v4.6.7 — xneo fix, macro loop fix, button fix
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -461,7 +461,7 @@ LL.corner(TitleBar, 18); LL.gradient(TitleBar, COL.accent, COL.accent2, 25)
 
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -110, 1, 0); TitleLbl.Position = UDim2.new(0, 20, 0, 0)
-TitleLbl.BackgroundTransparency = 1; TitleLbl.Text = "TIMON HUB  ·  v4.6.6"
+TitleLbl.BackgroundTransparency = 1; TitleLbl.Text = "TIMON HUB  ·  v4.6.7"
 TitleLbl.TextColor3 = Color3.new(1, 1, 1); TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left; TitleLbl.Parent = TitleBar
 
@@ -519,8 +519,9 @@ LL.trackConn(LP.CharacterRemoving:Connect(function()
     LL.Cache.Character = nil; LL.Cache.Humanoid = nil; LL.Cache.HRP = nil
 end))
 LL.refreshCharCache()
+
 -- ============================================================
--- TOGGLE
+-- UI COMPONENTS: TOGGLE
 -- ============================================================
 function LL.Toggle(parent, name, getter, setter)
     local f = Instance.new("Frame")
@@ -555,7 +556,7 @@ function LL.Toggle(parent, name, getter, setter)
 end
 
 -- ============================================================
--- SLIDER
+-- UI COMPONENTS: SLIDER
 -- ============================================================
 function LL.Slider(parent, name, minV, maxV, getter, setter)
     local f = Instance.new("Frame")
@@ -605,7 +606,7 @@ function LL.Slider(parent, name, minV, maxV, getter, setter)
 end
 
 -- ============================================================
--- DROPDOWN
+-- UI COMPONENTS: DROPDOWN
 -- ============================================================
 function LL.Dropdown(parent, name, options, getter, setter)
     local f = Instance.new("Frame")
@@ -656,7 +657,7 @@ function LL.Dropdown(parent, name, options, getter, setter)
 end
 
 -- ============================================================
--- COLOR PICKER
+-- UI COMPONENTS: COLOR PICKER
 -- ============================================================
 LL.PALETTE = {
     Color3.fromRGB(255,20,147), Color3.fromRGB(180,60,255),
@@ -697,7 +698,7 @@ function LL.ColorPicker(parent, name, getter, setter)
 end
 
 -- ============================================================
--- TEXT BOX
+-- UI COMPONENTS: TEXT BOX
 -- ============================================================
 function LL.TextBox(parent, name, placeholder, getter, setter)
     local f = Instance.new("Frame")
@@ -719,7 +720,7 @@ function LL.TextBox(parent, name, placeholder, getter, setter)
 end
 
 -- ============================================================
--- BUTTON
+-- UI COMPONENTS: BUTTON
 -- ============================================================
 function LL.Button(parent, label, callback, opts)
     opts = opts or {}
@@ -1119,6 +1120,13 @@ LL.Tab("Player", function(parent)
             LL.S.Player.Fullbright = v
             if v then LL.enableFullbright() else LL.disableFullbright() end
         end)
+
+    LL.Section(parent, "XNEO Mobile Fly")
+    LL.Button(parent, "Запустить XNEO Fly GUI", function()
+        if LL.Actions and LL.Actions.XNEO then
+            LL.Actions.XNEO()
+        end
+    end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
 end)
 
 -- ============================================================
@@ -1176,7 +1184,7 @@ LL.Tab("Hitbox", function(parent)
 end)
 
 -- ============================================================
--- MACRO TAB (Path Recorder)
+-- MACRO TAB (С ФИКСОМ КНОПКИ)
 -- ============================================================
 LL.Tab("Macro", function(parent)
     LL.Section(parent, "Информация")
@@ -1222,9 +1230,11 @@ LL.Tab("Macro", function(parent)
             LL.MacroStartRecording()
         end
     end)
-    LL.AddRefresh(function()
+    -- ФИКС: Синхронное обновление кнопки без задержек LL.AddRefresh
+    LL.MacroRecBtn = recBtn
+    LL.MacroRecBtnUpdate = function()
         if LL.S.Macro.Recording then
-            recBtn.Text = "⏹ Остановить запись ("..tostring(#(LL.MacroRecord or {}))..")"
+            recBtn.Text = "⏹ Закончить запись ("..tostring(#(LL.MacroRecord or {}))..")"
             recBtn.BackgroundColor3 = COL.red
             recBtn.TextColor3 = Color3.new(1,1,1)
         else
@@ -1232,7 +1242,9 @@ LL.Tab("Macro", function(parent)
             recBtn.BackgroundColor3 = COL.elem
             recBtn.TextColor3 = COL.text
         end
-    end)
+    end
+    LL.MacroRecBtnUpdate()
+    LL.AddRefresh(LL.MacroRecBtnUpdate)
 
     LL.Section(parent, "Воспроизведение")
     local playBtn = LL.Button(parent, "▶ Запустить макрос", function()
@@ -1267,6 +1279,7 @@ LL.Tab("Macro", function(parent)
         LL.MacroRecord = nil
         LL.Notify("Сохранён: "..name.." ("..#LL.Macros[name].." точек)")
         if LL.MacroRefreshList then LL.MacroRefreshList() end
+        if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
     end)
     LL.Button(parent, "🗑 Удалить текущий макрос", function()
         local name = LL.S.Macro.CurrentMacro or "macro1"
@@ -1312,6 +1325,230 @@ LL.Tab("Macro", function(parent)
         end
     end
     LL.MacroRefreshList()
+end)
+
+-- ============================================================
+-- SETTINGS TAB
+-- ============================================================
+LL.Tab("Settings", function(parent)
+    LL.Section(parent, "Действия")
+    LL.Button(parent, "Сбросить настройки", function()
+        local S = LL.S
+        S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25
+        S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
+        S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
+        S.Aimbot.JitterEnabled=false; S.Aimbot.Jitter=1.5
+        S.Aimbot.HitboxVisualizer=false; S.Aimbot.AimAssistBeam=false
+        S.Aimbot.MicroAdjust=false; S.Aimbot.MicroAdjustAmount=1.0
+        S.ESP.Enabled=false; S.ESP.NPCEnabled=false
+        S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
+        S.Player.Fly=false
+        S.Player.Noclip=false; S.Player.InfiniteJump=false
+        S.Player.ZeroGravity=false
+        S.Player.WalkSpeed=16; S.Player.JumpPower=50
+        S.Player.WalkSpeedEnabled=false; S.Player.JumpPowerEnabled=false
+        S.Player.AntiAFK=false; LL.stopAntiAFK()
+        S.Player.FPSBooster=false; LL.disableFPSBooster()
+        S.Player.LowQuality=false; LL.disableLowQuality()
+        S.Player.Fullbright=false; LL.disableFullbright()
+        S.Troll.AntiFling=false
+        S.FloatingLock=false; S.FloatingPos={}
+        LL.ApplyFloatingLock()
+        LL.RepositionAllFloatingBtns()
+        LL.applyGravityState()
+        LL.RefreshAll(); LL.MarkDirty(); LL.Notify("Настройки сброшены")
+    end)
+    LL.Button(parent, "Выгрузить скрипт", function()
+        if getgenv().TIMON_UNLOAD then pcall(getgenv().TIMON_UNLOAD)
+        else LL.Notify("Unload не готов") end
+    end, {color = COL.accent2, hover = Color3.fromRGB(255, 120, 210), textColor = Color3.new(1,1,1)})
+
+    LL.Section(parent, "UI Settings")
+    LL.Slider(parent, "UI Scale", 0.6, 1.2,
+        function() return LL.S.UI.Scale end,
+        function(v) LL.S.UI.Scale = v; LL.ApplyMainSize() end)
+    LL.Toggle(parent, "Уведомления",
+        function() return LL.S.UI.Notifications end,
+        function(v) LL.S.UI.Notifications = v end)
+    LL.Toggle(parent, "Авто-скрытие GUI на мобиле",
+        function() return LL.S.UI.AutoHideOnMobile end,
+        function(v) LL.S.UI.AutoHideOnMobile = v end)
+
+    LL.Section(parent, "Конфиги")
+    if not LL.FS_AVAILABLE then
+        local warnLbl = Instance.new("TextLabel")
+        warnLbl.Size = UDim2.new(1, 0, 0, 40); warnLbl.BackgroundColor3 = COL.red
+        warnLbl.BackgroundTransparency = 0.7; warnLbl.BorderSizePixel = 0; warnLbl.LayoutOrder = LL.NextOrder()
+        warnLbl.Text = "⚠ Экзекутор не поддерживает файловую систему"; warnLbl.TextColor3 = COL.text
+        warnLbl.Font = Enum.Font.GothamBold; warnLbl.TextSize = 13; warnLbl.Parent = parent
+        LL.corner(warnLbl, 12)
+    end
+    LL.TextBox(parent, "Имя конфига", "auto",
+        function() return LL.S.ConfigName end,
+        function(v) LL.S.ConfigName = (v ~= "" and v) or "auto" end)
+    LL.Button(parent, "Сохранить (перезапись)", function()
+        local name = LL.S.ConfigName or "auto"
+        local ok, err = LL.saveConfig(name)
+        if ok then
+            LL.Notify("Сохранено: "..name)
+            if LL.RefreshCfgList then LL.RefreshCfgList() end
+        else LL.Notify("Ошибка: "..tostring(err)) end
+    end)
+    LL.Button(parent, "Загрузить", function()
+        local name = LL.S.ConfigName or "auto"
+        if LL.loadConfigFile(name) then
+            LL.applyLoadedSettings()
+            LL.Notify("Загружено: "..name)
+        else LL.Notify("Не найден: "..name) end
+    end)
+    LL.Button(parent, "Удалить", function()
+        local name = LL.S.ConfigName or "auto"
+        LL.deleteConfig(name)
+        LL.Notify("Удалено: "..name)
+        if LL.RefreshCfgList then LL.RefreshCfgList() end
+    end)
+    LL.Toggle(parent, "Авто-сохранение",
+        function() return LL.S.AutoSave end,
+        function(v) LL.S.AutoSave = v end)
+
+    LL.Section(parent, "Доступные конфиги")
+    local cfgListLbl = Instance.new("TextLabel")
+    cfgListLbl.Size = UDim2.new(1, 0, 0, 100); cfgListLbl.BackgroundColor3 = COL.elem
+    cfgListLbl.BackgroundTransparency = 0.05; cfgListLbl.BorderSizePixel = 0; cfgListLbl.LayoutOrder = LL.NextOrder()
+    cfgListLbl.TextColor3 = COL.sub; cfgListLbl.Font = Enum.Font.Gotham; cfgListLbl.TextSize = 13
+    cfgListLbl.TextWrapped = true; cfgListLbl.TextXAlignment = Enum.TextXAlignment.Left
+    cfgListLbl.TextYAlignment = Enum.TextYAlignment.Top; cfgListLbl.Parent = parent
+    LL.corner(cfgListLbl, 12); LL.stroke(cfgListLbl, COL.stroke, 1)
+    LL.padding(cfgListLbl, 8, 16, 12, 8)
+
+    LL.RefreshCfgList = function()
+        local list = LL.listConfigs()
+        if #list == 0 then cfgListLbl.Text = "(пусто)"
+        else table.sort(list); cfgListLbl.Text = table.concat(list, "\n") end
+    end
+    LL.RefreshCfgList()
+end)
+
+-- ============================================================
+-- BINDS TAB
+-- ============================================================
+LL.Tab("Binds", function(parent)
+    LL.Section(parent, "Key Binds")
+    local searchBox = Instance.new("TextBox")
+    searchBox.Size = UDim2.new(1, 0, 0, 36); searchBox.BackgroundColor3 = COL.elem
+    searchBox.BorderSizePixel = 0; searchBox.PlaceholderText = "Поиск биндов..."
+    searchBox.Text = ""; searchBox.TextColor3 = COL.text; searchBox.PlaceholderColor3 = COL.sub
+    searchBox.Font = Enum.Font.Gotham; searchBox.TextSize = 13; searchBox.TextXAlignment = Enum.TextXAlignment.Left
+    searchBox.ClearTextOnFocus = false; searchBox.LayoutOrder = LL.NextOrder(); searchBox.ZIndex = 10; searchBox.Parent = parent
+    LL.corner(searchBox, 12); LL.stroke(searchBox, COL.stroke, 1); LL.padding(searchBox, 0, 12, 0, 0)
+
+    local bindList = Instance.new("Frame")
+    bindList.Size = UDim2.new(1, 0, 0, 0); bindList.BackgroundTransparency = 1
+    bindList.AutomaticSize = Enum.AutomaticSize.Y; bindList.LayoutOrder = LL.NextOrder(); bindList.Parent = parent
+    local bindLayout = Instance.new("UIListLayout")
+    bindLayout.Padding = UDim.new(0, 6); bindLayout.SortOrder = Enum.SortOrder.LayoutOrder; bindLayout.Parent = bindList
+
+    local bindEntries = {}
+    local function addBind(action, name)
+        local f = Instance.new("Frame")
+        f.Size = UDim2.new(1, 0, 0, 42); f.BackgroundColor3 = COL.elem
+        f.BackgroundTransparency = 0.05; f.BorderSizePixel = 0; f.Parent = bindList
+        f.Visible = true
+        LL.corner(f, 12); LL.stroke(f, COL.stroke, 1)
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -130, 1, 0); lbl.Position = UDim2.new(0, 16, 0, 0)
+        lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = COL.text
+        lbl.Font = Enum.Font.Gotham; lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = f
+        local keyLbl = Instance.new("TextLabel")
+        keyLbl.Size = UDim2.new(0, 108, 0, 28); keyLbl.Position = UDim2.new(1, -120, 0.5, -14)
+        keyLbl.BackgroundColor3 = COL.bg2; keyLbl.BorderSizePixel = 0; keyLbl.TextColor3 = COL.accent2
+        keyLbl.Font = Enum.Font.GothamBold; keyLbl.TextSize = 13; keyLbl.Parent = f
+        LL.corner(keyLbl, 8)
+        local function refresh()
+            local k = LL.S.Binds[action]
+            if k then
+                keyLbl.Text = tostring(k):gsub("Enum.KeyCode.","")
+                keyLbl.TextColor3 = COL.accent2
+            else
+                keyLbl.Text = "None"; keyLbl.TextColor3 = COL.sub
+            end
+        end
+        refresh(); LL.BindRefreshers[action] = refresh
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 108, 0, 28); btn.Position = UDim2.new(1, -120, 0.5, -14)
+        btn.BackgroundTransparency = 1; btn.Text = ""; btn.Active = true; btn.ZIndex = 10; btn.Parent = f
+        btn.MouseButton1Down:Connect(function()
+            getgenv().TIMON_LISTENING = action
+            keyLbl.Text = "нажми..."; keyLbl.TextColor3 = Color3.fromRGB(255, 200, 100)
+        end)
+        bindEntries[#bindEntries+1] = {frame = f, name = name, action = action}
+    end
+
+    addBind("Aimbot", "Aimbot Toggle")
+    addBind("AimbotHold", "Aim Hold")
+    addBind("ESP", "ESP")
+    addBind("Hitbox", "Hitbox")
+    addBind("Fly", "Fly")
+    addBind("Noclip", "Noclip")
+    addBind("InfiniteJump", "Infinite Jump")
+    addBind("ZeroGravity", "Zero Gravity")
+    addBind("SavePos", "Save Position")
+    addBind("LoadPos", "Load Position")
+    addBind("Macro", "Macro Play/Stop")
+
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local q = string.lower(searchBox.Text)
+        for _, e in ipairs(bindEntries) do
+            if q == "" or string.find(string.lower(e.name), q, 1, true) then e.frame.Visible = true
+            else e.frame.Visible = false end
+        end
+    end)
+
+    LL.Button(parent, "Сбросить все бинды", function()
+        LL.S.Binds = {}
+        for _, fn in pairs(LL.BindRefreshers) do pcall(fn) end
+        LL.MarkDirty(); LL.Notify("Бинды сброшены")
+    end, {textColor = COL.accent2})
+
+    LL.Section(parent, "Floating Lock")
+    LL.Toggle(parent, "Fix Floating Buttons",
+        function() return LL.S.FloatingLock end,
+        function(v)
+            LL.S.FloatingLock = v
+            LL.ApplyFloatingLock(); LL.MarkDirty()
+            LL.Notify("Floating: "..(v and "LOCKED" or "FREE"))
+        end)
+    LL.Button(parent, "Сбросить позиции кнопок", function()
+        LL.S.FloatingPos = {}
+        LL.RepositionAllFloatingBtns()
+        LL.MarkDirty(); LL.Notify("Позиции сброшены")
+    end, {textColor = COL.accent2})
+
+    LL.Section(parent, "Floating Buttons")
+    LL.Toggle(parent, "Aimbot Button",
+        function() return LL.S.MobileBtns.Aimbot == true end,
+        function(v) LL.S.MobileBtns.Aimbot = v; LL.ToggleMobileBtn("Aimbot", v) end)
+    LL.Toggle(parent, "Fly Button",
+        function() return LL.S.MobileBtns.Fly == true end,
+        function(v) LL.S.MobileBtns.Fly = v; LL.ToggleMobileBtn("Fly", v) end)
+    LL.Toggle(parent, "Zero Gravity Button",
+        function() return LL.S.MobileBtns.ZeroGravity == true end,
+        function(v) LL.S.MobileBtns.ZeroGravity = v; LL.ToggleMobileBtn("ZeroGravity", v) end)
+    LL.Toggle(parent, "Noclip Button",
+        function() return LL.S.MobileBtns.Noclip == true end,
+        function(v) LL.S.MobileBtns.Noclip = v; LL.ToggleMobileBtn("Noclip", v) end)
+    LL.Toggle(parent, "Anti Fling Button",
+        function() return LL.S.MobileBtns.AntiFling == true end,
+        function(v) LL.S.MobileBtns.AntiFling = v; LL.ToggleMobileBtn("AntiFling", v) end)
+    LL.Toggle(parent, "ESP Button",
+        function() return LL.S.MobileBtns.ESP == true end,
+        function(v) LL.S.MobileBtns.ESP = v; LL.ToggleMobileBtn("ESP", v) end)
+    LL.Toggle(parent, "Hitbox Button",
+        function() return LL.S.MobileBtns.Hitbox == true end,
+        function(v) LL.S.MobileBtns.Hitbox = v; LL.ToggleMobileBtn("Hitbox", v) end)
+    LL.Toggle(parent, "Macro Button",
+        function() return LL.S.MobileBtns.Macro == true end,
+        function(v) LL.S.MobileBtns.Macro = v; LL.ToggleMobileBtn("Macro", v) end)
 end)
 -- ============================================================
 -- LIGHTING MANAGER
@@ -1884,7 +2121,7 @@ LL.trackConn(Players.PlayerRemoving:Connect(function(pl)
 end))
 
 -- ============================================================
--- PATH RECORDER (MoveTo, без телепорта)
+-- PATH RECORDER (MoveTo, без телепорта) — ФИКС ЗАВИСАНИЯ
 -- ============================================================
 LL.MacroRecordLoopThread = nil
 
@@ -1897,6 +2134,7 @@ function LL.MacroStartRecording()
     LL.S.Macro.Recording = true
     LL.MacroRecord = {}
     local lastJump = false
+    if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
 
     LL.MacroRecordLoopThread = LL.trackThread(task.spawn(function()
         while getgenv().TIMON_LOADED and LL.S.Macro.Recording do
@@ -1913,6 +2151,7 @@ function LL.MacroStartRecording()
                 local isJump = LL.S.Macro.JumpDetection and jumpNow and not lastJump
                 table.insert(LL.MacroRecord, { pos = pos, jump = isJump })
                 lastJump = jumpNow
+                if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end -- Обновляем счётчик в реальном времени
             end
             task.wait(LL.S.Macro.SampleRate)
         end
@@ -1929,6 +2168,7 @@ function LL.MacroStopRecording()
     end
     local count = LL.MacroRecord and #LL.MacroRecord or 0
     LL.Notify("Запись остановлена: "..tostring(count).." точек")
+    if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
 end
 
 function LL.MacroStartPlaying(name)
@@ -1938,9 +2178,7 @@ function LL.MacroStartPlaying(name)
         LL.Notify("Макрос пуст: "..tostring(name))
         return
     end
-    if LL.S.Macro.Playing then
-        LL.MacroStopPlaying()
-    end
+    if LL.S.Macro.Playing then LL.MacroStopPlaying() end
     LL.S.Macro.Playing = true
     LL.MacroPlayThread = LL.trackThread(task.spawn(function()
         local startPos = points[1].pos
@@ -1953,16 +2191,36 @@ function LL.MacroStartPlaying(name)
                     LL.S.Macro.Playing = false
                     break
                 end
-                hum:MoveTo(pt.pos)
-                if pt.jump then
-                    task.wait(0.1)
-                    pcall(function() hum.Jump = true end)
-                end
-                local t0 = tick()
-                while (chr.HumanoidRootPart.Position - pt.pos).Magnitude > 2
-                      and (tick() - t0) < 5
-                      and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
-                    task.wait(0.1)
+                
+                local hrp = chr:FindFirstChild("HumanoidRootPart")
+                if not hrp then break end
+
+                -- Проверка: если персонаж уже на точке, не тупим
+                if (hrp.Position - pt.pos).Magnitude > 2 then
+                    hum:MoveTo(pt.pos)
+                    if pt.jump then
+                        task.wait(0.1)
+                        pcall(function() hum.Jump = true end)
+                    end
+                    
+                    -- Ждем достижения точки (макс 3 секунды, чтобы не зависать навсегда)
+                    local t0 = tick()
+                    local lastPos = hrp.Position
+                    local stuckCount = 0
+                    
+                    while (hrp.Position - pt.pos).Magnitude > 2
+                          and (tick() - t0) < 3
+                          and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
+                        task.wait(0.1)
+                        -- Фикс застревания: если персонаж не двигается 0.5 сек, пропускаем точку
+                        if (hrp.Position - lastPos).Magnitude < 0.1 then
+                            stuckCount = stuckCount + 1
+                            if stuckCount > 5 then break end -- Застрял, идем дальше
+                        else
+                            stuckCount = 0
+                            lastPos = hrp.Position
+                        end
+                    end
                 end
             end
             if not LL.S.Macro.Loop then
@@ -1975,7 +2233,7 @@ function LL.MacroStartPlaying(name)
                 hum:MoveTo(startPos)
                 local t0 = tick()
                 while (chr.HumanoidRootPart.Position - startPos).Magnitude > 2
-                      and (tick() - t0) < 10
+                      and (tick() - t0) < 5 -- Ждем возврата в начало макс 5 сек
                       and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
                     task.wait(0.1)
                 end
@@ -1994,7 +2252,7 @@ function LL.MacroStopPlaying()
         LL.MacroPlayThread = nil
     end
     local hum = LL.Cache.Humanoid
-    if hum then pcall(function() hum:MoveTo(LL.Cache.HRP.Position) end) end
+    if hum and LL.Cache.HRP then pcall(function() hum:MoveTo(LL.Cache.HRP.Position) end) end
     LL.Notify("Макрос остановлен")
 end
 
@@ -2430,228 +2688,278 @@ OpenBtn.MouseLeave:Connect(function() Tween:Create(OpenBtn, LL.Anim.Fast, {Backg
 OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
 
 -- ============================================================
--- SETTINGS TAB
+-- XNEO MOBILE FLY (ФИКС: убран spawn, добавлен task.spawn)
 -- ============================================================
-LL.Tab("Settings", function(parent)
-    LL.Section(parent, "Действия")
-    LL.Button(parent, "Сбросить настройки", function()
-        local S = LL.S
-        S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25
-        S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
-        S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
-        S.Aimbot.JitterEnabled=false; S.Aimbot.Jitter=1.5
-        S.Aimbot.HitboxVisualizer=false; S.Aimbot.AimAssistBeam=false
-        S.Aimbot.MicroAdjust=false; S.Aimbot.MicroAdjustAmount=1.0
-        S.ESP.Enabled=false; S.ESP.NPCEnabled=false
-        S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
-        S.Player.Fly=false
-        S.Player.Noclip=false; S.Player.InfiniteJump=false
-        S.Player.ZeroGravity=false
-        S.Player.WalkSpeed=16; S.Player.JumpPower=50
-        S.Player.WalkSpeedEnabled=false; S.Player.JumpPowerEnabled=false
-        S.Player.AntiAFK=false; LL.stopAntiAFK()
-        S.Player.FPSBooster=false; LL.disableFPSBooster()
-        S.Player.LowQuality=false; LL.disableLowQuality()
-        S.Player.Fullbright=false; LL.disableFullbright()
-        S.Troll.AntiFling=false
-        S.FloatingLock=false; S.FloatingPos={}
-        LL.ApplyFloatingLock()
-        LL.RepositionAllFloatingBtns()
-        LL.applyGravityState()
-        LL.RefreshAll(); LL.MarkDirty(); LL.Notify("Настройки сброшены")
-    end)
-    LL.Button(parent, "Выгрузить скрипт", function()
-        if getgenv().TIMON_UNLOAD then pcall(getgenv().TIMON_UNLOAD)
-        else LL.Notify("Unload не готов") end
-    end, {color = COL.accent2, hover = Color3.fromRGB(255, 120, 210), textColor = Color3.new(1,1,1)})
-
-    LL.Section(parent, "UI Settings")
-    LL.Slider(parent, "UI Scale", 0.6, 1.2,
-        function() return LL.S.UI.Scale end,
-        function(v) LL.S.UI.Scale = v; LL.ApplyMainSize() end)
-    LL.Toggle(parent, "Уведомления",
-        function() return LL.S.UI.Notifications end,
-        function(v) LL.S.UI.Notifications = v end)
-    LL.Toggle(parent, "Авто-скрытие GUI на мобиле",
-        function() return LL.S.UI.AutoHideOnMobile end,
-        function(v) LL.S.UI.AutoHideOnMobile = v end)
-
-    LL.Section(parent, "Конфиги")
-    if not LL.FS_AVAILABLE then
-        local warnLbl = Instance.new("TextLabel")
-        warnLbl.Size = UDim2.new(1, 0, 0, 40); warnLbl.BackgroundColor3 = COL.red
-        warnLbl.BackgroundTransparency = 0.7; warnLbl.BorderSizePixel = 0; warnLbl.LayoutOrder = LL.NextOrder()
-        warnLbl.Text = "⚠ Экзекутор не поддерживает файловую систему"; warnLbl.TextColor3 = COL.text
-        warnLbl.Font = Enum.Font.GothamBold; warnLbl.TextSize = 13; warnLbl.Parent = parent
-        LL.corner(warnLbl, 12)
+LL.Actions.XNEO = function()
+    if LL.xneoScriptRunning then
+        LL.Notify("XNEO уже запущен")
+        return
     end
-    LL.TextBox(parent, "Имя конфига", "auto",
-        function() return LL.S.ConfigName end,
-        function(v) LL.S.ConfigName = (v ~= "" and v) or "auto" end)
-    LL.Button(parent, "Сохранить (перезапись)", function()
-        local name = LL.S.ConfigName or "auto"
-        local ok, err = LL.saveConfig(name)
-        if ok then
-            LL.Notify("Сохранено: "..name)
-            if LL.RefreshCfgList then LL.RefreshCfgList() end
-        else LL.Notify("Ошибка: "..tostring(err)) end
-    end)
-    LL.Button(parent, "Загрузить", function()
-        local name = LL.S.ConfigName or "auto"
-        if LL.loadConfigFile(name) then
-            LL.applyLoadedSettings()
-            LL.Notify("Загружено: "..name)
-        else LL.Notify("Не найден: "..name) end
-    end)
-    LL.Button(parent, "Удалить", function()
-        local name = LL.S.ConfigName or "auto"
-        LL.deleteConfig(name)
-        LL.Notify("Удалено: "..name)
-        if LL.RefreshCfgList then LL.RefreshCfgList() end
-    end)
-    LL.Toggle(parent, "Авто-сохранение",
-        function() return LL.S.AutoSave end,
-        function(v) LL.S.AutoSave = v end)
+    LL.Notify("Запуск XNEO...")
+    local ok, err = pcall(function()
+        local PlayerGui = LP:WaitForChild("PlayerGui", 5)
+        if not PlayerGui then error("PlayerGui не найден") end
 
-    LL.Section(parent, "Доступные конфиги")
-    local cfgListLbl = Instance.new("TextLabel")
-    cfgListLbl.Size = UDim2.new(1, 0, 0, 100); cfgListLbl.BackgroundColor3 = COL.elem
-    cfgListLbl.BackgroundTransparency = 0.05; cfgListLbl.BorderSizePixel = 0; cfgListLbl.LayoutOrder = LL.NextOrder()
-    cfgListLbl.TextColor3 = COL.sub; cfgListLbl.Font = Enum.Font.Gotham; cfgListLbl.TextSize = 13
-    cfgListLbl.TextWrapped = true; cfgListLbl.TextXAlignment = Enum.TextXAlignment.Left
-    cfgListLbl.TextYAlignment = Enum.TextYAlignment.Top; cfgListLbl.Parent = parent
-    LL.corner(cfgListLbl, 12); LL.stroke(cfgListLbl, COL.stroke, 1)
-    LL.padding(cfgListLbl, 8, 16, 12, 8)
+        local main = Instance.new("ScreenGui")
+        local Frame = Instance.new("Frame")
+        local up = Instance.new("TextButton")
+        local down = Instance.new("TextButton")
+        local onof = Instance.new("TextButton")
+        local TextLabel = Instance.new("TextLabel")
+        local plus = Instance.new("TextButton")
+        local speed = Instance.new("TextLabel")
+        local mine = Instance.new("TextButton")
+        local closebutton = Instance.new("TextButton")
+        local mini = Instance.new("TextButton")
+        local mini2 = Instance.new("TextButton")
 
-    LL.RefreshCfgList = function()
-        local list = LL.listConfigs()
-        if #list == 0 then cfgListLbl.Text = "(пусто)"
-        else table.sort(list); cfgListLbl.Text = table.concat(list, "\n") end
-    end
-    LL.RefreshCfgList()
-end)
+        main.Name = "main"
+        main.Parent = PlayerGui
+        main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        main.ResetOnSpawn = false
 
--- ============================================================
--- BINDS TAB
--- ============================================================
-LL.Tab("Binds", function(parent)
-    LL.Section(parent, "Key Binds")
-    local searchBox = Instance.new("TextBox")
-    searchBox.Size = UDim2.new(1, 0, 0, 36); searchBox.BackgroundColor3 = COL.elem
-    searchBox.BorderSizePixel = 0; searchBox.PlaceholderText = "Поиск биндов..."
-    searchBox.Text = ""; searchBox.TextColor3 = COL.text; searchBox.PlaceholderColor3 = COL.sub
-    searchBox.Font = Enum.Font.Gotham; searchBox.TextSize = 13; searchBox.TextXAlignment = Enum.TextXAlignment.Left
-    searchBox.ClearTextOnFocus = false; searchBox.LayoutOrder = LL.NextOrder(); searchBox.ZIndex = 10; searchBox.Parent = parent
-    LL.corner(searchBox, 12); LL.stroke(searchBox, COL.stroke, 1); LL.padding(searchBox, 0, 12, 0, 0)
+        Frame.Parent = main
+        Frame.BackgroundColor3 = Color3.fromRGB(163, 255, 137)
+        Frame.BorderColor3 = Color3.fromRGB(103, 221, 213)
+        Frame.Position = UDim2.new(0.100320168, 0, 0.379746825, 0)
+        Frame.Size = UDim2.new(0, 190, 0, 57)
+        Frame.Active = true
+        Frame.Draggable = true
 
-    local bindList = Instance.new("Frame")
-    bindList.Size = UDim2.new(1, 0, 0, 0); bindList.BackgroundTransparency = 1
-    bindList.AutomaticSize = Enum.AutomaticSize.Y; bindList.LayoutOrder = LL.NextOrder(); bindList.Parent = parent
-    local bindLayout = Instance.new("UIListLayout")
-    bindLayout.Padding = UDim.new(0, 6); bindLayout.SortOrder = Enum.SortOrder.LayoutOrder; bindLayout.Parent = bindList
+        up.Name = "up"; up.Parent = Frame
+        up.BackgroundColor3 = Color3.fromRGB(79, 255, 152)
+        up.Size = UDim2.new(0, 44, 0, 28)
+        up.Font = Enum.Font.SourceSans
+        up.Text = "UP"; up.TextColor3 = Color3.fromRGB(0, 0, 0); up.TextSize = 14
 
-    local bindEntries = {}
-    local function addBind(action, name)
-        local f = Instance.new("Frame")
-        f.Size = UDim2.new(1, 0, 0, 42); f.BackgroundColor3 = COL.elem
-        f.BackgroundTransparency = 0.05; f.BorderSizePixel = 0; f.Parent = bindList
-        f.Visible = true
-        LL.corner(f, 12); LL.stroke(f, COL.stroke, 1)
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1, -130, 1, 0); lbl.Position = UDim2.new(0, 16, 0, 0)
-        lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = COL.text
-        lbl.Font = Enum.Font.Gotham; lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = f
-        local keyLbl = Instance.new("TextLabel")
-        keyLbl.Size = UDim2.new(0, 108, 0, 28); keyLbl.Position = UDim2.new(1, -120, 0.5, -14)
-        keyLbl.BackgroundColor3 = COL.bg2; keyLbl.BorderSizePixel = 0; keyLbl.TextColor3 = COL.accent2
-        keyLbl.Font = Enum.Font.GothamBold; keyLbl.TextSize = 13; keyLbl.Parent = f
-        LL.corner(keyLbl, 8)
-        local function refresh()
-            local k = LL.S.Binds[action]
-            if k then
-                keyLbl.Text = tostring(k):gsub("Enum.KeyCode.","")
-                keyLbl.TextColor3 = COL.accent2
-            else
-                keyLbl.Text = "None"; keyLbl.TextColor3 = COL.sub
+        down.Name = "down"; down.Parent = Frame
+        down.BackgroundColor3 = Color3.fromRGB(215, 255, 121)
+        down.Position = UDim2.new(0, 0, 0.491228074, 0)
+        down.Size = UDim2.new(0, 44, 0, 28)
+        down.Font = Enum.Font.SourceSans
+        down.Text = "DOWN"; down.TextColor3 = Color3.fromRGB(0, 0, 0); down.TextSize = 14
+
+        onof.Name = "onof"; onof.Parent = Frame
+        onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
+        onof.Position = UDim2.new(0.702823281, 0, 0.491228074, 0)
+        onof.Size = UDim2.new(0, 56, 0, 28)
+        onof.Font = Enum.Font.SourceSans
+        onof.Text = "fly"; onof.TextColor3 = Color3.fromRGB(0, 0, 0); onof.TextSize = 14
+
+        TextLabel.Parent = Frame
+        TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
+        TextLabel.Position = UDim2.new(0.469327301, 0, 0, 0)
+        TextLabel.Size = UDim2.new(0, 100, 0, 28)
+        TextLabel.Font = Enum.Font.SourceSans
+        TextLabel.Text = "FLY GUI V3"; TextLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+        TextLabel.TextScaled = true; TextLabel.TextSize = 14; TextLabel.TextWrapped = true
+
+        plus.Name = "plus"; plus.Parent = Frame
+        plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
+        plus.Position = UDim2.new(0.231578946, 0, 0, 0)
+        plus.Size = UDim2.new(0, 45, 0, 28)
+        plus.Font = Enum.Font.SourceSans
+        plus.Text = "+"; plus.TextColor3 = Color3.fromRGB(0, 0, 0)
+        plus.TextScaled = true; plus.TextSize = 14; plus.TextWrapped = true
+
+        speed.Name = "speed"; speed.Parent = Frame
+        speed.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
+        speed.Position = UDim2.new(0.468421042, 0, 0.491228074, 0)
+        speed.Size = UDim2.new(0, 44, 0, 28)
+        speed.Font = Enum.Font.SourceSans
+        speed.Text = "1"; speed.TextColor3 = Color3.fromRGB(0, 0, 0)
+        speed.TextScaled = true; speed.TextSize = 14; speed.TextWrapped = true
+
+        mine.Name = "mine"; mine.Parent = Frame
+        mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
+        mine.Position = UDim2.new(0.231578946, 0, 0.491228074, 0)
+        mine.Size = UDim2.new(0, 45, 0, 29)
+        mine.Font = Enum.Font.SourceSans
+        mine.Text = "-"; mine.TextColor3 = Color3.fromRGB(0, 0, 0)
+        mine.TextScaled = true; mine.TextSize = 14; mine.TextWrapped = true
+
+        closebutton.Name = "Close"; closebutton.Parent = Frame
+        closebutton.BackgroundColor3 = Color3.fromRGB(225, 25, 0)
+        closebutton.Font = Enum.Font.SourceSans
+        closebutton.Size = UDim2.new(0, 45, 0, 28)
+        closebutton.Text = "X"; closebutton.TextSize = 30; closebutton.TextColor3 = Color3.fromRGB(0,0,0)
+        closebutton.Position = UDim2.new(0, 0, -1, 27)
+
+        mini.Name = "minimize"; mini.Parent = Frame
+        mini.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
+        mini.Font = Enum.Font.SourceSans
+        mini.Size = UDim2.new(0, 45, 0, 28)
+        mini.Text = "-"; mini.TextSize = 40; mini.TextColor3 = Color3.fromRGB(0,0,0)
+        mini.Position = UDim2.new(0, 44, -1, 27)
+
+        mini2.Name = "minimize2"; mini2.Parent = Frame
+        mini2.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
+        mini2.Font = Enum.Font.SourceSans
+        mini2.Size = UDim2.new(0, 45, 0, 28)
+        mini2.Text = "+"; mini2.TextSize = 40; mini2.TextColor3 = Color3.fromRGB(0,0,0)
+        mini2.Position = UDim2.new(0, 44, -1, 57); mini2.Visible = false
+
+        local speeds = 1
+        local speaker = LP
+        local nowe = false
+        local tpwalking = false
+        local xneoBV, xneoBG = nil, nil
+        local xneoThread = nil
+
+        local function stopFly()
+            nowe = false
+            tpwalking = false
+            if xneoThread then
+                pcall(function() task.cancel(xneoThread) end)
+                xneoThread = nil
+            end
+            if xneoBV then pcall(function() xneoBV:Destroy() end); xneoBV = nil end
+            if xneoBG then pcall(function() xneoBG:Destroy() end); xneoBG = nil end
+            local hum = speaker.Character and speaker.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.PlatformStand = false
+                for _, st in ipairs(LL.XNEO_STATES) do
+                    pcall(function() hum:SetStateEnabled(st, true) end)
+                end
+                pcall(function() hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics) end)
+            end
+            if speaker.Character and speaker.Character:FindFirstChild("Animate") then
+                speaker.Character.Animate.Disabled = false
             end
         end
-        refresh(); LL.BindRefreshers[action] = refresh
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 108, 0, 28); btn.Position = UDim2.new(1, -120, 0.5, -14)
-        btn.BackgroundTransparency = 1; btn.Text = ""; btn.Active = true; btn.ZIndex = 10; btn.Parent = f
-        btn.MouseButton1Down:Connect(function()
-            getgenv().TIMON_LISTENING = action
-            keyLbl.Text = "нажми..."; keyLbl.TextColor3 = Color3.fromRGB(255, 200, 100)
+
+        onof.MouseButton1Down:Connect(function()
+            local hum = speaker.Character and speaker.Character:FindFirstChildOfClass("Humanoid")
+            if not hum then return end
+            if nowe then
+                stopFly()
+            else
+                nowe = true
+                for _ = 1, speeds do
+                    task.spawn(function()
+                        local hb = RunService.Heartbeat
+                        tpwalking = true
+                        local chr = speaker.Character
+                        local h = chr and chr:FindFirstChildWhichIsA("Humanoid")
+                        while tpwalking and hb:Wait() and chr and h and h.Parent do
+                            if h.MoveDirection.Magnitude > 0 then
+                                chr:TranslateBy(h.MoveDirection)
+                            end
+                        end
+                    end)
+                end
+                if speaker.Character:FindFirstChild("Animate") then
+                    speaker.Character.Animate.Disabled = true
+                end
+                for _, v in next, hum:GetPlayingAnimationTracks() do
+                    v:AdjustSpeed(0)
+                end
+                for _, st in ipairs(LL.XNEO_STATES) do
+                    pcall(function() hum:SetStateEnabled(st, false) end)
+                end
+                pcall(function() hum:ChangeState(Enum.HumanoidStateType.Swimming) end)
+            end
+
+            local char = speaker.Character
+            local h2 = char and char:FindFirstChildOfClass("Humanoid")
+            if not h2 then return end
+            local part = (h2.RigType == Enum.HumanoidRigType.R6)
+                and char:FindFirstChild("Torso")
+                or char:FindFirstChild("UpperTorso")
+            if not part then return end
+
+            if xneoBV then pcall(function() xneoBV:Destroy() end) end
+            if xneoBG then pcall(function() xneoBG:Destroy() end) end
+
+            xneoBG = Instance.new("BodyGyro", part)
+            xneoBG.P = 9e4
+            xneoBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+            xneoBG.CFrame = part.CFrame
+
+            xneoBV = Instance.new("BodyVelocity", part)
+            xneoBV.Velocity = Vector3.new(0, 0.1, 0)
+            xneoBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            
+            if nowe then h2.PlatformStand = true end
+            
+            if xneoThread then pcall(function() task.cancel(xneoThread) end) end
+            xneoThread = task.spawn(function()
+                while nowe and getgenv().TIMON_LOADED and speaker.Character and speaker.Character:FindFirstChildOfClass("Humanoid") and speaker.Character:FindFirstChildOfClass("Humanoid").Health > 0 do
+                    RunService.RenderStepped:Wait()
+                    local cam = Workspace.CurrentCamera
+                    local ctrlF, ctrlB, ctrlL, ctrlR = 0,0,0,0
+                    if UIS:IsKeyDown(Enum.KeyCode.W) then ctrlF = 1 end
+                    if UIS:IsKeyDown(Enum.KeyCode.S) then ctrlB = -1 end
+                    if UIS:IsKeyDown(Enum.KeyCode.A) then ctrlL = -1 end
+                    if UIS:IsKeyDown(Enum.KeyCode.D) then ctrlR = 1 end
+                    if ctrlL + ctrlR ~= 0 or ctrlF + ctrlB ~= 0 then
+                        if xneoBV then
+                            xneoBV.Velocity = ((cam.CFrame.LookVector * (ctrlF+ctrlB)) + ((cam.CFrame * CFrame.new(ctrlL+ctrlR,(ctrlF+ctrlB)*.2,0).p) - cam.CFrame.p)) * 50
+                        end
+                    else
+                        if xneoBV then xneoBV.Velocity = Vector3.new(0,0,0) end
+                    end
+                    if xneoBG then xneoBG.CFrame = cam.CFrame end
+                end
+            end)
         end)
-        bindEntries[#bindEntries+1] = {frame = f, name = name, action = action}
-    end
 
-    addBind("Aimbot", "Aimbot Toggle")
-    addBind("AimbotHold", "Aim Hold")
-    addBind("ESP", "ESP")
-    addBind("Hitbox", "Hitbox")
-    addBind("Fly", "Fly")
-    addBind("Noclip", "Noclip")
-    addBind("InfiniteJump", "Infinite Jump")
-    addBind("ZeroGravity", "Zero Gravity")
-    addBind("SavePos", "Save Position")
-    addBind("LoadPos", "Load Position")
-    addBind("Macro", "Macro Play/Stop")
-
-    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        local q = string.lower(searchBox.Text)
-        for _, e in ipairs(bindEntries) do
-            if q == "" or string.find(string.lower(e.name), q, 1, true) then e.frame.Visible = true
-            else e.frame.Visible = false end
-        end
+        up.MouseButton1Down:Connect(function()
+            task.spawn(function()
+                while UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) and main.Parent do
+                    RunService.Heartbeat:Wait()
+                    local hrp = speaker.Character and speaker.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, 1, 0) end
+                end
+            end)
+        end)
+        down.MouseButton1Down:Connect(function()
+            task.spawn(function()
+                while UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) and main.Parent do
+                    RunService.Heartbeat:Wait()
+                    local hrp = speaker.Character and speaker.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, -1, 0) end
+                end
+            end)
+        end)
+        plus.MouseButton1Down:Connect(function()
+            speeds = speeds + 1
+            speed.Text = tostring(speeds)
+        end)
+        mine.MouseButton1Down:Connect(function()
+            if speeds > 1 then
+                speeds = speeds - 1
+                speed.Text = tostring(speeds)
+            end
+        end)
+        closebutton.MouseButton1Down:Connect(function()
+            stopFly()
+            main:Destroy()
+            LL.xneoScriptRunning = false
+        end)
+        mini.MouseButton1Down:Connect(function()
+            Frame.Size = UDim2.new(0, 190, 0, 28)
+            up.Visible = false; down.Visible = false; onof.Visible = false
+            TextLabel.Visible = false; plus.Visible = false; speed.Visible = false
+            mine.Visible = false; closebutton.Visible = false
+            mini.Visible = false; mini2.Visible = true
+        end)
+        mini2.MouseButton1Down:Connect(function()
+            Frame.Size = UDim2.new(0, 190, 0, 57)
+            up.Visible = true; down.Visible = true; onof.Visible = true
+            TextLabel.Visible = true; plus.Visible = true; speed.Visible = true
+            mine.Visible = true; closebutton.Visible = true
+            mini.Visible = true; mini2.Visible = false
+        end)
     end)
-
-    LL.Button(parent, "Сбросить все бинды", function()
-        LL.S.Binds = {}
-        for _, fn in pairs(LL.BindRefreshers) do pcall(fn) end
-        LL.MarkDirty(); LL.Notify("Бинды сброшены")
-    end, {textColor = COL.accent2})
-
-    LL.Section(parent, "Floating Lock")
-    LL.Toggle(parent, "Fix Floating Buttons",
-        function() return LL.S.FloatingLock end,
-        function(v)
-            LL.S.FloatingLock = v
-            LL.ApplyFloatingLock(); LL.MarkDirty()
-            LL.Notify("Floating: "..(v and "LOCKED" or "FREE"))
-        end)
-    LL.Button(parent, "Сбросить позиции кнопок", function()
-        LL.S.FloatingPos = {}
-        LL.RepositionAllFloatingBtns()
-        LL.MarkDirty(); LL.Notify("Позиции сброшены")
-    end, {textColor = COL.accent2})
-
-    LL.Section(parent, "Floating Buttons")
-    LL.Toggle(parent, "Aimbot Button",
-        function() return LL.S.MobileBtns.Aimbot == true end,
-        function(v) LL.S.MobileBtns.Aimbot = v; LL.ToggleMobileBtn("Aimbot", v) end)
-    LL.Toggle(parent, "Fly Button",
-        function() return LL.S.MobileBtns.Fly == true end,
-        function(v) LL.S.MobileBtns.Fly = v; LL.ToggleMobileBtn("Fly", v) end)
-    LL.Toggle(parent, "Zero Gravity Button",
-        function() return LL.S.MobileBtns.ZeroGravity == true end,
-        function(v) LL.S.MobileBtns.ZeroGravity = v; LL.ToggleMobileBtn("ZeroGravity", v) end)
-    LL.Toggle(parent, "Noclip Button",
-        function() return LL.S.MobileBtns.Noclip == true end,
-        function(v) LL.S.MobileBtns.Noclip = v; LL.ToggleMobileBtn("Noclip", v) end)
-    LL.Toggle(parent, "Anti Fling Button",
-        function() return LL.S.MobileBtns.AntiFling == true end,
-        function(v) LL.S.MobileBtns.AntiFling = v; LL.ToggleMobileBtn("AntiFling", v) end)
-    LL.Toggle(parent, "ESP Button",
-        function() return LL.S.MobileBtns.ESP == true end,
-        function(v) LL.S.MobileBtns.ESP = v; LL.ToggleMobileBtn("ESP", v) end)
-    LL.Toggle(parent, "Hitbox Button",
-        function() return LL.S.MobileBtns.Hitbox == true end,
-        function(v) LL.S.MobileBtns.Hitbox = v; LL.ToggleMobileBtn("Hitbox", v) end)
-    LL.Toggle(parent, "Macro Button",
-        function() return LL.S.MobileBtns.Macro == true end,
-        function(v) LL.S.MobileBtns.Macro = v; LL.ToggleMobileBtn("Macro", v) end)
-end)
+    if ok then
+        LL.xneoScriptRunning = true
+        LL.Notify("XNEO Fly GUI загружен")
+    else
+        LL.Notify("Ошибка XNEO: "..tostring(err))
+        warn("[TimonXNEO] "..tostring(err))
+    end
+end
 -- ============================================================
 -- ACTIONS
 -- ============================================================
@@ -2762,6 +3070,7 @@ function LL.applyLoadedSettings()
     if LL.S.Player.FPSBooster then LL.enableFPSBooster() else LL.disableFPSBooster() end
     if LL.S.Player.LowQuality then LL.enableLowQuality() else LL.disableLowQuality() end
     if LL.S.Player.Fullbright then LL.enableFullbright() else LL.disableFullbright() end
+    if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
     LL.CONFIG_DIRTY = false
 end
 
@@ -2797,6 +3106,29 @@ LL.trackConn(UIS.InputEnded:Connect(function(input, gp)
 end))
 
 -- ============================================================
+-- INFINITE JUMP
+-- ============================================================
+LL.trackConn(UIS.JumpRequest:Connect(function()
+    if LL.S.Player.InfiniteJump then
+        local hum = LL.Cache.Humanoid
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end))
+
+-- ============================================================
+-- AUTOSAVE LOOP
+-- ============================================================
+LL.trackThread(task.spawn(function()
+    while getgenv().TIMON_LOADED do
+        task.wait(2)
+        if LL.CONFIG_DIRTY and LL.S.AutoSave and LL.FS_AVAILABLE and (tick() - LL.lastDirtyTime) >= 2 then
+            LL.CONFIG_DIRTY = false
+            local ok, err = LL.saveConfig(LL.AUTOSAVE_FILE)
+            if not ok then warn("[TimonAutosave] "..tostring(err)) end
+        end
+    end
+end))
+-- ============================================================
 -- RENDER LOOP
 -- ============================================================
 LL.FlyBV = nil
@@ -2820,7 +3152,7 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
     local hrp = LL.Cache.HRP
     local hum = LL.Cache.Humanoid
 
-    -- ESP AUTO-SYNC (ФИКС: теперь работает независимо от RealTimeRefresh)
+    -- ESP AUTO-SYNC
     if LL.S.ESP.Enabled then
         for _, pl in ipairs(Players:GetPlayers()) do
             if pl ~= LP and not LL.ESPObjs[pl] then
@@ -3116,31 +3448,7 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
 end))
 
 -- ============================================================
--- INFINITE JUMP
--- ============================================================
-LL.trackConn(UIS.JumpRequest:Connect(function()
-    if LL.S.Player.InfiniteJump then
-        local hum = LL.Cache.Humanoid
-        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end))
-
--- ============================================================
--- AUTOSAVE LOOP
--- ============================================================
-LL.trackThread(task.spawn(function()
-    while getgenv().TIMON_LOADED do
-        task.wait(2)
-        if LL.CONFIG_DIRTY and LL.S.AutoSave and LL.FS_AVAILABLE and (tick() - LL.lastDirtyTime) >= 2 then
-            LL.CONFIG_DIRTY = false
-            local ok, err = LL.saveConfig(LL.AUTOSAVE_FILE)
-            if not ok then warn("[TimonAutosave] "..tostring(err)) end
-        end
-    end
-end))
-
--- ============================================================
--- INIT (ФИКС: защита от краша при автозагрузке)
+-- INIT
 -- ============================================================
 local autoloaded = false
 if LL.FS_AVAILABLE and LL.fileExists(LL.CONFIG_DIR.."/"..LL.AUTOSAVE_FILE..".json") then
@@ -3171,11 +3479,10 @@ if LL.S.Player.LowQuality then LL.enableLowQuality() end
 if LL.S.Player.Fullbright then LL.enableFullbright() end
 
 if autoloaded then
-    LL.Notify("Timon Hub v4.6.6 · автозагрузка")
+    LL.Notify("Timon Hub v4.6.7 · автозагрузка")
 else
-    LL.Notify("Timon Hub v4.6.6 · загружен")
+    LL.Notify("Timon Hub v4.6.7 · загружен")
 end
-
 -- ============================================================
 -- UNLOAD
 -- ============================================================
@@ -3187,10 +3494,13 @@ getgenv().TIMON_UNLOAD = function()
 
     getgenv().TIMON_LOADED = false
 
+    -- 1. Останавливаем макросы
     step("macro", function()
         if LL.MacroStopPlaying then LL.MacroStopPlaying() end
         if LL.MacroStopRecording then LL.MacroStopRecording() end
     end)
+
+    -- 2. Закрываем XNEO
     step("xneo", function()
         if LL.xneoScriptRunning then
             local pg = LP:FindFirstChild("PlayerGui")
@@ -3201,12 +3511,18 @@ getgenv().TIMON_UNLOAD = function()
             LL.xneoScriptRunning = false
         end
     end)
+
+    -- 3. Выключаем Anti-AFK
     step("antiAFK", function() LL.stopAntiAFK() end)
+
+    -- 4. Возвращаем освещение и графику
     step("lighting", function()
         LL.disableFPSBooster()
         LL.disableLowQuality()
         LL.disableFullbright()
     end)
+
+    -- 5. Возвращаем скорость, прыжок и гравитацию
     step("player", function()
         local hum = LL.Cache.Humanoid
         if hum then
@@ -3215,44 +3531,64 @@ getgenv().TIMON_UNLOAD = function()
         end
         Workspace.Gravity = DEFAULT_GRAVITY
     end)
+
+    -- 6. Удаляем ESP (игроки и NPC)
     step("esp", function()
         for p in pairs(LL.ESPObjs) do LL.RemoveESP(p) end
         for m in pairs(LL.NPCESPObjs) do LL.RemoveNPCESP(m) end
     end)
+
     step("espConns", function()
         for _, conn in pairs(LL.espCharConn) do pcall(function() conn:Disconnect() end) end
         LL.espCharConn = {}
     end)
+
+    -- 7. Восстанавливаем хитбоксы
     step("hitbox", function()
         LL.ClearAllHitboxes()
         LL.ClearAllNPCHitboxes()
     end)
+
+    -- 8. Удаляем Drawing (FOV, Beam, Hitbox Box)
     step("drawing", function()
         if LL.fovCircle then pcall(function() LL.fovCircle:Remove() end) end
         if LL.aimBeam then pcall(function() LL.aimBeam:Remove() end) end
         if LL.hitboxBox then pcall(function() LL.hitboxBox:Remove() end) end
     end)
+
+    -- 9. Отключаем Aimbot поток
     step("aimRender", function() RunService:UnbindFromRenderStep("TIMON_AIM") end)
+
+    -- 10. Удаляем Fly объекты
     step("fly", function()
         if LL.FlyBV then LL.FlyBV:Destroy() end
         if LL.FlyBG then LL.FlyBG:Destroy() end
         if LL.SpinAV then LL.SpinAV:Destroy() end
     end)
+
+    -- 11. Удаляем GUI
     step("gui", function()
         if LL.ScreenGui then LL.ScreenGui:Destroy() end
     end)
+
+    -- 12. Отменяем все потоки
     step("threads", function()
         for _, t in ipairs(THREADS) do pcall(function() task.cancel(t) end) end
         for i = #THREADS, 1, -1 do THREADS[i] = nil end
     end)
+
+    -- 13. Отключаем все коннекты
     step("conns", function()
         for _, c in ipairs(CONNS) do pcall(function() c:Disconnect() end) end
         for i = #CONNS, 1, -1 do CONNS[i] = nil end
     end)
 
+    -- 14. Сброс переменных
     LL.StickyTarget = nil
     LL.StickyTargetIsNPC = false
     LL.aimHoldDown = false
     LL.wasHoldActive = false
     LL.antiAFKThread = nil
+    LL.MacroRecBtnUpdate = nil
+    LL.MacroRecBtn = nil
 end
