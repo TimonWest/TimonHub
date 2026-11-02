@@ -107,7 +107,101 @@ LL.FS_AVAILABLE = LL.ScriptAvailable.WriteFile and LL.ScriptAvailable.ReadFile a
 function LL.MarkDirty() LL.CONFIG_DIRTY=true; LL.lastDirtyTime=tick() end
 function LL.ensureDir() if not LL.FS_AVAILABLE then return end; pcall(function() if not isfolder(LL.CONFIG_DIR) then makefolder(LL.CONFIG_DIR) end end) end
 function LL.fileExists(p) if not LL.FS_AVAILABLE then return false end; local ok,r=pcall(function() return isfile(p) end); return ok and r end
-LL.ensureDir()
+
+function LL.packC3(c) return {math.floor(c.R*255+0.5),math.floor(c.G*255+0.5),math.floor(c.B*255+0.5)} end
+function LL.unpackC3(t) return Color3.fromRGB(t[1] or 128,t[2] or 128,t[3] or 128) end
+local unpackFn = table.unpack or unpack
+
+function LL.packSettings()
+    local S=LL.S
+    local d={Aimbot={},ESP={},Hitbox={},Player={},Troll={},Hamster={Coins=S.Hamster.Coins},AutoClicker=S.AutoClicker,Binds={},MobileBtns={},AutoSave=S.AutoSave,FloatingLock=S.FloatingLock,FloatingPos=S.FloatingPos,ConfigName=S.ConfigName,UI={},Macro={},KeyValidated=S.KeyValidated,Language=LL.Language}
+    for k,v in pairs(S.Aimbot) do
+        if type(v)=="Color3" then d.Aimbot[k]=LL.packC3(v)
+        elseif typeof(v)=="EnumItem" then d.Aimbot[k]=tostring(v):gsub("Enum.KeyCode.","")
+        else d.Aimbot[k]=v end
+    end
+    for k,v in pairs(S.ESP) do if type(v)=="Color3" then d.ESP[k]=LL.packC3(v) else d.ESP[k]=v end end
+    for k,v in pairs(S.Hitbox) do d.Hitbox[k]=v end
+    for k,v in pairs(S.Player) do if k=="SavedPos" then if v then d.Player[k]={v:GetComponents()} end else d.Player[k]=v end end
+    for k,v in pairs(S.Troll) do d.Troll[k]=v end
+    for a,k in pairs(S.Binds) do if typeof(k)=="EnumItem" then d.Binds[a]=tostring(k):gsub("Enum.KeyCode.","") end end
+    for k,v in pairs(S.MobileBtns) do d.MobileBtns[k]=v end
+    for k,v in pairs(S.UI) do if typeof(v)=="EnumItem" then d.UI[k]=tostring(v):gsub("Enum.KeyCode.","") else d.UI[k]=v end end
+    for k,v in pairs(S.Macro) do d.Macro[k]=v end
+    return d
+end
+function LL.applySettings(d)
+    if not d then return end
+    local S=LL.S
+    if d.KeyValidated~=nil then LL.S.KeyValidated=d.KeyValidated; LL.KeyValidated=d.KeyValidated end
+    if d.Language then LL.Language=d.Language end
+    if d.Aimbot then for k,v in pairs(d.Aimbot) do
+        if S.Aimbot[k]~=nil then
+            if type(S.Aimbot[k])=="Color3" and type(v)=="table" then S.Aimbot[k]=LL.unpackC3(v)
+            elseif k=="SilentHoldBind" then
+                if type(v)=="string" then local ok,c=pcall(function() return Enum.KeyCode[v] end); if ok and c then S.Aimbot[k]=c end end
+            else S.Aimbot[k]=v end
+        end
+    end end
+    if d.ESP then for k,v in pairs(d.ESP) do if S.ESP[k]~=nil then if type(S.ESP[k])=="Color3" and type(v)=="table" then S.ESP[k]=LL.unpackC3(v) else S.ESP[k]=v end end end end
+    if d.Hitbox then for k,v in pairs(d.Hitbox) do if S.Hitbox[k]~=nil then S.Hitbox[k]=v end end end
+    if d.Player then for k,v in pairs(d.Player) do if k=="SavedPos" and type(v)=="table" and #v>=12 then local ok,cf=pcall(function() return CFrame.new(unpackFn(v)) end); if ok then S.Player.SavedPos=cf end elseif S.Player[k]~=nil then S.Player[k]=v end end end
+    if d.Troll then for k,v in pairs(d.Troll) do if S.Troll[k]~=nil then S.Troll[k]=v end end end
+    if d.Hamster and d.Hamster.Coins then S.Hamster.Coins=d.Hamster.Coins end
+    if d.AutoClicker then for k,v in pairs(d.AutoClicker) do if S.AutoClicker[k]~=nil then S.AutoClicker[k]=v end end end
+    S.Binds={}
+    if d.Binds then for a,n in pairs(d.Binds) do local ok,code=pcall(function() return Enum.KeyCode[n] end); if ok and code then S.Binds[a]=code end end end
+    if d.MobileBtns then S.MobileBtns={}; for k,v in pairs(d.MobileBtns) do S.MobileBtns[k]=v end end
+    if d.AutoSave~=nil then S.AutoSave=d.AutoSave end
+    if d.FloatingLock~=nil then S.FloatingLock=d.FloatingLock end
+    if d.FloatingPos then S.FloatingPos=d.FloatingPos end
+    if d.ConfigName then S.ConfigName=d.ConfigName end
+    if d.UI then for k,v in pairs(d.UI) do if k=="GuiKeybind" and type(v)=="string" then local ok,code=pcall(function() return Enum.KeyCode[v] end); if ok and code then S.UI.GuiKeybind=code end elseif S.UI[k]~=nil then S.UI[k]=v end end end
+    if d.Macro then for k,v in pairs(d.Macro) do if S.Macro[k]~=nil then S.Macro[k]=v end end end
+end
+
+function LL.saveConfig(name)
+    if not LL.FS_AVAILABLE then return false, "writefile недоступен" end
+    pcall(LL.ensureDir)
+    name = name or LL.AUTOSAVE_FILE
+    local ok, err = pcall(function()
+        writefile(LL.CONFIG_DIR.."/"..name..".json", HttpService:JSONEncode(LL.packSettings()))
+    end)
+    if not ok then return false, tostring(err) end
+    return true
+end
+function LL.loadConfigFile(name)
+    if not LL.FS_AVAILABLE then return false end
+    name = name or LL.AUTOSAVE_FILE
+    local path = LL.CONFIG_DIR.."/"..name..".json"
+    if not LL.fileExists(path) then return false end
+    local ok, c = pcall(function() return readfile(path) end)
+    if not ok or not c or c == "" then return false end
+    local ok2, data = pcall(function() return HttpService:JSONDecode(c) end)
+    if not ok2 or type(data) ~= "table" then return false end
+    local ok3 = pcall(function() LL.applySettings(data) end)
+    if not ok3 then return false end
+    LL.CONFIG_DIRTY = false
+    return true
+end
+function LL.deleteConfig(name)
+    if not LL.FS_AVAILABLE then return end
+    pcall(function() delfile(LL.CONFIG_DIR.."/"..name..".json") end)
+end
+function LL.listConfigs()
+    local out = {}
+    if not LL.FS_AVAILABLE then return out end
+    pcall(function()
+        if not isfolder(LL.CONFIG_DIR) then return end
+        for _, file in ipairs(listfiles(LL.CONFIG_DIR)) do
+            local n = file:match("([^/\\]+)%.json$")
+            if n then table.insert(out, n) end
+        end
+    end)
+    return out
+end
+
+pcall(LL.ensureDir)
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name="LARP_GUI"; ScreenGui.ResetOnSpawn=false; ScreenGui.IgnoreGuiInset=true; ScreenGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
@@ -878,13 +972,26 @@ end
 function LL.setBooster(on) LL.captureLightingOriginal(); LL.LightingMgr.boosterApplied=on; LL.applyLightingState() end
 function LL.setFullbright(on) LL.captureLightingOriginal(); LL.LightingMgr.fullbrightApplied=on; LL.applyLightingState() end
 LL.lowQualityRemoved={}
+
 function LL.enableLowQuality()
     LL.captureLightingOriginal()
     pcall(function()
-        Lighting.FogEnd=1e6; Lighting.FogStart=1e6
-        for _,obj in ipairs(Workspace:GetDescendants()) do
+        Lighting.FogEnd = 1e6
+        Lighting.FogStart = 1e6
+    end)
+    task.spawn(function()
+        local ok, descendants = pcall(function() return Workspace:GetDescendants() end)
+        if not ok or not descendants then return end
+        local count = 0
+        for _, obj in ipairs(descendants) do
             if obj:IsA("ParticleEmitter") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
-                table.insert(LL.lowQualityRemoved,obj); obj.Enabled=false
+                table.insert(LL.lowQualityRemoved, obj)
+                pcall(function() obj.Enabled = false end)
+            end
+            count = count + 1
+            if count % 400 == 0 then
+                task.wait()
+                if not getgenv().TIMON_LOADED then return end
             end
         end
     end)
@@ -1052,15 +1159,19 @@ function LL.isNPC(model)
     return true
 end
 function LL.scanWorkspaceOnce()
-    local newCache={}; local count=0
-    local ok,descendants=pcall(function() return Workspace:GetDescendants() end)
+    local newCache = {}
+    local ok, descendants = pcall(function() return Workspace:GetDescendants() end)
     if not ok or not descendants then return end
-    for _,d in ipairs(descendants) do
-        if d:IsA("Model") and LL.isNPC(d) then newCache[d]=true end
-        count=count+1
-        if count%200==0 then task.wait(); if not getgenv().TIMON_LOADED then return end end
+    local count = 0
+    for _, d in ipairs(descendants) do
+        if d:IsA("Model") and LL.isNPC(d) then newCache[d] = true end
+        count = count + 1
+        if count % 400 == 0 then
+            task.wait()
+            if not getgenv().TIMON_LOADED then return end
+        end
     end
-    LL.NPCCache=newCache
+    LL.NPCCache = newCache
 end
 function LL.refreshNPCCache() LL.lastNPCRescan=tick(); LL.scanWorkspaceOnce() end
 LL.trackConn(Workspace.DescendantAdded:Connect(function(d)
@@ -1769,40 +1880,59 @@ LL.Actions.XNEO=function()
 end
 
 function LL.applyLoadedSettings()
-    LL.RefreshAll()
-    for _,fn in pairs(LL.BindRefreshers) do pcall(fn) end
+    pcall(function() LL.RefreshAll() end)
+    for _, fn in pairs(LL.BindRefreshers) do pcall(fn) end
     if LL.MacroStopPlaying then pcall(LL.MacroStopPlaying) end
     if LL.MacroStopRecording then pcall(LL.MacroStopRecording) end
-    if LL.S.ESP.Enabled then
-        for _,p in ipairs(Players:GetPlayers()) do
-            if p~=LP and not LL.ESPObjs[p] then pcall(LL.CreateESP,p) end
+
+    task.spawn(function()
+        if LL.S.ESP.Enabled then
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LP and not LL.ESPObjs[p] then pcall(LL.CreateESP, p) end
+            end
+        else
+            for p in pairs(LL.ESPObjs) do pcall(LL.RemoveESP, p) end
         end
-    else
-        for p in pairs(LL.ESPObjs) do pcall(LL.RemoveESP,p) end
-    end
-    if LL.S.ESP.NPCEnabled then
-        pcall(LL.refreshNPCCache)
-        for m in pairs(LL.NPCCache) do
-            if not LL.isPlayerCharacter(m) and not LL.NPCESPObjs[m] then pcall(LL.CreateNPCESP,m) end
+        task.wait(0.1)
+        if LL.S.ESP.NPCEnabled then
+            pcall(LL.refreshNPCCache)
+            for m in pairs(LL.NPCCache) do
+                if not LL.isPlayerCharacter(m) and not LL.NPCESPObjs[m] then pcall(LL.CreateNPCESP, m) end
+            end
+        else
+            for m in pairs(LL.NPCESPObjs) do pcall(LL.RemoveNPCESP, m) end
         end
-    else
-        for m in pairs(LL.NPCESPObjs) do pcall(LL.RemoveNPCESP,m) end
-    end
-    if LL.S.Hitbox.Enabled then
-        for _,pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox,pl) end
-    else LL.ClearAllHitboxes() end
-    if LL.S.Hitbox.NPCSupport then
-        pcall(LL.refreshNPCCache)
-        for model in pairs(LL.NPCCache) do pcall(LL.ApplyNPCHitbox,model) end
-    else LL.ClearAllNPCHitboxes() end
-    for action,state in pairs(LL.S.MobileBtns) do LL.ToggleMobileBtn(action,state) end
-    LL.RepositionAllFloatingBtns(); LL.ApplyFloatingLock(); LL.applyGravityState()
-    if LL.S.Player.AntiAFK then LL.startAntiAFK() else LL.stopAntiAFK() end
-    if LL.S.Player.FPSBooster then LL.enableFPSBooster() else LL.disableFPSBooster() end
-    if LL.S.Player.LowQuality then LL.enableLowQuality() else LL.disableLowQuality() end
-    if LL.S.Player.Fullbright then LL.enableFullbright() else LL.disableFullbright() end
-    if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
-    LL.CONFIG_DIRTY=false
+        task.wait(0.1)
+        if LL.S.Hitbox.Enabled then
+            for _, pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox, pl) end
+        else
+            LL.ClearAllHitboxes()
+        end
+        task.wait(0.1)
+        if LL.S.Hitbox.NPCSupport then
+            pcall(LL.refreshNPCCache)
+            for model in pairs(LL.NPCCache) do pcall(LL.ApplyNPCHitbox, model) end
+        else
+            LL.ClearAllNPCHitboxes()
+        end
+    end)
+
+    for action, state in pairs(LL.S.MobileBtns) do LL.ToggleMobileBtn(action, state) end
+    LL.RepositionAllFloatingBtns()
+    LL.ApplyFloatingLock()
+    pcall(LL.applyGravityState)
+
+    task.spawn(function()
+        if LL.S.Player.AntiAFK then LL.startAntiAFK() else LL.stopAntiAFK() end
+        task.wait(0.1)
+        if LL.S.Player.FPSBooster then LL.enableFPSBooster() else LL.disableFPSBooster() end
+        task.wait(0.1)
+        if LL.S.Player.LowQuality then LL.enableLowQuality() else LL.disableLowQuality() end
+        task.wait(0.1)
+        if LL.S.Player.Fullbright then LL.enableFullbright() else LL.disableFullbright() end
+        if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
+    end)
+    LL.CONFIG_DIRTY = false
 end
 
 LL.trackConn(UIS.InputBegan:Connect(function(input,gp)
@@ -1841,11 +1971,13 @@ LL.trackConn(UIS.JumpRequest:Connect(function()
 end))
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
-        task.wait(2)
-        if LL.CONFIG_DIRTY and LL.S.AutoSave and LL.FS_AVAILABLE and (tick()-LL.lastDirtyTime)>=2 then
-            LL.CONFIG_DIRTY=false
-            local ok,err=LL.saveConfig(LL.AUTOSAVE_FILE)
-            if not ok then warn("[LARP Autosave] "..tostring(err)) end
+        task.wait(3)
+        if LL.CONFIG_DIRTY and LL.S.AutoSave and LL.FS_AVAILABLE then
+            if tick() - LL.lastDirtyTime >= 2 then
+                LL.CONFIG_DIRTY = false
+                local ok, err = LL.saveConfig(LL.AUTOSAVE_FILE)
+                if not ok then warn("[LARP Autosave] "..tostring(err)) end
+            end
         end
     end
 end))
@@ -2166,27 +2298,45 @@ end
     end
 end))
 
-local autoloaded=false
-if LL.FS_AVAILABLE and LL.fileExists(LL.CONFIG_DIR.."/"..LL.AUTOSAVE_FILE..".json") then
-    local ok=pcall(function() LL.loadConfigFile(LL.AUTOSAVE_FILE) end)
-    if ok then autoloaded=true end
-end
-pcall(function() LL.RefreshAll() end)
-if autoloaded then pcall(function() LL.applyLoadedSettings() end)
-else
-    pcall(function()
-        if LL.S.ESP.Enabled then for _,pl in ipairs(Players:GetPlayers()) do pcall(LL.CreateESP,pl) end end
-        if LL.S.Hitbox.Enabled then for _,pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox,pl) end end
+local autoloaded = false
+if LL.FS_AVAILABLE then
+    local ok, res = pcall(function()
+        if LL.fileExists(LL.CONFIG_DIR.."/"..LL.AUTOSAVE_FILE..".json") then
+            return LL.loadConfigFile(LL.AUTOSAVE_FILE)
+        end
+        return false
     end)
+    if ok and res then autoloaded = true end
 end
-LL.applyGravityState(); LL.ApplyFloatingLock(); LL.RepositionAllFloatingBtns()
-if LL.S.Player.AntiAFK then LL.startAntiAFK() end
-if LL.S.Player.FPSBooster then LL.enableFPSBooster() end
-if LL.S.Player.LowQuality then LL.enableLowQuality() end
-if LL.S.Player.Fullbright then LL.enableFullbright() end
+
+task.spawn(function()
+    task.wait(0.1)
+    pcall(function() LL.RefreshAll() end)
+    task.wait(0.05)
+    if autoloaded then
+        pcall(function() LL.applyLoadedSettings() end)
+    else
+        pcall(function()
+            if LL.S.ESP.Enabled then
+                for _,pl in ipairs(Players:GetPlayers()) do pcall(LL.CreateESP,pl) end
+            end
+            if LL.S.Hitbox.Enabled then
+                for _,pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox,pl) end
+            end
+        end)
+    end
+end)
+
+LL.applyGravityState()
+LL.ApplyFloatingLock()
+LL.RepositionAllFloatingBtns()
+
 if LL.KeyValidated then
-    LL.Notify("LARP(T) · 333 SINISTER · автозагрузка")
     LL.ShowMainUI()
+    task.spawn(function()
+        task.wait(0.3)
+        pcall(function() LL.Notify("LARP(T) · 333 SINISTER · автозагрузка") end)
+    end)
 else
     LL.ShowKeyScreen()
 end
@@ -2233,6 +2383,9 @@ getgenv().TIMON_UNLOAD=function()
     step("gui",function() if LL.ScreenGui then LL.ScreenGui:Destroy() end end)
     step("threads",function() for _,t in ipairs(THREADS) do pcall(function() task.cancel(t) end) end; for i=#THREADS,1,-1 do THREADS[i]=nil end end)
     step("conns",function() for _,c in ipairs(CONNS) do pcall(function() c:Disconnect() end) end; for i=#CONNS,1,-1 do CONNS[i]=nil end end)
+    step("finalSave", function()
+        if LL.FS_AVAILABLE and LL.S.AutoSave then pcall(function() LL.saveConfig(LL.AUTOSAVE_FILE) end) end
+    end)
     LL.StickyTarget=nil; LL.StickyTargetIsNPC=false; LL.aimHoldDown=false; LL.silentHoldDown=false
     LL.antiAFKThread=nil; LL.MacroRecBtnUpdate=nil; LL.MacroRecBtn=nil
 end
