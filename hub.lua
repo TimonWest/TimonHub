@@ -47,7 +47,7 @@ LL.Loc = {ru = {
     Macro={Info="Записывает движение через MoveTo.",Settings="Настройки",MacroName="Имя макроса",SampleRate="Частота записи (сек)",Loop="Цикл",JumpDetection="Записывать прыжки",Advanced="Продвинутые режимы",IgnoreObstacles="Игнорировать стены",PushThrough="Пробивать стены",Record="Запись",StartRecord="🔴 Начать запись",StopRecord="⏹ Закончить запись",Play="Воспроизведение",PlayMacro="▶ Запустить макрос",StopMacro="⏹ Остановить макрос",StopAndReturn="⏸ Остановить и вернуться",Manage="Управление",SaveRecord="💾 Сохранить запись",DeleteCurrent="🗑 Удалить текущий",DeleteAll="🗑 Удалить все",List="Список макросов",Empty="(нет макросов)"},
     AutoClicker={Title="Автокликер",Enable="Включить автокликер",Speed="Скорость (кликов/сек)",Button="Кнопка",Left="ЛКМ",Right="ПКМ",Mode="Режим",ModeVirtual="Виртуальный (тап)",ModeReal="Реальный (курсор)",Info="Virtual — тап по центру через VIM/tap. Real — клик по курсору."},
     Settings={Actions="Действия",ResetSettings="Сбросить настройки",Unload="Выгрузить скрипт",UISettings="UI",UIScale="Масштаб UI",Notifications="Уведомления",AutoHideMobile="Авто-скрытие GUI на мобиле",Configs="Конфиги",ConfigName="Имя конфига",SaveConfig="Сохранить",LoadConfig="Загрузить",DeleteConfig="Удалить",AutoSave="Авто-сохранение",AvailableConfigs="Доступные конфиги",EmptyConfigs="(пусто)"},
-    Binds={Title="Бинды",Search="Поиск биндов...",Actions="Действия",Aimbot="Aimbot",AimbotHold="Удержание Aim",SilentHoldBind="Удержание Silent Aim",ESP="ESP",Hitbox="Hitbox",Fly="Полёт",Noclip="Noclip",InfiniteJump="Бесконечный прыжок",ZeroGravity="Нулевая гравитация",SavePos="Сохранить позицию",LoadPos="Загрузить позицию",Macro="Макрос (Play/Stop)",MacroRecord="Запись макроса",ResetBinds="Сбросить все бинды",FloatingLock="Фиксация кнопок",ResetPositions="Сбросить позиции кнопок",FloatingButtons="Плавающие кнопки"},
+    Binds={Title="Бинды",Search="Поиск биндов...",Actions="Действия",Aimbot="Aimbot",AimbotHold="Удержание Aim",SilentHoldBind="Удержание Silent Aim",ESP="ESP",Hitbox="Hitbox",Fly="Полёт",Noclip="Noclip",InfiniteJump="Бесконечный прыжок",ZeroGravity="Нулевая гравитация",SavePos="Сохранить позицию",LoadPos="Загрузить позицию",Macro="Макрос (Play/Stop)",MacroRecord="Запись макроса",ResetBinds="Сбросить все бинды",FloatingLock="Фиксация кнопок",ResetPositions="Сбросить позиции кнопок",FloatingButtons="Плавающие кнопки",AutoClicker="Автокликер"},
     Info={Title="О скрипте LARP(T)",Owner="Владелец (Telegram)",Channel="Канал (Telegram)",Note="Скрипт полностью бесплатный. Ключ навсегда: @luaLARP и @ForchanW.",Free="Скрипт полностью бесплатный.",Key="Ключ навсегда: @luaLARP / @ForchanW"},
     Key={Title="Введите ключ для LARP(T)",Placeholder="Ключ доступа",Submit="Активировать",Error="Неверный ключ.",Success="Ключ активирован навсегда!"},
 }}
@@ -61,7 +61,7 @@ LL.Loc.en = {
     Macro={Info="Records movement via MoveTo.",Settings="Settings",MacroName="Macro Name",SampleRate="Sample Rate",Loop="Loop",JumpDetection="Record Jumps",Advanced="Advanced Modes",IgnoreObstacles="Ignore Obstacles",PushThrough="Push Through",Record="Record",StartRecord="🔴 Start",StopRecord="⏹ Stop",Play="Playback",PlayMacro="▶ Play Macro",StopMacro="⏹ Stop Macro",StopAndReturn="⏸ Stop & Return",Manage="Manage",SaveRecord="💾 Save",DeleteCurrent="🗑 Delete Current",DeleteAll="🗑 Delete All",List="Macro List",Empty="(no macros)"},
     AutoClicker={Title="AutoClicker",Enable="Enable AutoClicker",Speed="Speed (cps)",Button="Button",Left="Left",Right="Right",Mode="Mode",ModeVirtual="Virtual (Tap)",ModeReal="Real (Cursor)",Info="Virtual — tap center via VIM/tap. Real — cursor click."},
     Settings={Actions="Actions",ResetSettings="Reset Settings",Unload="Unload Script",UISettings="UI",UIScale="UI Scale",Notifications="Notifications",AutoHideMobile="Auto-hide on Mobile",Configs="Configs",ConfigName="Config Name",SaveConfig="Save",LoadConfig="Load",DeleteConfig="Delete",AutoSave="Auto-save",AvailableConfigs="Available",EmptyConfigs="(empty)"},
-    Binds={Title="Binds",Search="Search binds...",Actions="Actions",Aimbot="Aimbot",AimbotHold="Aim Hold",SilentHoldBind="Silent Aim Hold",ESP="ESP",Hitbox="Hitbox",Fly="Fly",Noclip="Noclip",InfiniteJump="Infinite Jump",ZeroGravity="Zero Gravity",SavePos="Save Pos",LoadPos="Load Pos",Macro="Macro",MacroRecord="Macro Record",ResetBinds="Reset All",FloatingLock="Floating Lock",ResetPositions="Reset Positions",FloatingButtons="Floating Buttons"},
+    Binds={Title="Binds",Search="Search binds...",Actions="Actions",Aimbot="Aimbot",AimbotHold="Aim Hold",SilentHoldBind="Silent Aim Hold",ESP="ESP",Hitbox="Hitbox",Fly="Fly",Noclip="Noclip",InfiniteJump="Infinite Jump",ZeroGravity="Zero Gravity",SavePos="Save Pos",LoadPos="Load Pos",Macro="Macro",MacroRecord="Macro Record",ResetBinds="Reset All",FloatingLock="Floating Lock",ResetPositions="Reset Positions",FloatingButtons="Floating Buttons",AutoClicker="AutoClicker"},
     Info={Title="About LARP(T)",Owner="Owner",Channel="Channel",Note="100% free. Forever key: @luaLARP / @ForchanW.",Free="100% free.",Key="Forever key: @luaLARP / @ForchanW"},
     Key={Title="Enter LARP(T) Key",Placeholder="Key",Submit="Activate",Error="Invalid key.",Success="Key activated!"},
 }
@@ -160,8 +160,63 @@ function LL.applySettings(d)
     if d.Macro then for k,v in pairs(d.Macro) do if S.Macro[k]~=nil then S.Macro[k]=v end end end
 end
 
-LL.ensureDir()
+function LL.saveConfig(name)
+    if not LL.FS_AVAILABLE then return false, "writefile недоступен" end
+    pcall(LL.ensureDir)
+    name = name or LL.AUTOSAVE_FILE
+    if type(name) ~= "string" or name == "" or name == "LABEL" or name == "function" or name == "activeState" then
+        name = LL.AUTOSAVE_FILE
+    end
+    if not name:match("^[%w_%-]+$") then name = LL.AUTOSAVE_FILE end
+    local ok, err = pcall(function()
+        writefile(LL.CONFIG_DIR.."/"..name..".json", HttpService:JSONEncode(LL.packSettings()))
+    end)
+    if not ok then return false, tostring(err) end
+    return true
+end
+function LL.loadConfigFile(name)
+    if not LL.FS_AVAILABLE then return false end
+    name = name or LL.AUTOSAVE_FILE
+    if type(name) ~= "string" or name == "" or name == "LABEL" or name == "function" or name == "activeState" then
+        name = LL.AUTOSAVE_FILE
+    end
+    if not name:match("^[%w_%-]+$") then name = LL.AUTOSAVE_FILE end
+    local path = LL.CONFIG_DIR.."/"..name..".json"
+    if not LL.fileExists(path) then return false end
+    local ok, c = pcall(function() return readfile(path) end)
+    if not ok or not c or c == "" then return false end
+    local ok2, data = pcall(function() return HttpService:JSONDecode(c) end)
+    if not ok2 or type(data) ~= "table" then return false end
+    local ok3 = pcall(function() LL.applySettings(data) end)
+    if not ok3 then return false end
+    LL.CONFIG_DIRTY = false
+    return true
+end
+function LL.deleteConfig(name)
+    if not LL.FS_AVAILABLE then return end
+    pcall(function() delfile(LL.CONFIG_DIR.."/"..name..".json") end)
+end
+function LL.listConfigs()
+    local out = {}
+    if not LL.FS_AVAILABLE then return out end
+    pcall(function()
+        if not isfolder(LL.CONFIG_DIR) then return end
+        for _, file in ipairs(listfiles(LL.CONFIG_DIR)) do
+            local n = file:match("([^/\\]+)%.json$")
+            if n and n ~= "LABEL" and n ~= "function" and n ~= "activeState" and n:match("^[%w_%-]+$") then
+                table.insert(out, n)
+            end
+        end
+    end)
+    return out
+end
 
+LL.ensureDir()
+pcall(function()
+    if LL.FS_AVAILABLE and LL.fileExists(LL.CONFIG_DIR.."/LABEL.json") then
+        delfile(LL.CONFIG_DIR.."/LABEL.json")
+    end
+end)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name="LARP_GUI"; ScreenGui.ResetOnSpawn=false; ScreenGui.IgnoreGuiInset=true; ScreenGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 pcall(function() ScreenGui.Parent=CoreGui end)
@@ -254,8 +309,8 @@ function LL.Dropdown(parent, name, options, getter, setter)
     arrow.BackgroundTransparency=1; arrow.Text="▾"; arrow.TextColor3=COL.accent2; arrow.Font=Enum.Font.GothamBold; arrow.TextSize=16; arrow.Parent=f
     local function render() lbl.Text=name..": "..tostring(getter()) end
     render(); LL.AddRefresh(render)
-    local btn=Instance.new("TextButton");
-btn.Size=UDim2.new(1,0,1,0); btn.BackgroundTransparency=1; btn.Text=""; btn.ZIndex=10; btn.Parent=f
+    local btn=Instance.new("TextButton")
+    btn.Size=UDim2.new(1,0,1,0); btn.BackgroundTransparency=1; btn.Text=""; btn.ZIndex=10; btn.Parent=f
     local popup
     btn.MouseButton1Click:Connect(function()
         if popup and popup.Parent then popup:Destroy(); popup=nil; return end
@@ -278,9 +333,9 @@ btn.Size=UDim2.new(1,0,1,0); btn.BackgroundTransparency=1; btn.Text=""; btn.ZInd
             ob.MouseEnter:Connect(function() Tween:Create(ob,LL.Anim.Fast,{BackgroundColor3=COL.elemHover}):Play() end)
             ob.MouseLeave:Connect(function() Tween:Create(ob,LL.Anim.Fast,{BackgroundColor3=COL.elem}):Play() end)
             ob.MouseButton1Click:Connect(function()
-    pcall(function() setter(opt) end); render(); LL.MarkDirty()
-    if popup then popup:Destroy(); popup=nil end
-end)
+                pcall(function() setter(opt) end); render(); LL.MarkDirty()
+                if popup then popup:Destroy(); popup=nil end
+            end)
         end
     end)
 end
@@ -837,9 +892,9 @@ LL.Tab("Binds", function(parent)
         addBind("SavePos",L.SavePos)
         addBind("LoadPos",L.LoadPos)
         addBind("Macro",L.Macro)
-addBind("MacroRecord",L.MacroRecord)
-addBind("AutoClicker",L.AutoClicker or "AutoClicker")
-searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        addBind("MacroRecord",L.MacroRecord)
+        addBind("AutoClicker",L.AutoClicker or "AutoClicker")
+        searchBox:GetPropertyChangedSignal("Text"):Connect(function()
             local q=string.lower(searchBox.Text)
             for _,e in ipairs(bindEntries) do
                 if q=="" or string.find(string.lower(e.name),q,1,true) then e.frame.Visible=true else e.frame.Visible=false end
@@ -865,9 +920,9 @@ searchBox:GetPropertyChangedSignal("Text"):Connect(function()
         LL.Toggle(parent,"ESP Button",function() return LL.S.MobileBtns.ESP==true end,function(v) LL.S.MobileBtns.ESP=v; LL.ToggleMobileBtn("ESP",v) end)
         LL.Toggle(parent,"Hitbox Button",function() return LL.S.MobileBtns.Hitbox==true end,function(v) LL.S.MobileBtns.Hitbox=v; LL.ToggleMobileBtn("Hitbox",v) end)
         LL.Toggle(parent,"Macro Button",function() return LL.S.MobileBtns.Macro==true end,function(v) LL.S.MobileBtns.Macro=v; LL.ToggleMobileBtn("Macro",v) end)
-    LL.Toggle(parent,"Macro Record Button",function() return LL.S.MobileBtns.MacroRecord==true end,function(v) LL.S.MobileBtns.MacroRecord=v; LL.ToggleMobileBtn("MacroRecord",v) end)
-    LL.Toggle(parent,"AutoClicker Button",function() return LL.S.MobileBtns.AutoClicker==true end,function(v) LL.S.MobileBtns.AutoClicker=v; LL.ToggleMobileBtn("AutoClicker",v) end)
-end)
+        LL.Toggle(parent,"Macro Record Button",function() return LL.S.MobileBtns.MacroRecord==true end,function(v) LL.S.MobileBtns.MacroRecord=v; LL.ToggleMobileBtn("MacroRecord",v) end)
+        LL.Toggle(parent,"AutoClicker Button",function() return LL.S.MobileBtns.AutoClicker==true end,function(v) LL.S.MobileBtns.AutoClicker=v; LL.ToggleMobileBtn("AutoClicker",v) end)
+    end)
 
     LL.Tab("Info", function(parent)
         local L=LL.Loc[LL.Language].Info
@@ -1749,32 +1804,32 @@ function LL.ToggleMobileBtn(action,show)
     b.BackgroundColor3=COL.bg2; b.BackgroundTransparency=0.1; b.TextColor3=COL.accent2
     b.Font=Enum.Font.GothamBold; b.TextSize=11
     local LABEL={Aimbot="AIM",Noclip="NOCLIP",AntiFling="AFLNG",InfiniteJump="IJMP",ESP="ESP",Hitbox="HITBX",Macro="MACRO",MacroRecord="REC",ZeroGravity="ZERO G",AutoClicker="CLICK"}
-b.Text=LABEL[action] or action
+    b.Text=LABEL[action] or action
     b.BorderSizePixel=0; b.AutoButtonColor=false; b.ZIndex=5; b.Parent=ScreenGui; LL.corner(b,29)
     local s=LL.stroke(b,COL.accent2,2); if LL.S.FloatingLock then s.Color=COL.green end
     LL.MakeDraggableLockable(b,b,action,defaultPos)
     local function activeState()
-    if action=="Aimbot" then return LL.S.Aimbot.Enabled
-    elseif action=="ESP" then return LL.S.ESP.Enabled
-    elseif action=="Hitbox" then return LL.S.Hitbox.Enabled or LL.S.Hitbox.NPCSupport
-    elseif action=="Noclip" then return LL.S.Player.Noclip
-    elseif action=="InfiniteJump" then return LL.S.Player.InfiniteJump
-    elseif action=="AntiFling" then return LL.S.Troll.AntiFling
-    elseif action=="ZeroGravity" then return LL.S.Player.ZeroGravity
-    elseif action=="Macro" then return LL.S.Macro.Playing
-    elseif action=="MacroRecord" then return LL.S.Macro.Recording
-    elseif action=="AutoClicker" then return LL.S.AutoClicker.Enabled end
-    return false
-end
+        if action=="Aimbot" then return LL.S.Aimbot.Enabled
+        elseif action=="ESP" then return LL.S.ESP.Enabled
+        elseif action=="Hitbox" then return LL.S.Hitbox.Enabled or LL.S.Hitbox.NPCSupport
+        elseif action=="Noclip" then return LL.S.Player.Noclip
+        elseif action=="InfiniteJump" then return LL.S.Player.InfiniteJump
+        elseif action=="AntiFling" then return LL.S.Troll.AntiFling
+        elseif action=="ZeroGravity" then return LL.S.Player.ZeroGravity
+        elseif action=="Macro" then return LL.S.Macro.Playing
+        elseif action=="MacroRecord" then return LL.S.Macro.Recording
+        elseif action=="AutoClicker" then return LL.S.AutoClicker.Enabled end
+        return false
+    end
     local function paint()
         if activeState() then b.BackgroundColor3=COL.accent2; b.TextColor3=Color3.new(1,1,1)
         else b.BackgroundColor3=COL.bg2; b.TextColor3=COL.accent2 end
     end
     paint(); LL.AddRefresh(paint)
-b.MouseButton1Click:Connect(function()
-    if LL.Actions[action] then pcall(LL.Actions[action]) end
-    paint()
-end)
+    b.MouseButton1Click:Connect(function()
+        if LL.Actions[action] then pcall(LL.Actions[action]) end
+        paint()
+    end)
     LL.MobileButtons[action]=b
 end
 
@@ -1918,55 +1973,53 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
     if not getgenv().TIMON_LOADED then return end
     local ch=LL.Cache.Character; local hrp=LL.Cache.HRP; local hum=LL.Cache.Humanoid
 
-    -- SILENT AIM: подмена камеры на 1 кадр без визуального сдвига
-if LL.S.Aimbot.SilentAim then
-    local silentActive=true
-    if LL.S.Aimbot.SilentHoldRequired then silentActive=LL.silentHoldDown==true end
-    if silentActive then
-        local st=LL.SilentFindTarget()
-        if st then
-            local aimPos=LL.GetLeadPos(st,Camera.CFrame.Position)
-            if LL.S.Aimbot.SilentMode=="Camera" then
-                local lookCF=CFrame.new(Camera.CFrame.Position,aimPos)
-                Camera.CFrame=Camera.CFrame:Lerp(lookCF,LL.S.Aimbot.SilentSmooth)
-            else
-                -- Silent: держим подмену и восстанавливаем после рендера, чтобы движок успел прочитать CFrame
-                local oldCF=Camera.CFrame
-                local newCF=CFrame.new(oldCF.Position,aimPos)
-                pcall(function() Camera.CFrame=newCF end)
-                -- мгновенный возврат — движок уже прочитал newCF на этом кадре
-                pcall(function() Camera.CFrame=oldCF end)
+    -- SILENT AIM
+    if LL.S.Aimbot.SilentAim then
+        local silentActive=true
+        if LL.S.Aimbot.SilentHoldRequired then silentActive=LL.silentHoldDown==true end
+        if silentActive then
+            local st=LL.SilentFindTarget()
+            if st then
+                local aimPos=LL.GetLeadPos(st,Camera.CFrame.Position)
+                if LL.S.Aimbot.SilentMode=="Camera" then
+                    local lookCF=CFrame.new(Camera.CFrame.Position,aimPos)
+                    Camera.CFrame=Camera.CFrame:Lerp(lookCF,LL.S.Aimbot.SilentSmooth)
+                else
+                    local oldCF=Camera.CFrame
+                    local newCF=CFrame.new(oldCF.Position,aimPos)
+                    pcall(function() Camera.CFrame=newCF end)
+                    pcall(function() Camera.CFrame=oldCF end)
+                end
             end
         end
     end
-end
 
-    -- AUTO CLICKER: VIM + tap + fallback для ПК и мобилы
-if LL.S.AutoClicker and LL.S.AutoClicker.Enabled then
-    local now=tick()
-    local interval=1/math.max(LL.S.AutoClicker.Speed or 10,1)
-    if now-(LL._acLast or 0)>=interval then
-        LL._acLast=now
-        local isRight=LL.S.AutoClicker.Button=="Right"
-        local isReal=LL.S.AutoClicker.Mode=="Real"
-        local vp=Camera.ViewportSize
-        local pos=isReal and UIS:GetMouseLocation() or Vector2.new(math.floor(vp.X/2),math.floor(vp.Y/2))
-        local buttonId=isRight and 2 or 0
-        local VIM=game:GetService("VirtualInputManager")
-        local clicked=false
+    -- AUTO CLICKER
+    if LL.S.AutoClicker and LL.S.AutoClicker.Enabled then
+        local now=tick()
+        local interval=1/math.max(LL.S.AutoClicker.Speed or 10,1)
+        if now-(LL._acLast or 0)>=interval then
+            LL._acLast=now
+            local isRight=LL.S.AutoClicker.Button=="Right"
+            local isReal=LL.S.AutoClicker.Mode=="Real"
+            local vp=Camera.ViewportSize
+            local pos=isReal and UIS:GetMouseLocation() or Vector2.new(math.floor(vp.X/2),math.floor(vp.Y/2))
+            local buttonId=isRight and 2 or 0
+            local VIM=game:GetService("VirtualInputManager")
+            local clicked=false
 
-        -- Защита: не кликаем, если позиция попадает в плавающие кнопки AutoClicker
-        local btnAC = LL.MobileButtons and LL.MobileButtons["AutoClicker"]
-        local btnOpen = LL._OpenBtn
-        local function insideBtn(btn)
-            if not btn or not btn.Parent or not btn.Visible then return false end
-            local ap = btn.AbsolutePosition
-            local as = btn.AbsoluteSize
-            return pos.X >= ap.X and pos.X <= ap.X + as.X and pos.Y >= ap.Y and pos.Y <= ap.Y + as.Y
-        end
-        if insideBtn(btnAC) or insideBtn(btnOpen) then
-            return
-        end
+            local btnAC = LL.MobileButtons and LL.MobileButtons["AutoClicker"]
+            local btnOpen = LL._OpenBtn
+            local function insideBtn(btn)
+                if not btn or not btn.Parent or not btn.Visible then return false end
+                local ap = btn.AbsolutePosition
+                local as = btn.AbsoluteSize
+                return pos.X >= ap.X and pos.X <= ap.X + as.X and pos.Y >= ap.Y and pos.Y <= ap.Y + as.Y
+            end
+            if insideBtn(btnAC) or insideBtn(btnOpen) then
+                return
+            end
+
             if typeof(tap)=="function" then
                 pcall(function() tap(pos.X,pos.Y); clicked=true end)
             end
@@ -2084,7 +2137,7 @@ if LL.S.AutoClicker and LL.S.AutoClicker.Enabled then
         end
     end
 
-    -- ESP render
+    -- ESP RENDER
     LL.lazyFrame=LL.lazyFrame+1
     local skipESP=LL.S.Player.LazyMode and (LL.lazyFrame%2==0)
     if not skipESP and LL.S.ESP.Enabled then
@@ -2119,9 +2172,9 @@ if LL.S.AutoClicker and LL.S.AutoClicker.Enabled then
                         if d.tracer then d.tracer.Visible=false end
                     else
                         if LL.S.ESP.ShowName and d.name then
-                            d.name.Text=d.player.Name; d.name.Size=LL.S.ESP.NickSize; d.name.Color=LL.S.ESP.NickColor
-                            d.name.Position=Vector2.new(top.X,top.Y-24); d.name.Visible=true
-                        elseif d.name then d.name.Visible=false end
+    d.name.Text=d.player.Name; d.name.Size=LL.S.ESP.NickSize; d.name.Color=LL.S.ESP.NickColor
+    d.name.Position=Vector2.new(top.X,top.Y-24); d.name.Visible=true
+elseif d.name then d.name.Visible=false end
                         if LL.S.ESP.ShowHPBar and d.cacheHum and d.hpBg and d.hpFill then
                             local hpW,hpH=LL.S.ESP.HPBarWidth,LL.S.ESP.HPBarHeight
                             local bx=top.X-hpW/2; local by=top.Y-34-hpH
@@ -2303,6 +2356,7 @@ getgenv().TIMON_UNLOAD=function()
     step("gui",function() if LL.ScreenGui then LL.ScreenGui:Destroy() end end)
     step("threads",function() for _,t in ipairs(THREADS) do pcall(function() task.cancel(t) end) end; for i=#THREADS,1,-1 do THREADS[i]=nil end end)
     step("conns",function() for _,c in ipairs(CONNS) do pcall(function() c:Disconnect() end) end; for i=#CONNS,1,-1 do CONNS[i]=nil end end)
+    step("finalSave",function() if LL.FS_AVAILABLE and LL.S.AutoSave then pcall(function() LL.saveConfig(LL.AUTOSAVE_FILE) end) end end)
     LL.StickyTarget=nil; LL.StickyTargetIsNPC=false; LL.aimHoldDown=false; LL.silentHoldDown=false
     LL.antiAFKThread=nil; LL.MacroRecBtnUpdate=nil; LL.MacroRecBtn=nil
 end
