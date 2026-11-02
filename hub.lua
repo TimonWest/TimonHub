@@ -1328,6 +1328,27 @@ function LL.BuildTabs(Main)
     end)
     LL.SwitchTab("Combat")
 end
+function LL.refreshCharCache()
+    local char = LP.Character
+    LL.Cache.Character = char
+    LL.Cache.Humanoid = char and char:FindFirstChildOfClass("Humanoid") or nil
+    LL.Cache.HRP = char and char:FindFirstChild("HumanoidRootPart") or nil
+end
+LL.refreshCharCache()
+LL.trackConn(LP.CharacterAdded:Connect(function(char)
+    LL.Cache.Character = char
+    LL.Cache.Humanoid = char:WaitForChild("Humanoid", 10)
+    LL.Cache.HRP = char:WaitForChild("HumanoidRootPart", 10)
+    task.wait(0.2)
+    LL.refreshCharCache()
+    if LL.applyGravityState then pcall(LL.applyGravityState) end
+    if LL.S and LL.S.Player and LL.S.Player.AntiAFK then pcall(LL.startAntiAFK) end
+end))
+LL.trackConn(LP.CharacterRemoving:Connect(function()
+    LL.Cache.Character = nil
+    LL.Cache.Humanoid = nil
+    LL.Cache.HRP = nil
+end))
 LL.LightingMgr = { original=nil, boosterApplied=false, fullbrightApplied=false }
 function LL.captureLightingOriginal()
     if LL.LightingMgr.original then return end
