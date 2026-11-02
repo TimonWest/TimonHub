@@ -107,6 +107,59 @@ LL.FS_AVAILABLE = LL.ScriptAvailable.WriteFile and LL.ScriptAvailable.ReadFile a
 function LL.MarkDirty() LL.CONFIG_DIRTY=true; LL.lastDirtyTime=tick() end
 function LL.ensureDir() if not LL.FS_AVAILABLE then return end; pcall(function() if not isfolder(LL.CONFIG_DIR) then makefolder(LL.CONFIG_DIR) end end) end
 function LL.fileExists(p) if not LL.FS_AVAILABLE then return false end; local ok,r=pcall(function() return isfile(p) end); return ok and r end
+
+function LL.packC3(c) return {math.floor(c.R*255+0.5),math.floor(c.G*255+0.5),math.floor(c.B*255+0.5)} end
+function LL.unpackC3(t) return Color3.fromRGB(t[1] or 128,t[2] or 128,t[3] or 128) end
+local unpackFn = table.unpack or unpack
+
+function LL.packSettings()
+    local S=LL.S
+    local d={Aimbot={},ESP={},Hitbox={},Player={},Troll={},Hamster={Coins=S.Hamster.Coins},AutoClicker=S.AutoClicker,Binds={},MobileBtns={},AutoSave=S.AutoSave,FloatingLock=S.FloatingLock,FloatingPos=S.FloatingPos,ConfigName=S.ConfigName,UI={},Macro={},KeyValidated=S.KeyValidated,Language=LL.Language}
+    for k,v in pairs(S.Aimbot) do
+        if type(v)=="Color3" then d.Aimbot[k]=LL.packC3(v)
+        elseif typeof(v)=="EnumItem" then d.Aimbot[k]=tostring(v):gsub("Enum.KeyCode.","")
+        else d.Aimbot[k]=v end
+    end
+    for k,v in pairs(S.ESP) do if type(v)=="Color3" then d.ESP[k]=LL.packC3(v) else d.ESP[k]=v end end
+    for k,v in pairs(S.Hitbox) do d.Hitbox[k]=v end
+    for k,v in pairs(S.Player) do if k=="SavedPos" then if v then d.Player[k]={v:GetComponents()} end else d.Player[k]=v end end
+    for k,v in pairs(S.Troll) do d.Troll[k]=v end
+    for a,k in pairs(S.Binds) do if typeof(k)=="EnumItem" then d.Binds[a]=tostring(k):gsub("Enum.KeyCode.","") end end
+    for k,v in pairs(S.MobileBtns) do d.MobileBtns[k]=v end
+    for k,v in pairs(S.UI) do if typeof(v)=="EnumItem" then d.UI[k]=tostring(v):gsub("Enum.KeyCode.","") else d.UI[k]=v end end
+    for k,v in pairs(S.Macro) do d.Macro[k]=v end
+    return d
+end
+function LL.applySettings(d)
+    if not d then return end
+    local S=LL.S
+    if d.KeyValidated~=nil then LL.S.KeyValidated=d.KeyValidated; LL.KeyValidated=d.KeyValidated end
+    if d.Language then LL.Language=d.Language end
+    if d.Aimbot then for k,v in pairs(d.Aimbot) do
+        if S.Aimbot[k]~=nil then
+            if type(S.Aimbot[k])=="Color3" and type(v)=="table" then S.Aimbot[k]=LL.unpackC3(v)
+            elseif k=="SilentHoldBind" then
+                if type(v)=="string" then local ok,c=pcall(function() return Enum.KeyCode[v] end); if ok and c then S.Aimbot[k]=c end end
+            else S.Aimbot[k]=v end
+        end
+    end end
+    if d.ESP then for k,v in pairs(d.ESP) do if S.ESP[k]~=nil then if type(S.ESP[k])=="Color3" and type(v)=="table" then S.ESP[k]=LL.unpackC3(v) else S.ESP[k]=v end end end end
+    if d.Hitbox then for k,v in pairs(d.Hitbox) do if S.Hitbox[k]~=nil then S.Hitbox[k]=v end end end
+    if d.Player then for k,v in pairs(d.Player) do if k=="SavedPos" and type(v)=="table" and #v>=12 then local ok,cf=pcall(function() return CFrame.new(unpackFn(v)) end); if ok then S.Player.SavedPos=cf end elseif S.Player[k]~=nil then S.Player[k]=v end end end
+    if d.Troll then for k,v in pairs(d.Troll) do if S.Troll[k]~=nil then S.Troll[k]=v end end end
+    if d.Hamster and d.Hamster.Coins then S.Hamster.Coins=d.Hamster.Coins end
+    if d.AutoClicker then for k,v in pairs(d.AutoClicker) do if S.AutoClicker[k]~=nil then S.AutoClicker[k]=v end end end
+    S.Binds={}
+    if d.Binds then for a,n in pairs(d.Binds) do local ok,code=pcall(function() return Enum.KeyCode[n] end); if ok and code then S.Binds[a]=code end end end
+    if d.MobileBtns then S.MobileBtns={}; for k,v in pairs(d.MobileBtns) do S.MobileBtns[k]=v end end
+    if d.AutoSave~=nil then S.AutoSave=d.AutoSave end
+    if d.FloatingLock~=nil then S.FloatingLock=d.FloatingLock end
+    if d.FloatingPos then S.FloatingPos=d.FloatingPos end
+    if d.ConfigName then S.ConfigName=d.ConfigName end
+    if d.UI then for k,v in pairs(d.UI) do if k=="GuiKeybind" and type(v)=="string" then local ok,code=pcall(function() return Enum.KeyCode[v] end); if ok and code then S.UI.GuiKeybind=code end elseif S.UI[k]~=nil then S.UI[k]=v end end end
+    if d.Macro then for k,v in pairs(d.Macro) do if S.Macro[k]~=nil then S.Macro[k]=v end end end
+end
+
 LL.ensureDir()
 
 local ScreenGui = Instance.new("ScreenGui")
