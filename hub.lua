@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v4.6.2 — ESP autosync, Hitbox modes, fresh configs
+-- TIMON HUB v4.6.3 — NPC fixes + optimization + defaults off
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -37,6 +37,7 @@ LL.ScreenGui = nil
 LL.Main = nil
 LL.UIScale = nil
 LL.xneoScriptRunning = false
+LL.lastNPCRescan = 0
 
 function LL.trackConn(c) CONNS[#CONNS+1] = c; return c end
 function LL.trackThread(t) THREADS[#THREADS+1] = t; return t end
@@ -85,7 +86,7 @@ LL.S = {
         Fly=false, FlySpeed=50,
         ZeroGravity=false,
         WalkSpeed=16, JumpPower=50,
-        WalkSpeedEnabled=true, JumpPowerEnabled=true,
+        WalkSpeedEnabled=false, JumpPowerEnabled=false,
         OrigWalkSpeed=nil, OrigJumpPower=nil,
         InfiniteJump=false, Noclip=false,
         AntiAFK=false, LazyMode=false,
@@ -243,7 +244,7 @@ LL.ORDER = 0
 function LL.NextOrder() LL.ORDER = LL.ORDER + 1; return LL.ORDER end
 
 -- ============================================================
--- CONFIG (TimonHub_New — новая папка)
+-- CONFIG
 -- ============================================================
 LL.CONFIG_DIR = "TimonHub_New"
 LL.AUTOSAVE_FILE = "autosave_new"
@@ -604,7 +605,7 @@ local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -110, 1, 0)
 TitleLbl.Position = UDim2.new(0, 20, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "TIMON HUB  ·  v4.6.2"
+TitleLbl.Text = "TIMON HUB  ·  v4.6.3"
 TitleLbl.TextColor3 = Color3.new(1, 1, 1)
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16
@@ -687,7 +688,7 @@ LL.trackConn(LP.CharacterRemoving:Connect(function()
 end))
 LL.refreshCharCache()
 -- ============================================================
--- TOGGLE
+-- TOGGLE (без Tween, мгновенный, защищённый)
 -- ============================================================
 function LL.Toggle(parent, name, getter, setter)
     local f = Instance.new("Frame")
@@ -723,14 +724,14 @@ function LL.Toggle(parent, name, getter, setter)
     knob.Parent = track
     LL.corner(knob, 9)
     local function render()
-        if getter() then
+        local state = false
+        pcall(function() state = getter() end)
+        if state then
             track.BackgroundColor3 = COL.accent
-            Tween:Create(knob, LL.Anim.Fast,
-                {Position = UDim2.new(1, -20, 0.5, -9)}):Play()
+            knob.Position = UDim2.new(1, -20, 0.5, -9)
         else
             track.BackgroundColor3 = COL.off
-            Tween:Create(knob, LL.Anim.Fast,
-                {Position = UDim2.new(0, 2, 0.5, -9)}):Play()
+            knob.Position = UDim2.new(0, 2, 0.5, -9)
         end
     end
     render(); LL.AddRefresh(render)
@@ -738,9 +739,16 @@ function LL.Toggle(parent, name, getter, setter)
     btn.Size = UDim2.new(1, 0, 1, 0)
     btn.BackgroundTransparency = 1
     btn.Text = ""
+    btn.ZIndex = 10
     btn.Parent = f
     btn.MouseButton1Click:Connect(function()
-        setter(not getter()); render(); LL.MarkDirty()
+        local ok, err = pcall(function()
+            setter(not getter())
+        end)
+        if not ok then
+            warn("[TimonToggle] "..name..": "..tostring(err))
+        end
+        render(); LL.MarkDirty()
     end)
 end
 
@@ -799,6 +807,7 @@ function LL.Slider(parent, name, minV, maxV, getter, setter)
     ca.Position = UDim2.new(0, -8, 0, -11)
     ca.BackgroundTransparency = 1
     ca.Text = ""
+    ca.ZIndex = 10
     ca.Parent = bar
     local drag = false
     local function setX(px)
@@ -858,6 +867,7 @@ function LL.Dropdown(parent, name, options, getter, setter)
     btn.Size = UDim2.new(1, 0, 1, 0)
     btn.BackgroundTransparency = 1
     btn.Text = ""
+    btn.ZIndex = 10
     btn.Parent = f
     btn.MouseButton1Click:Connect(function()
         if popup and popup.Parent then popup:Destroy(); popup = nil; return end
@@ -897,7 +907,9 @@ function LL.Dropdown(parent, name, options, getter, setter)
                 Tween:Create(ob, LL.Anim.Fast, {BackgroundColor3 = COL.elem}):Play()
             end)
             ob.MouseButton1Click:Connect(function()
-                setter(opt); render(); LL.MarkDirty()
+                local ok, err = pcall(function() setter(opt) end)
+                if not ok then warn("[TimonDropdown] "..name..": "..tostring(err)) end
+                render(); LL.MarkDirty()
                 if popup then popup:Destroy(); popup = nil end
             end)
         end
@@ -946,12 +958,15 @@ function LL.ColorPicker(parent, name, getter, setter)
         b.BorderSizePixel = 0
         b.Text = ""
         b.AutoButtonColor = false
+        b.ZIndex = 10
         b.Parent = f
         LL.corner(b, 6)
         local s = LL.stroke(b, Color3.new(1,1,1), (c == getter()) and 2 or 0)
         swatches[#swatches+1] = {line = s, color = c}
         b.MouseButton1Click:Connect(function()
-            setter(c); LL.MarkDirty()
+            local ok, err = pcall(function() setter(c) end)
+            if not ok then warn("[TimonColor] "..name..": "..tostring(err)) end
+            LL.MarkDirty()
             for _, sw in ipairs(swatches) do sw.line.Thickness = 0 end
             s.Thickness = 2
         end)
@@ -993,6 +1008,7 @@ function LL.TextBox(parent, name, placeholder, getter, setter)
     box.TextSize = 13
     box.TextXAlignment = Enum.TextXAlignment.Left
     box.ClearTextOnFocus = false
+    box.ZIndex = 10
     box.Parent = f
     LL.corner(box, 8)
     LL.stroke(box, COL.stroke, 1)
@@ -1015,6 +1031,7 @@ function LL.Button(parent, label, callback, opts)
     b.TextSize = 14
     b.LayoutOrder = LL.NextOrder()
     b.AutoButtonColor = false
+    b.ZIndex = 5
     b.Parent = parent
     LL.corner(b, 12)
     LL.stroke(b, opts.stroke or COL.stroke, 1)
@@ -1026,7 +1043,10 @@ function LL.Button(parent, label, callback, opts)
         Tween:Create(b, LL.Anim.Fast,
             {BackgroundColor3 = opts.color or COL.elem}):Play()
     end)
-    b.MouseButton1Click:Connect(callback)
+    b.MouseButton1Click:Connect(function()
+        local ok, err = pcall(callback)
+        if not ok then warn("[TimonButton] "..label..": "..tostring(err)) end
+    end)
     return b
 end
 
@@ -1080,6 +1100,7 @@ function LL.BindButton(parent, action, name)
     btn.BackgroundTransparency = 1
     btn.Text = ""
     btn.Active = true
+    btn.ZIndex = 10
     btn.Parent = f
     btn.MouseButton1Down:Connect(function()
         getgenv().TIMON_LISTENING = action
@@ -1236,7 +1257,7 @@ LL.trackConn(UIS.InputBegan:Connect(function()
 end))
 
 -- ============================================================
--- TAB SYSTEM (lazy build)
+-- TAB SYSTEM
 -- ============================================================
 local Left = Instance.new("ScrollingFrame")
 Left.Size = UDim2.new(0, 170, 1, -60)
@@ -1283,6 +1304,7 @@ function LL.Tab(name, builder)
     b.TextSize = 13
     b.LayoutOrder = LL.NextOrder()
     b.AutoButtonColor = false
+    b.ZIndex = 5
     b.Parent = Left
     LL.corner(b, 12)
     LL.stroke(b, COL.stroke, 1)
@@ -1328,7 +1350,8 @@ function LL.SwitchTab(name)
     local t = LL.TabScrolls[name]
     if not t then return end
     if not t.built and LL.TabBuilders[name] then
-        pcall(LL.TabBuilders[name], t.scroll)
+        local ok, err = pcall(LL.TabBuilders[name], t.scroll)
+        if not ok then warn("[TimonTab] "..name..": "..tostring(err)) end
         t.built = true
     end
     t.scroll.Visible = true
@@ -1485,7 +1508,7 @@ LL.Tab("ESP", function(parent)
     LL.Toggle(parent, "Show Distance",
         function() return LL.S.ESP.ShowDistance end,
         function(v) LL.S.ESP.ShowDistance = v end)
-    LL.Section(parent, "Tracer (линия до цели)")
+    LL.Section(parent, "Tracer")
     LL.Toggle(parent, "Enable Tracer",
         function() return LL.S.ESP.TracerEnabled end,
         function(v) LL.S.ESP.TracerEnabled = v end)
@@ -1498,7 +1521,12 @@ LL.Tab("ESP", function(parent)
     LL.Section(parent, "NPC ESP")
     LL.Toggle(parent, "Enable NPC ESP",
         function() return LL.S.ESP.NPCEnabled end,
-        function(v) LL.S.ESP.NPCEnabled = v end)
+        function(v)
+            LL.S.ESP.NPCEnabled = v
+            if v then
+                pcall(function() LL.refreshNPCCache() end)
+            end
+        end)
     LL.Toggle(parent, "Show NPC Name",
         function() return LL.S.ESP.NPCName end,
         function(v) LL.S.ESP.NPCName = v end)
@@ -1990,6 +2018,7 @@ LL.Tab("Hamster", function(parent)
     spamBtn.TextSize = 100
     spamBtn.AutoButtonColor = false
     spamBtn.LayoutOrder = LL.NextOrder()
+    spamBtn.ZIndex = 5
     spamBtn.Parent = parent
     LL.corner(spamBtn, 85)
     LL.stroke(spamBtn, Color3.fromRGB(255, 180, 0), 3)
@@ -2106,7 +2135,7 @@ LL.Tab("Settings", function(parent)
         S.Player.Noclip=false; S.Player.InfiniteJump=false
         S.Player.ZeroGravity=false
         S.Player.WalkSpeed=16; S.Player.JumpPower=50
-        S.Player.WalkSpeedEnabled=true; S.Player.JumpPowerEnabled=true
+        S.Player.WalkSpeedEnabled=false; S.Player.JumpPowerEnabled=false
         S.Player.AntiAFK=false; LL.stopAntiAFK()
         S.Player.FPSBooster=false; LL.disableFPSBooster()
         S.Player.LowQuality=false; LL.disableLowQuality()
@@ -2235,6 +2264,7 @@ LL.Tab("Binds", function(parent)
     searchBox.TextXAlignment = Enum.TextXAlignment.Left
     searchBox.ClearTextOnFocus = false
     searchBox.LayoutOrder = LL.NextOrder()
+    searchBox.ZIndex = 10
     searchBox.Parent = parent
     LL.corner(searchBox, 12)
     LL.stroke(searchBox, COL.stroke, 1)
@@ -2299,6 +2329,7 @@ LL.Tab("Binds", function(parent)
         btn.BackgroundTransparency = 1
         btn.Text = ""
         btn.Active = true
+        btn.ZIndex = 10
         btn.Parent = f
         btn.MouseButton1Down:Connect(function()
             getgenv().TIMON_LISTENING = action
@@ -2409,6 +2440,7 @@ end
 
 function LL.ApplyHitbox(pl)
     if pl == LP or not pl.Character then return end
+    if not LL.S.Hitbox.Enabled then return end
     local ch = pl.Character
     local entry = LL.HitboxParts[pl]
     if not entry then entry = {}; LL.HitboxParts[pl] = entry end
@@ -2478,7 +2510,7 @@ LL.trackThread(task.spawn(function()
 end))
 
 -- ============================================================
--- NPC CACHE (рекурсивный с троттлингом)
+-- NPC CACHE (рекурсивный + регулярный рескан)
 -- ============================================================
 function LL.isPlayerCharacter(model)
     return Players:GetPlayerFromCharacter(model) ~= nil
@@ -2499,12 +2531,14 @@ end
 function LL.scanWorkspaceOnce()
     local newCache = {}
     local count = 0
-    for _, d in ipairs(Workspace:GetDescendants()) do
+    local ok, descendants = pcall(function() return Workspace:GetDescendants() end)
+    if not ok or not descendants then return end
+    for _, d in ipairs(descendants) do
         if d:IsA("Model") and LL.isNPC(d) then
             newCache[d] = true
         end
         count = count + 1
-        if count % 100 == 0 then
+        if count % 200 == 0 then
             task.wait()
             if not getgenv().TIMON_LOADED then return end
         end
@@ -2513,24 +2547,53 @@ function LL.scanWorkspaceOnce()
 end
 
 function LL.refreshNPCCache()
+    LL.lastNPCRescan = tick()
     LL.scanWorkspaceOnce()
 end
 
+-- DescendantAdded — ловим Humanoid / HRP / Torso (ПАТЧ: теперь мгновенно)
 LL.trackConn(Workspace.DescendantAdded:Connect(function(d)
-    if d:IsA("Model") and LL.isNPC(d) then
-        LL.NPCCache[d] = true
+    if d:IsA("Humanoid") or d.Name == "HumanoidRootPart" or d.Name == "Torso" or d.Name == "UpperTorso" then
+        local m = d.Parent
+        if m and m:IsA("Model") and LL.isNPC(m) then
+            LL.NPCCache[m] = true
+        end
+    elseif d:IsA("Model") then
+        if LL.isNPC(d) then
+            LL.NPCCache[d] = true
+        else
+            for _, c in ipairs(d:GetChildren()) do
+                if (c:IsA("Humanoid") or c.Name == "HumanoidRootPart") and LL.isNPC(d) then
+                    LL.NPCCache[d] = true
+                    break
+                end
+            end
+        end
     end
 end))
+
+-- DescendantRemoving — чистим кэш и удаляем ESP/хитбокс мёртвых
 LL.trackConn(Workspace.DescendantRemoving:Connect(function(d)
-    if d:IsA("Model") then LL.NPCCache[d] = nil end
+    if d:IsA("Model") then
+        if LL.NPCCache[d] then LL.NPCCache[d] = nil end
+        if LL.NPCESPObjs[d] then pcall(LL.RemoveNPCESP, d) end
+        if LL.NPCHitboxes[d] then pcall(LL.RemoveNPCHitbox, d) end
+    end
+end))
+
+-- Регулярный рескан раз в 10 сек (только если NPC-фичи включены)
+LL.trackThread(task.spawn(function()
+    while getgenv().TIMON_LOADED do
+        task.wait(10)
+        if LL.S.ESP.NPCEnabled or LL.S.Hitbox.NPCSupport or LL.S.Aimbot.TargetNPCs then
+            pcall(LL.refreshNPCCache)
+        end
+    end
 end))
 
 function LL.ApplyNPCHitbox(model)
     if not model or not model.Parent then return end
     if LL.isPlayerCharacter(model) then return end
-    if not (LL.S.Hitbox.Enabled or LL.S.Hitbox.NPCSupport) then
-        LL.RemoveNPCHitbox(model); return
-    end
     if not LL.S.Hitbox.NPCSupport then
         LL.RemoveNPCHitbox(model); return
     end
@@ -2587,7 +2650,9 @@ LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
         task.wait(1)
         if LL.S.Hitbox.NPCSupport then
-            for model in pairs(LL.NPCCache) do pcall(LL.ApplyNPCHitbox, model) end
+            for model in pairs(LL.NPCCache) do
+                if model.Parent then pcall(LL.ApplyNPCHitbox, model) end
+            end
             for model in pairs(LL.NPCHitboxes) do
                 if not model.Parent or not LL.NPCCache[model] then LL.RemoveNPCHitbox(model) end
             end
@@ -2705,6 +2770,7 @@ end
 
 function LL.CreateESP(pl)
     if pl == LP or LL.ESPObjs[pl] then return end
+    if not LL.S.ESP.Enabled then return end
     local hl = Instance.new("Highlight")
     hl.Name = "TimonHub_HL_" .. pl.Name
     LL.applyHighlight(hl)
@@ -2748,6 +2814,7 @@ end
 
 function LL.CreateNPCESP(model)
     if not model or LL.NPCESPObjs[model] or LL.isPlayerCharacter(model) then return end
+    if not LL.S.ESP.NPCEnabled then return end
     local hl = Instance.new("Highlight")
     hl.Name = "TimonHub_NPC_HL"
     LL.applyHighlight(hl)
@@ -2968,6 +3035,16 @@ function LL.FindTarget()
     end
 
     if targetNPCs then
+        -- Если кэш пуст или устарел — обновим не чаще раз в 2 сек
+        if next(LL.NPCCache) == nil and (tick() - LL.lastNPCRescan) > 2 then
+            pcall(LL.refreshNPCCache)
+        end
+        -- Вычистка мёртвых
+        for model in pairs(LL.NPCCache) do
+            if not model.Parent then
+                LL.NPCCache[model] = nil
+            end
+        end
         for model in pairs(LL.NPCCache) do
             if not LL.isPlayerCharacter(model) then
                 local hum = model:FindFirstChildOfClass("Humanoid")
@@ -3009,6 +3086,12 @@ end
 
 RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, function()
     if not getgenv().TIMON_LOADED then return end
+    if not LL.S.Aimbot.Enabled then
+        if LL.fovCircle then LL.fovCircle.Visible = false end
+        if LL.aimBeam then LL.aimBeam.Visible = false end
+        if LL.hitboxBox then LL.hitboxBox.Visible = false end
+        return
+    end
     if LL.S.Aimbot.ShowFOV and LL.S.Aimbot.Mode ~= "Cursor" and LL.fovCircle then
         LL.fovCircle.Visible = true
         LL.fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
@@ -3016,13 +3099,6 @@ RunService:BindToRenderStep("TIMON_AIM", Enum.RenderPriority.Camera.Value + 1, f
         LL.fovCircle.Color = LL.S.Aimbot.FOVColor
     elseif LL.fovCircle then
         LL.fovCircle.Visible = false
-    end
-    if not LL.S.Aimbot.Enabled then
-        LL.StickyTarget = nil; LL.StickyTargetIsNPC = false
-        LL.wasHoldActive = false
-        if LL.aimBeam then LL.aimBeam.Visible = false end
-        if LL.hitboxBox then LL.hitboxBox.Visible = false end
-        return
     end
     if not LL.IsCursorAimActive() then
         LL.StickyTarget = nil; LL.StickyTargetIsNPC = false
@@ -3189,6 +3265,7 @@ function LL.ToggleMobileBtn(action, show)
     b.Text = LABEL[action] or action
     b.BorderSizePixel = 0
     b.AutoButtonColor = false
+    b.ZIndex = 5
     b.Parent = ScreenGui; LL.corner(b, 29)
     local s = LL.stroke(b, COL.accent2, 2)
     if LL.S.FloatingLock then s.Color = COL.green end
@@ -3216,7 +3293,10 @@ function LL.ToggleMobileBtn(action, show)
     end
     paint(); LL.AddRefresh(paint)
     b.MouseButton1Click:Connect(function()
-        if LL.Actions[action] then LL.Actions[action]() end
+        if LL.Actions[action] then
+            local ok, err = pcall(LL.Actions[action])
+            if not ok then warn("[TimonBtn] "..action..": "..tostring(err)) end
+        end
         paint()
     end)
     LL.MobileButtons[action] = b
@@ -3237,6 +3317,7 @@ OpenBtn.TextSize = 16
 OpenBtn.Text = "T"
 OpenBtn.BorderSizePixel = 0
 OpenBtn.AutoButtonColor = false
+OpenBtn.ZIndex = 5
 OpenBtn.Parent = ScreenGui
 LL.corner(OpenBtn, 27)
 LL.stroke(OpenBtn, COL.accent2, 2)
@@ -3318,21 +3399,22 @@ end
 function LL.applyLoadedSettings()
     LL.RefreshAll()
     for _, fn in pairs(LL.BindRefreshers) do pcall(fn) end
-    -- ESP — автосинк сам разберётся, но на всякий случай
     if LL.S.ESP.Enabled then
         for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP and not LL.ESPObjs[p] then LL.CreateESP(p) end
+            if p ~= LP and not LL.ESPObjs[p] then pcall(LL.CreateESP, p) end
         end
     else
-        for p in pairs(LL.ESPObjs) do LL.RemoveESP(p) end
+        for p in pairs(LL.ESPObjs) do pcall(LL.RemoveESP, p) end
     end
     if LL.S.ESP.NPCEnabled then
-        LL.refreshNPCCache()
+        pcall(LL.refreshNPCCache)
         for m in pairs(LL.NPCCache) do
-            if not LL.isPlayerCharacter(m) and not LL.NPCESPObjs[m] then LL.CreateNPCESP(m) end
+            if not LL.isPlayerCharacter(m) and not LL.NPCESPObjs[m] then
+                pcall(LL.CreateNPCESP, m)
+            end
         end
     else
-        for m in pairs(LL.NPCESPObjs) do LL.RemoveNPCESP(m) end
+        for m in pairs(LL.NPCESPObjs) do pcall(LL.RemoveNPCESP, m) end
     end
     if LL.S.Hitbox.Enabled then
         for _, pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox, pl) end
@@ -3340,7 +3422,7 @@ function LL.applyLoadedSettings()
         LL.ClearAllHitboxes()
     end
     if LL.S.Hitbox.NPCSupport then
-        LL.refreshNPCCache()
+        pcall(LL.refreshNPCCache)
         for model in pairs(LL.NPCCache) do pcall(LL.ApplyNPCHitbox, model) end
     else
         LL.ClearAllNPCHitboxes()
@@ -3384,7 +3466,7 @@ LL.trackConn(UIS.InputBegan:Connect(function(input, gp)
     if gp then return end
     for action, key in pairs(LL.S.Binds) do
         if action ~= "AimbotHold" and input.KeyCode == key and LL.Actions[action] then
-            LL.Actions[action]()
+            pcall(LL.Actions[action])
         end
     end
 end))
@@ -3397,7 +3479,7 @@ LL.trackConn(UIS.InputEnded:Connect(function(input, gp)
 end))
 
 -- ============================================================
--- RENDER LOOP (single) с ESP autosync
+-- RENDER LOOP с ESP autosync
 -- ============================================================
 LL.FlyBV = nil
 LL.FlyBG = nil
@@ -3420,26 +3502,37 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
     local hrp = LL.Cache.HRP
     local hum = LL.Cache.Humanoid
 
-    -- ESP AUTO-SYNC: гарантирует что объекты соответствуют тумблерам
+    -- ESP AUTO-SYNC
     if LL.S.ESP.Enabled then
         for _, pl in ipairs(Players:GetPlayers()) do
             if pl ~= LP and not LL.ESPObjs[pl] then
-                LL.CreateESP(pl)
+                local ok, err = pcall(LL.CreateESP, pl)
+                if not ok then warn("[TimonESP] "..tostring(err)) end
             end
         end
+        for pl in pairs(LL.ESPObjs) do
+            if pl.Parent ~= Players then pcall(LL.RemoveESP, pl) end
+        end
     else
-        for pl in pairs(LL.ESPObjs) do LL.RemoveESP(pl) end
+        for pl in pairs(LL.ESPObjs) do pcall(LL.RemoveESP, pl) end
     end
+
     if LL.S.ESP.NPCEnabled then
         for model in pairs(LL.NPCCache) do
             if not LL.isPlayerCharacter(model) and not LL.NPCESPObjs[model] then
-                LL.CreateNPCESP(model)
+                pcall(LL.CreateNPCESP, model)
+            end
+        end
+        for model in pairs(LL.NPCESPObjs) do
+            if not model.Parent or not LL.NPCCache[model] then
+                pcall(LL.RemoveNPCESP, model)
             end
         end
     else
-        for model in pairs(LL.NPCESPObjs) do LL.RemoveNPCESP(model) end
+        for model in pairs(LL.NPCESPObjs) do pcall(LL.RemoveNPCESP, model) end
     end
 
+    -- PC Fly
     if LL.S.Player.Fly and hrp then
         if not LL.FlyBV then
             local att = hrp:FindFirstChild("TimonFlyAtt") or Instance.new("Attachment")
@@ -3479,6 +3572,7 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
         end
     end
 
+    -- WalkSpeed / JumpPower / Noclip
     if hum then
         if LL.S.Player.WalkSpeedEnabled then hum.WalkSpeed = LL.S.Player.WalkSpeed end
         if LL.S.Player.JumpPowerEnabled then hum.JumpPower = LL.S.Player.JumpPower end
@@ -3489,6 +3583,7 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
         end
     end
 
+    -- ESP render
     LL.lazyFrame = LL.lazyFrame + 1
     local skipESP = LL.S.Player.LazyMode and (LL.lazyFrame % 2 == 0)
 
@@ -3645,6 +3740,7 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
         end
     end
 
+    -- Effects (throttled)
     LL.effectAccum = LL.effectAccum + dt
     if LL.effectAccum < LL.EFFECT_INTERVAL then return end
     LL.effectAccum = 0
@@ -3700,14 +3796,14 @@ LL.trackConn(UIS.JumpRequest:Connect(function()
 end))
 
 -- ============================================================
--- AUTOSAVE LOOP (debounced)
+-- AUTOSAVE LOOP
 -- ============================================================
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
         task.wait(2)
         if LL.CONFIG_DIRTY and LL.S.AutoSave and LL.FS_AVAILABLE and (tick() - LL.lastDirtyTime) >= 2 then
             LL.CONFIG_DIRTY = false
-            pcall(function() LL.saveConfig(LL.AUTOSAVE_FILE) end)
+            pcall(function() LL.SaveConfig(LL.AUTOSAVE_FILE) end)
         end
     end
 end))
@@ -3724,9 +3820,6 @@ end
 pcall(function() LL.RefreshAll() end)
 pcall(function() LL.applyLoadedSettings() end)
 
-for action, state in pairs(LL.S.MobileBtns) do
-    if state then LL.ToggleMobileBtn(action, true) end
-end
 LL.applyGravityState()
 LL.ApplyFloatingLock()
 LL.RepositionAllFloatingBtns()
@@ -3736,9 +3829,9 @@ if LL.S.Player.LowQuality then LL.enableLowQuality() end
 if LL.S.Player.Fullbright then LL.enableFullbright() end
 
 if autoloaded then
-    LL.Notify("Timon Hub v4.6.2 · автозагрузка")
+    LL.Notify("Timon Hub v4.6.3 · автозагрузка")
 else
-    LL.Notify("Timon Hub v4.6.2 · загружен")
+    LL.Notify("Timon Hub v4.6.3 · загружен")
 end
 
 -- ============================================================
@@ -3814,6 +3907,6 @@ getgenv().TIMON_UNLOAD = function()
     LL.StickyTarget = nil
     LL.StickyTargetIsNPC = false
     LL.aimHoldDown = false
-    LL.wasHoldActive = false
+    LL.waHoldActive = false
     LL.antiAFKThread = nil
 end
