@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v4.6.7 — xneo fix, macro loop fix, button fix
+-- TIMON HUB v3.3.3 — dual macro modes, xneo fix, jump fix
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -103,6 +103,8 @@ LL.S = {
         Loop = true,
         SampleRate = 0.2,
         JumpDetection = true,
+        IgnoreObstacles = false,
+        PushThrough = false,
     },
     Binds = {}, MobileBtns = {},
     FloatingLock=false, FloatingPos={},
@@ -461,7 +463,7 @@ LL.corner(TitleBar, 18); LL.gradient(TitleBar, COL.accent, COL.accent2, 25)
 
 local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -110, 1, 0); TitleLbl.Position = UDim2.new(0, 20, 0, 0)
-TitleLbl.BackgroundTransparency = 1; TitleLbl.Text = "TIMON HUB  ·  v4.6.7"
+TitleLbl.BackgroundTransparency = 1; TitleLbl.Text = "TIMON HUB  ·  v3.3.3"
 TitleLbl.TextColor3 = Color3.new(1, 1, 1); TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left; TitleLbl.Parent = TitleBar
 
@@ -1184,7 +1186,7 @@ LL.Tab("Hitbox", function(parent)
 end)
 
 -- ============================================================
--- MACRO TAB (С ФИКСОМ КНОПКИ)
+-- MACRO TAB (С ДВУМЯ НОВЫМИ ТУМБЛЕРАМИ)
 -- ============================================================
 LL.Tab("Macro", function(parent)
     LL.Section(parent, "Информация")
@@ -1222,6 +1224,20 @@ LL.Tab("Macro", function(parent)
         function() return LL.S.Macro.JumpDetection end,
         function(v) LL.S.Macro.JumpDetection = v end)
 
+    LL.Section(parent, "Продвинутые режимы (Macro)")
+    LL.Toggle(parent, "Ignore Obstacles (Noclip при игре)",
+        function() return LL.S.Macro.IgnoreObstacles end,
+        function(v)
+            LL.S.Macro.IgnoreObstacles = v
+            LL.Notify("Ignore Obstacles: "..(v and "ON" or "OFF"))
+        end)
+    LL.Toggle(parent, "Push Through (Игнор стен + Телепорт)",
+        function() return LL.S.Macro.PushThrough end,
+        function(v)
+            LL.S.Macro.PushThrough = v
+            LL.Notify("Push Through: "..(v and "ON" or "OFF"))
+        end)
+
     LL.Section(parent, "Запись")
     local recBtn = LL.Button(parent, "🔴 Начать запись", function()
         if LL.S.Macro.Recording then
@@ -1230,7 +1246,6 @@ LL.Tab("Macro", function(parent)
             LL.MacroStartRecording()
         end
     end)
-    -- ФИКС: Синхронное обновление кнопки без задержек LL.AddRefresh
     LL.MacroRecBtn = recBtn
     LL.MacroRecBtnUpdate = function()
         if LL.S.Macro.Recording then
@@ -1352,6 +1367,7 @@ LL.Tab("Settings", function(parent)
         S.Player.LowQuality=false; LL.disableLowQuality()
         S.Player.Fullbright=false; LL.disableFullbright()
         S.Troll.AntiFling=false
+        S.Macro.IgnoreObstacles=false; S.Macro.PushThrough=false
         S.FloatingLock=false; S.FloatingPos={}
         LL.ApplyFloatingLock()
         LL.RepositionAllFloatingBtns()
@@ -2121,9 +2137,10 @@ LL.trackConn(Players.PlayerRemoving:Connect(function(pl)
 end))
 
 -- ============================================================
--- PATH RECORDER (MoveTo, без телепорта) — ФИКС ЗАВИСАНИЯ
+-- PATH RECORDER (MoveTo, без телепорта) — v3.3.3
 -- ============================================================
 LL.MacroRecordLoopThread = nil
+LL.MacroJumpConn = nil -- Для хука прыжков
 
 function LL.MacroStartRecording()
     if LL.S.Macro.Recording then return end
@@ -2136,6 +2153,18 @@ function LL.MacroStartRecording()
     local lastJump = false
     if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
 
+    -- Хук на прыжки (ловит момент нажатия Space/TouchJump)
+    if LL.MacroJumpConn then pcall(function() LL.MacroJumpConn:Disconnect() end) end
+    LL.MacroJumpConn = LL.trackConn(UIS.JumpRequest:Connect(function()
+        if LL.S.Macro.Recording and LL.S.Macro.JumpDetection then
+            local hrp = LL.Cache.HRP
+            if hrp then
+                table.insert(LL.MacroRecord, { pos = hrp.Position, jump = true })
+                if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
+            end
+        end
+    end))
+
     LL.MacroRecordLoopThread = LL.trackThread(task.spawn(function()
         while getgenv().TIMON_LOADED and LL.S.Macro.Recording do
             local chr = LL.Cache.Character
@@ -2146,12 +2175,9 @@ function LL.MacroStartRecording()
             end
             local pos = chr.HumanoidRootPart and chr.HumanoidRootPart.Position
             if pos then
-                local jumpNow = (hum:GetState() == Enum.HumanoidStateType.Jumping)
-                    or (hum:GetState() == Enum.HumanoidStateType.Freefall)
-                local isJump = LL.S.Macro.JumpDetection and jumpNow and not lastJump
-                table.insert(LL.MacroRecord, { pos = pos, jump = isJump })
-                lastJump = jumpNow
-                if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end -- Обновляем счётчик в реальном времени
+                -- Записываем обычное движение (прыжки уже отдельно хуком)
+                table.insert(LL.MacroRecord, { pos = pos, jump = false })
+                if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
             end
             task.wait(LL.S.Macro.SampleRate)
         end
@@ -2166,6 +2192,10 @@ function LL.MacroStopRecording()
         pcall(function() task.cancel(LL.MacroRecordLoopThread) end)
         LL.MacroRecordLoopThread = nil
     end
+    if LL.MacroJumpConn then
+        pcall(function() LL.MacroJumpConn:Disconnect() end)
+        LL.MacroJumpConn = nil
+    end
     local count = LL.MacroRecord and #LL.MacroRecord or 0
     LL.Notify("Запись остановлена: "..tostring(count).." точек")
     if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
@@ -2179,7 +2209,16 @@ function LL.MacroStartPlaying(name)
         return
     end
     if LL.S.Macro.Playing then LL.MacroStopPlaying() end
+    
     LL.S.Macro.Playing = true
+
+    -- Включаем Noclip, если выбран IgnoreObstacles
+    if LL.S.Macro.IgnoreObstacles and LL.Cache.Character then
+        for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide = false end
+        end
+    end
+
     LL.MacroPlayThread = LL.trackThread(task.spawn(function()
         local startPos = points[1].pos
         while getgenv().TIMON_LOADED and LL.S.Macro.Playing do
@@ -2195,30 +2234,36 @@ function LL.MacroStartPlaying(name)
                 local hrp = chr:FindFirstChild("HumanoidRootPart")
                 if not hrp then break end
 
-                -- Проверка: если персонаж уже на точке, не тупим
-                if (hrp.Position - pt.pos).Magnitude > 2 then
+                -- Если PushThrough включен — отключаем ожидание, просто даем MoveTo и идем дальше
+                if LL.S.Macro.PushThrough then
                     hum:MoveTo(pt.pos)
                     if pt.jump then
-                        task.wait(0.1)
                         pcall(function() hum.Jump = true end)
                     end
-                    
-                    -- Ждем достижения точки (макс 3 секунды, чтобы не зависать навсегда)
-                    local t0 = tick()
-                    local lastPos = hrp.Position
-                    local stuckCount = 0
-                    
-                    while (hrp.Position - pt.pos).Magnitude > 2
-                          and (tick() - t0) < 3
-                          and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
-                        task.wait(0.1)
-                        -- Фикс застревания: если персонаж не двигается 0.5 сек, пропускаем точку
-                        if (hrp.Position - lastPos).Magnitude < 0.1 then
-                            stuckCount = stuckCount + 1
-                            if stuckCount > 5 then break end -- Застрял, идем дальше
-                        else
-                            stuckCount = 0
-                            lastPos = hrp.Position
+                    -- Ждем только SampleRate, чтобы не спамить тысячи MoveTo за кадр
+                    task.wait(LL.S.Macro.SampleRate)
+                else
+                    -- Старое поведение (с ожиданием)
+                    if (hrp.Position - pt.pos).Magnitude > 2 then
+                        hum:MoveTo(pt.pos)
+                        if pt.jump then
+                            task.wait(0.1)
+                            pcall(function() hum.Jump = true end)
+                        end
+                        local t0 = tick()
+                        local lastPos = hrp.Position
+                        local stuckCount = 0
+                        while (hrp.Position - pt.pos).Magnitude > 2
+                              and (tick() - t0) < 3
+                              and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
+                            task.wait(0.1)
+                            if (hrp.Position - lastPos).Magnitude < 0.1 then
+                                stuckCount = stuckCount + 1
+                                if stuckCount > 5 then break end
+                            else
+                                stuckCount = 0
+                                lastPos = hrp.Position
+                            end
                         end
                     end
                 end
@@ -2227,16 +2272,24 @@ function LL.MacroStartPlaying(name)
                 LL.S.Macro.Playing = false
                 break
             end
+            -- Возврат в начало
             local chr = LL.Cache.Character
             local hum = LL.Cache.Humanoid
             if chr and hum and hum.Health > 0 then
                 hum:MoveTo(startPos)
                 local t0 = tick()
                 while (chr.HumanoidRootPart.Position - startPos).Magnitude > 2
-                      and (tick() - t0) < 5 -- Ждем возврата в начало макс 5 сек
+                      and (tick() - t0) < 5
                       and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
                     task.wait(0.1)
                 end
+            end
+        end
+        
+        -- Отключаем Noclip при завершении макроса
+        if LL.S.Macro.IgnoreObstacles and LL.Cache.Character then
+            for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = true end
             end
         end
         LL.S.Macro.Playing = false
@@ -2251,6 +2304,14 @@ function LL.MacroStopPlaying()
         pcall(function() task.cancel(LL.MacroPlayThread) end)
         LL.MacroPlayThread = nil
     end
+    
+    -- Отключаем Noclip при принудительной остановке
+    if LL.S.Macro.IgnoreObstacles and LL.Cache.Character then
+        for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide = true end
+        end
+    end
+    
     local hum = LL.Cache.Humanoid
     if hum and LL.Cache.HRP then pcall(function() hum:MoveTo(LL.Cache.HRP.Position) end) end
     LL.Notify("Макрос остановлен")
@@ -2688,7 +2749,7 @@ OpenBtn.MouseLeave:Connect(function() Tween:Create(OpenBtn, LL.Anim.Fast, {Backg
 OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
 
 -- ============================================================
--- XNEO MOBILE FLY (ФИКС: убран spawn, добавлен task.spawn)
+-- XNEO MOBILE FLY (ФИКС: сброс PlatformStand и удаление BV/BG)
 -- ============================================================
 LL.Actions.XNEO = function()
     if LL.xneoScriptRunning then
@@ -3479,9 +3540,9 @@ if LL.S.Player.LowQuality then LL.enableLowQuality() end
 if LL.S.Player.Fullbright then LL.enableFullbright() end
 
 if autoloaded then
-    LL.Notify("Timon Hub v4.6.7 · автозагрузка")
+    LL.Notify("Timon Hub v3.3.3 · автозагрузка")
 else
-    LL.Notify("Timon Hub v4.6.7 · загружен")
+    LL.Notify("Timon Hub v3.3.3 · загружен")
 end
 -- ============================================================
 -- UNLOAD
