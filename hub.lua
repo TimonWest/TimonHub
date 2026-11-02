@@ -303,178 +303,6 @@ function LL.Section(parent, text)
     line.Size = UDim2.new(1, 0, 0, 1); line.Position = UDim2.new(0, 0, 1, -3)
     line.BackgroundColor3 = COL.stroke; line.BorderSizePixel = 0; line.BackgroundTransparency = 0.4; line.Parent = f
 end
-function LL.ShowKeyScreen()
-    local keyGui = Instance.new("Frame")
-    keyGui.Name = "KeyScreen"
-    keyGui.Size = UDim2.new(0, 360, 0, 240)
-    keyGui.Position = UDim2.new(0.5, -180, 0.5, -120)
-    keyGui.BackgroundColor3 = COL.bg
-    keyGui.BorderSizePixel = 0
-    keyGui.Parent = ScreenGui
-    LL.corner(keyGui, 16)
-    LL.stroke(keyGui, COL.accent, 1.5)
-    LL.makeShadow(keyGui, 20, 0.6)
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -32, 0, 30)
-    title.Position = UDim2.new(0, 16, 0, 20)
-    title.BackgroundTransparency = 1
-    title.Text = LL.T("Key", "Title")
-    title.TextColor3 = COL.text
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
-    title.Parent = keyGui
-    local box = Instance.new("TextBox")
-    box.Size = UDim2.new(1, -32, 0, 44)
-    box.Position = UDim2.new(0, 16, 0, 70)
-    box.BackgroundColor3 = COL.bg2
-    box.BorderSizePixel = 0
-    box.PlaceholderText = LL.T("Key", "Placeholder")
-    box.PlaceholderColor3 = COL.sub
-    box.TextColor3 = COL.text
-    box.Font = Enum.Font.Gotham
-    box.TextSize = 16
-    box.ClearTextOnFocus = false
-    box.Parent = keyGui
-    LL.corner(box, 10)
-    LL.stroke(box, COL.stroke, 1)
-    local submitBtn = Instance.new("TextButton")
-    submitBtn.Size = UDim2.new(1, -32, 0, 44)
-    submitBtn.Position = UDim2.new(0, 16, 0, 130)
-    submitBtn.BackgroundColor3 = COL.accent
-    submitBtn.Text = LL.T("Key", "Submit")
-    submitBtn.TextColor3 = Color3.new(1,1,1)
-    submitBtn.Font = Enum.Font.GothamBold
-    submitBtn.TextSize = 15
-    submitBtn.Parent = keyGui
-    LL.corner(submitBtn, 10)
-    submitBtn.MouseButton1Click:Connect(function()
-        if LL.CheckKey(box.Text) then
-            LL.KeyValidated = true
-            LL.S.KeyValidated = true
-            LL.Notify(LL.T("Key", "Success"))
-            LL.MarkDirty()
-            if LL.saveConfig then LL.saveConfig(LL.AUTOSAVE_FILE) end
-            keyGui:Destroy()
-            LL.ShowMainUI()
-        else
-            box.Text = ""
-            box.PlaceholderText = LL.T("Key", "Error")
-            box.PlaceholderColor3 = COL.red
-            submitBtn.BackgroundColor3 = COL.red
-            task.wait(1)
-            submitBtn.BackgroundColor3 = COL.accent
-        end
-    end)
-    local skipBtn = Instance.new("TextButton")
-    skipBtn.Size = UDim2.new(1, -32, 0, 30)
-    skipBtn.Position = UDim2.new(0, 16, 0, 190)
-    skipBtn.BackgroundTransparency = 1
-    skipBtn.Text = LL.T("Key", "Skip")
-    skipBtn.TextColor3 = COL.sub
-    skipBtn.Font = Enum.Font.Gotham
-    skipBtn.TextSize = 13
-    skipBtn.Parent = keyGui
-    skipBtn.MouseButton1Click:Connect(function()
-        keyGui:Destroy()
-        LL.ShowMainUI()
-    end)
-end
-function LL.ShowMainUI()
-    if LL.Main then return end
-    local Main = Instance.new("Frame")
-    Main.Name = "Main"
-    Main.BackgroundColor3 = COL.bg
-    Main.BackgroundTransparency = 0.02
-    Main.BorderSizePixel = 0
-    Main.ClipsDescendants = true
-    Main.Parent = ScreenGui
-    LL.corner(Main, 18); LL.stroke(Main, COL.accent, 1.2)
-    LL.Main = Main
-    LL.makeShadow(Main, 20, 0.75)
-    local UIScale = Instance.new("UIScale")
-    UIScale.Parent = Main
-    LL.UIScale = UIScale
-    function LL.ApplyMainSize()
-        local vp = Camera.ViewportSize
-        local baseW, baseH, baseScale
-        if IS_MOBILE then
-            baseW, baseH, baseScale = 600, 460, 0.78
-        else
-            baseW, baseH, baseScale = 760, 540, 1.0
-        end
-        local userScale = LL.S.UI.Scale or 1.0
-        local finalScale = baseScale * userScale
-        local maxW = vp.X * (IS_MOBILE and 0.96 or 0.85)
-        local maxH = vp.Y * (IS_MOBILE and 0.88 or 0.85)
-        local finalW = math.min(baseW, maxW / finalScale)
-        local finalH = math.min(baseH, maxH / finalScale)
-        Main.Size = UDim2.new(0, finalW, 0, finalH)
-        Main.Position = UDim2.new(0.5, -finalW * finalScale / 2, 0.5, -finalH * finalScale / 2)
-        UIScale.Scale = finalScale
-    end
-    LL.ApplyMainSize()
-    LL.trackConn(Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-        LL.Cache.Viewport = Camera.ViewportSize
-        LL.ApplyMainSize()
-    end))
-    local TitleBar = Instance.new("Frame")
-    TitleBar.Size = UDim2.new(1, 0, 0, 48)
-    TitleBar.BackgroundColor3 = COL.bg2
-    TitleBar.BackgroundTransparency = 0.02
-    TitleBar.BorderSizePixel = 0
-    TitleBar.Parent = Main
-    LL.corner(TitleBar, 18); LL.gradient(TitleBar, COL.accent, COL.accent2, 25)
-    local TitleLbl = Instance.new("TextLabel")
-    TitleLbl.Size = UDim2.new(1, -180, 1, 0); TitleLbl.Position = UDim2.new(0, 20, 0, 0)
-    TitleLbl.BackgroundTransparency = 1; TitleLbl.Text = LL.Loc[LL.Language].Title
-    TitleLbl.TextColor3 = Color3.new(1, 1, 1); TitleLbl.Font = Enum.Font.GothamBold
-    TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left; TitleLbl.Parent = TitleBar
-    local LangBtn = Instance.new("TextButton")
-    LangBtn.Size = UDim2.new(0, 44, 0, 28)
-    LangBtn.Position = UDim2.new(1, -86, 0.5, -14)
-    LangBtn.BackgroundColor3 = COL.accent2
-    LangBtn.Text = LL.Language == "ru" and "RU" or "EN"
-    LangBtn.TextColor3 = Color3.new(1,1,1)
-    LangBtn.Font = Enum.Font.GothamBold
-    LangBtn.TextSize = 13
-    LangBtn.Parent = TitleBar
-    LL.corner(LangBtn, 8)
-    LangBtn.MouseButton1Click:Connect(function()
-        LL.Language = LL.Language == "ru" and "en" or "ru"
-        LangBtn.Text = LL.Language == "ru" and "RU" or "EN"
-        LL.Notify("Language: " .. LL.Language:upper())
-        if LL.RebuildUI then pcall(LL.RebuildUI) end
-    end)
-    local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 32, 0, 32); CloseBtn.Position = UDim2.new(1, -44, 0.5, -16)
-    CloseBtn.BackgroundColor3 = COL.red; CloseBtn.Text = "×"; CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-    CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 20; CloseBtn.BorderSizePixel = 0
-    CloseBtn.AutoButtonColor = false; CloseBtn.Parent = TitleBar
-    LL.corner(CloseBtn, 10)
-    CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
-    function LL.MakeDraggable(frame, dragBar)
-        local dragging, dragStart, startPos
-        dragBar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true; dragStart = input.Position; startPos = frame.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
-                end)
-            end
-        end)
-        LL.trackConn(UIS.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                local sc = UIScale.Scale > 0 and UIScale.Scale or 1
-                local d = (input.Position - dragStart) / sc
-                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-            end
-        end))
-    end
-    LL.MakeDraggable(Main, TitleBar)
-    LL.BuildTabs(Main)
-    LL.RefreshAll()
-    LL.applyLoadedSettings()
-end
 function LL.Toggle(parent, name, getter, setter)
     local f = Instance.new("Frame")
     f.Size = UDim2.new(1, 0, 0, 42); f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.05
@@ -662,6 +490,178 @@ function LL.Button(parent, label, callback, opts)
     end)
     return b
 end
+function LL.ShowKeyScreen()
+    local keyGui = Instance.new("Frame")
+    keyGui.Name = "KeyScreen"
+    keyGui.Size = UDim2.new(0, 360, 0, 240)
+    keyGui.Position = UDim2.new(0.5, -180, 0.5, -120)
+    keyGui.BackgroundColor3 = COL.bg
+    keyGui.BorderSizePixel = 0
+    keyGui.Parent = ScreenGui
+    LL.corner(keyGui, 16)
+    LL.stroke(keyGui, COL.accent, 1.5)
+    LL.makeShadow(keyGui, 20, 0.6)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -32, 0, 30)
+    title.Position = UDim2.new(0, 16, 0, 20)
+    title.BackgroundTransparency = 1
+    title.Text = LL.T("Key", "Title")
+    title.TextColor3 = COL.text
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 18
+    title.Parent = keyGui
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(1, -32, 0, 44)
+    box.Position = UDim2.new(0, 16, 0, 70)
+    box.BackgroundColor3 = COL.bg2
+    box.BorderSizePixel = 0
+    box.PlaceholderText = LL.T("Key", "Placeholder")
+    box.PlaceholderColor3 = COL.sub
+    box.TextColor3 = COL.text
+    box.Font = Enum.Font.Gotham
+    box.TextSize = 16
+    box.ClearTextOnFocus = false
+    box.Parent = keyGui
+    LL.corner(box, 10)
+    LL.stroke(box, COL.stroke, 1)
+    local submitBtn = Instance.new("TextButton")
+    submitBtn.Size = UDim2.new(1, -32, 0, 44)
+    submitBtn.Position = UDim2.new(0, 16, 0, 130)
+    submitBtn.BackgroundColor3 = COL.accent
+    submitBtn.Text = LL.T("Key", "Submit")
+    submitBtn.TextColor3 = Color3.new(1,1,1)
+    submitBtn.Font = Enum.Font.GothamBold
+    submitBtn.TextSize = 15
+    submitBtn.Parent = keyGui
+    LL.corner(submitBtn, 10)
+    submitBtn.MouseButton1Click:Connect(function()
+        if LL.CheckKey(box.Text) then
+            LL.KeyValidated = true
+            LL.S.KeyValidated = true
+            LL.Notify(LL.T("Key", "Success"))
+            LL.MarkDirty()
+            if LL.saveConfig then LL.saveConfig(LL.AUTOSAVE_FILE) end
+            keyGui:Destroy()
+            LL.ShowMainUI()
+        else
+            box.Text = ""
+            box.PlaceholderText = LL.T("Key", "Error")
+            box.PlaceholderColor3 = COL.red
+            submitBtn.BackgroundColor3 = COL.red
+            task.wait(1)
+            submitBtn.BackgroundColor3 = COL.accent
+        end
+    end)
+    local skipBtn = Instance.new("TextButton")
+    skipBtn.Size = UDim2.new(1, -32, 0, 30)
+    skipBtn.Position = UDim2.new(0, 16, 0, 190)
+    skipBtn.BackgroundTransparency = 1
+    skipBtn.Text = LL.T("Key", "Skip")
+    skipBtn.TextColor3 = COL.sub
+    skipBtn.Font = Enum.Font.Gotham
+    skipBtn.TextSize = 13
+    skipBtn.Parent = keyGui
+    skipBtn.MouseButton1Click:Connect(function()
+        keyGui:Destroy()
+        LL.ShowMainUI()
+    end)
+end
+function LL.ShowMainUI()
+    if LL.Main then return end
+    local Main = Instance.new("Frame")
+    Main.Name = "Main"
+    Main.BackgroundColor3 = COL.bg
+    Main.BackgroundTransparency = 0.02
+    Main.BorderSizePixel = 0
+    Main.ClipsDescendants = true
+    Main.Parent = ScreenGui
+    LL.corner(Main, 18); LL.stroke(Main, COL.accent, 1.2)
+    LL.Main = Main
+    LL.makeShadow(Main, 20, 0.75)
+    local UIScale = Instance.new("UIScale")
+    UIScale.Parent = Main
+    LL.UIScale = UIScale
+    function LL.ApplyMainSize()
+        local vp = Camera.ViewportSize
+        local baseW, baseH, baseScale
+        if IS_MOBILE then
+            baseW, baseH, baseScale = 600, 460, 0.78
+        else
+            baseW, baseH, baseScale = 760, 540, 1.0
+        end
+        local userScale = LL.S.UI.Scale or 1.0
+        local finalScale = baseScale * userScale
+        local maxW = vp.X * (IS_MOBILE and 0.96 or 0.85)
+        local maxH = vp.Y * (IS_MOBILE and 0.88 or 0.85)
+        local finalW = math.min(baseW, maxW / finalScale)
+        local finalH = math.min(baseH, maxH / finalScale)
+        Main.Size = UDim2.new(0, finalW, 0, finalH)
+        Main.Position = UDim2.new(0.5, -finalW * finalScale / 2, 0.5, -finalH * finalScale / 2)
+        UIScale.Scale = finalScale
+    end
+    LL.ApplyMainSize()
+    LL.trackConn(Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+        LL.Cache.Viewport = Camera.ViewportSize
+        LL.ApplyMainSize()
+    end))
+    local TitleBar = Instance.new("Frame")
+    TitleBar.Size = UDim2.new(1, 0, 0, 48)
+    TitleBar.BackgroundColor3 = COL.bg2
+    TitleBar.BackgroundTransparency = 0.02
+    TitleBar.BorderSizePixel = 0
+    TitleBar.Parent = Main
+    LL.corner(TitleBar, 18); LL.gradient(TitleBar, COL.accent, COL.accent2, 25)
+    local TitleLbl = Instance.new("TextLabel")
+    TitleLbl.Size = UDim2.new(1, -180, 1, 0); TitleLbl.Position = UDim2.new(0, 20, 0, 0)
+    TitleLbl.BackgroundTransparency = 1; TitleLbl.Text = LL.Loc[LL.Language].Title
+    TitleLbl.TextColor3 = Color3.new(1, 1, 1); TitleLbl.Font = Enum.Font.GothamBold
+    TitleLbl.TextSize = 16; TitleLbl.TextXAlignment = Enum.TextXAlignment.Left; TitleLbl.Parent = TitleBar
+    local LangBtn = Instance.new("TextButton")
+    LangBtn.Size = UDim2.new(0, 44, 0, 28)
+    LangBtn.Position = UDim2.new(1, -86, 0.5, -14)
+    LangBtn.BackgroundColor3 = COL.accent2
+    LangBtn.Text = LL.Language == "ru" and "RU" or "EN"
+    LangBtn.TextColor3 = Color3.new(1,1,1)
+    LangBtn.Font = Enum.Font.GothamBold
+    LangBtn.TextSize = 13
+    LangBtn.Parent = TitleBar
+    LL.corner(LangBtn, 8)
+    LangBtn.MouseButton1Click:Connect(function()
+        LL.Language = LL.Language == "ru" and "en" or "ru"
+        LangBtn.Text = LL.Language == "ru" and "RU" or "EN"
+        LL.Notify("Language: " .. LL.Language:upper())
+        if LL.RebuildUI then pcall(LL.RebuildUI) end
+    end)
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Size = UDim2.new(0, 32, 0, 32); CloseBtn.Position = UDim2.new(1, -44, 0.5, -16)
+    CloseBtn.BackgroundColor3 = COL.red; CloseBtn.Text = "×"; CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+    CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 20; CloseBtn.BorderSizePixel = 0
+    CloseBtn.AutoButtonColor = false; CloseBtn.Parent = TitleBar
+    LL.corner(CloseBtn, 10)
+    CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
+    function LL.MakeDraggable(frame, dragBar)
+        local dragging, dragStart, startPos
+        dragBar.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true; dragStart = input.Position; startPos = frame.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                end)
+            end
+        end)
+        LL.trackConn(UIS.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local sc = UIScale.Scale > 0 and UIScale.Scale or 1
+                local d = (input.Position - dragStart) / sc
+                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+            end
+        end))
+    end
+    LL.MakeDraggable(Main, TitleBar)
+    LL.BuildTabs(Main)
+    LL.RefreshAll()
+    LL.applyLoadedSettings()
+end
 function LL.BuildTabs(Main)
     local Left = Instance.new("ScrollingFrame")
     Left.Size = UDim2.new(0, 170, 1, -60)
@@ -830,82 +830,81 @@ function LL.BuildTabs(Main)
         LL.Toggle(parent, L.NPCDistance, function() return LL.S.ESP.NPCDistance end, function(v) LL.S.ESP.NPCDistance = v end)
         LL.Toggle(parent, L.NPCHPBar, function() return LL.S.ESP.NPCHPBar end, function(v) LL.S.ESP.NPCHPBar = v end)
     end)
-    LL.Tab("Player", function(parent)
-        local L = LL.Loc[LL.Language].Player
-        local function captureOriginals()
-            local hum = LL.Cache.Humanoid
-            if hum then
-                if not LL.S.Player.OrigWalkSpeed then LL.S.Player.OrigWalkSpeed = hum.WalkSpeed end
-                if not LL.S.Player.OrigJumpPower then LL.S.Player.OrigJumpPower = hum.JumpPower end
-            end
+LL.Tab("Player", function(parent)
+    local L = LL.Loc[LL.Language].Player
+    local function captureOriginals()
+        local hum = LL.Cache.Humanoid
+        if hum then
+            if not LL.S.Player.OrigWalkSpeed then LL.S.Player.OrigWalkSpeed = hum.WalkSpeed end
+            if not LL.S.Player.OrigJumpPower then LL.S.Player.OrigJumpPower = hum.JumpPower end
         end
-        LL.Section(parent, L.Movement)
-        LL.Toggle(parent, L.WalkSpeedEnabled, function() return LL.S.Player.WalkSpeedEnabled end, function(v)
-            if v then captureOriginals() end
-            LL.S.Player.WalkSpeedEnabled = v
-        end)
-        LL.Slider(parent, L.WalkSpeed, 16, 300, function() return LL.S.Player.WalkSpeed end, function(v) LL.S.Player.WalkSpeed = v end)
-        LL.Toggle(parent, L.JumpPowerEnabled, function() return LL.S.Player.JumpPowerEnabled end, function(v)
-            if v then captureOriginals() end
-            LL.S.Player.JumpPowerEnabled = v
-        end)
-        LL.Slider(parent, L.JumpPower, 50, 300, function() return LL.S.Player.JumpPower end, function(v) LL.S.Player.JumpPower = v end)
-        LL.Toggle(parent, L.InfiniteJump, function() return LL.S.Player.InfiniteJump end, function(v) LL.S.Player.InfiniteJump = v end)
-        LL.Toggle(parent, L.Noclip, function() return LL.S.Player.Noclip end, function(v) LL.S.Player.Noclip = v end)
-        LL.Section(parent, L.Fly)
-        LL.Toggle(parent, L.Fly, function() return LL.S.Player.Fly end, function(v) LL.S.Player.Fly = v end)
-        LL.Slider(parent, L.FlySpeed, 10, 300, function() return LL.S.Player.FlySpeed end, function(v) LL.S.Player.FlySpeed = v end)
-        LL.Section(parent, L.Gravity)
-        LL.Toggle(parent, L.ZeroGravity, function() return LL.S.Player.ZeroGravity end, function(v) LL.S.Player.ZeroGravity = v; LL.applyGravityState() end)
-        LL.Section(parent, L.Coordinates)
-        LL.Button(parent, L.SavePos, function()
-            local hrp = LL.Cache.HRP
-            if hrp then
-                LL.S.Player.SavedPos = hrp.CFrame
-                LL.MarkDirty()
-                LL.Notify("Позиция сохранена")
-            end
-        end)
-        LL.Button(parent, L.LoadPos, function()
-            local hrp = LL.Cache.HRP
-            if hrp and LL.S.Player.SavedPos then
-                hrp.CFrame = LL.S.Player.SavedPos
-                LL.Notify("Позиция загружена")
-            else
-                LL.Notify("Нет сохранённой позиции")
-            end
-        end)
-        LL.Button(parent, L.ClearPos, function()
-            LL.S.Player.SavedPos = nil
-            LL.MarkDirty()
-            LL.Notify("Позиция очищена")
-        end)
-        LL.Section(parent, L.Utility)
-        LL.Toggle(parent, L.AntiAFK, function() return LL.S.Player.AntiAFK end, function(v)
-            LL.S.Player.AntiAFK = v
-            if v then LL.startAntiAFK() else LL.stopAntiAFK() end
-        end)
-        LL.Toggle(parent, L.LazyMode, function() return LL.S.Player.LazyMode end, function(v) LL.S.Player.LazyMode = v end)
-        LL.Toggle(parent, L.FPSBooster, function() return LL.S.Player.FPSBooster end, function(v)
-            LL.S.Player.FPSBooster = v
-            if v then LL.enableFPSBooster() else LL.disableFPSBooster() end
-        end)
-        LL.Toggle(parent, L.LowQuality, function() return LL.S.Player.LowQuality end, function(v)
-            LL.S.Player.LowQuality = v
-            if v then LL.enableLowQuality() else LL.disableLowQuality() end
-        end)
-        LL.Toggle(parent, L.Fullbright, function() return LL.S.Player.Fullbright end, function(v)
-            LL.S.Player.Fullbright = v
-            if v then LL.enableFullbright() else LL.disableFullbright() end
-        end)
-        LL.Section(parent, L.XNEO)
-        LL.Button(parent, L.XNEOBtn, function()
-            if LL.Actions and LL.Actions.XNEO then
-                LL.Actions.XNEO()
-            end
-        end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
+    end
+    LL.Section(parent, L.Movement)
+    LL.Toggle(parent, L.WalkSpeedEnabled, function() return LL.S.Player.WalkSpeedEnabled end, function(v)
+        if v then captureOriginals() end
+        LL.S.Player.WalkSpeedEnabled = v
     end)
-end
+    LL.Slider(parent, L.WalkSpeed, 16, 300, function() return LL.S.Player.WalkSpeed end, function(v) LL.S.Player.WalkSpeed = v end)
+    LL.Toggle(parent, L.JumpPowerEnabled, function() return LL.S.Player.JumpPowerEnabled end, function(v)
+        if v then captureOriginals() end
+        LL.S.Player.JumpPowerEnabled = v
+    end)
+    LL.Slider(parent, L.JumpPower, 50, 300, function() return LL.S.Player.JumpPower end, function(v) LL.S.Player.JumpPower = v end)
+    LL.Toggle(parent, L.InfiniteJump, function() return LL.S.Player.InfiniteJump end, function(v) LL.S.Player.InfiniteJump = v end)
+    LL.Toggle(parent, L.Noclip, function() return LL.S.Player.Noclip end, function(v) LL.S.Player.Noclip = v end)
+    LL.Section(parent, L.Fly)
+    LL.Toggle(parent, L.Fly, function() return LL.S.Player.Fly end, function(v) LL.S.Player.Fly = v end)
+    LL.Slider(parent, L.FlySpeed, 10, 300, function() return LL.S.Player.FlySpeed end, function(v) LL.S.Player.FlySpeed = v end)
+    LL.Section(parent, L.Gravity)
+    LL.Toggle(parent, L.ZeroGravity, function() return LL.S.Player.ZeroGravity end, function(v) LL.S.Player.ZeroGravity = v; LL.applyGravityState() end)
+    LL.Section(parent, L.Coordinates)
+    LL.Button(parent, L.SavePos, function()
+        local hrp = LL.Cache.HRP
+        if hrp then
+            LL.S.Player.SavedPos = hrp.CFrame
+            LL.MarkDirty()
+            LL.Notify("Позиция сохранена")
+        end
+    end)
+    LL.Button(parent, L.LoadPos, function()
+        local hrp = LL.Cache.HRP
+        if hrp and LL.S.Player.SavedPos then
+            hrp.CFrame = LL.S.Player.SavedPos
+            LL.Notify("Позиция загружена")
+        else
+            LL.Notify("Нет сохранённой позиции")
+        end
+    end)
+    LL.Button(parent, L.ClearPos, function()
+        LL.S.Player.SavedPos = nil
+        LL.MarkDirty()
+        LL.Notify("Позиция очищена")
+    end)
+    LL.Section(parent, L.Utility)
+    LL.Toggle(parent, L.AntiAFK, function() return LL.S.Player.AntiAFK end, function(v)
+        LL.S.Player.AntiAFK = v
+        if v then LL.startAntiAFK() else LL.stopAntiAFK() end
+    end)
+    LL.Toggle(parent, L.LazyMode, function() return LL.S.Player.LazyMode end, function(v) LL.S.Player.LazyMode = v end)
+    LL.Toggle(parent, L.FPSBooster, function() return LL.S.Player.FPSBooster end, function(v)
+        LL.S.Player.FPSBooster = v
+        if v then LL.enableFPSBooster() else LL.disableFPSBooster() end
+    end)
+    LL.Toggle(parent, L.LowQuality, function() return LL.S.Player.LowQuality end, function(v)
+        LL.S.Player.LowQuality = v
+        if v then LL.enableLowQuality() else LL.disableLowQuality() end
+    end)
+    LL.Toggle(parent, L.Fullbright, function() return LL.S.Player.Fullbright end, function(v)
+        LL.S.Player.Fullbright = v
+        if v then LL.enableFullbright() else LL.disableFullbright() end
+    end)
+    LL.Section(parent, L.XNEO)
+    LL.Button(parent, L.XNEOBtn, function()
+        if LL.Actions and LL.Actions.XNEO then
+            LL.Actions.XNEO()
+        end
+    end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
+end)
 LL.Tab("Hitbox", function(parent)
     local L = LL.Loc[LL.Language].Hitbox
     LL.Section(parent, L.Who)
@@ -945,7 +944,6 @@ LL.Tab("Hitbox", function(parent)
     LL.Slider(parent, L.HeadSize, 1, 15, function() return LL.S.Hitbox.HeadSize end, function(v) LL.S.Hitbox.HeadSize = v; LL.RefreshHitboxes() end)
     LL.Slider(parent, L.BodySize, 2, 25, function() return LL.S.Hitbox.BodySize end, function(v) LL.S.Hitbox.BodySize = v; LL.RefreshHitboxes() end)
 end)
-
 LL.Tab("Macro", function(parent)
     local L = LL.Loc[LL.Language].Macro
     LL.Section(parent, L.Settings)
@@ -1061,235 +1059,231 @@ LL.Tab("Macro", function(parent)
     end
     LL.MacroRefreshList()
 end)
-
-LL.Tab("Settings", function(parent)
-    local L = LL.Loc[LL.Language].Settings
-    LL.Section(parent, L.Actions)
-    LL.Button(parent, L.ResetSettings, function()
-        local S = LL.S
-        S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25
-        S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
-        S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
-        S.Aimbot.JitterEnabled=false; S.Aimbot.Jitter=1.5
-        S.Aimbot.HitboxVisualizer=false; S.Aimbot.AimAssistBeam=false
-        S.Aimbot.MicroAdjust=false; S.Aimbot.MicroAdjustAmount=1.0
-        S.ESP.Enabled=false; S.ESP.NPCEnabled=false
-        S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
-        S.Player.Fly=false
-        S.Player.Noclip=false; S.Player.InfiniteJump=false
-        S.Player.ZeroGravity=false
-        S.Player.WalkSpeed=16; S.Player.JumpPower=50
-        S.Player.WalkSpeedEnabled=false; S.Player.JumpPowerEnabled=false
-        S.Player.AntiAFK=false; LL.stopAntiAFK()
-        S.Player.FPSBooster=false; LL.disableFPSBooster()
-        S.Player.LowQuality=false; LL.disableLowQuality()
-        S.Player.Fullbright=false; LL.disableFullbright()
-        S.Troll.AntiFling=false
-        S.Macro.IgnoreObstacles=false; S.Macro.PushThrough=false
-        S.FloatingLock=false; S.FloatingPos={}
-        LL.ApplyFloatingLock()
-        LL.RepositionAllFloatingBtns()
-        LL.applyGravityState()
-        LL.RefreshAll(); LL.MarkDirty(); LL.Notify("Настройки сброшены")
-    end)
-    LL.Button(parent, L.Unload, function()
-        if getgenv().TIMON_UNLOAD then pcall(getgenv().TIMON_UNLOAD)
-        else LL.Notify("Unload не готов") end
-    end, {color = COL.accent2, hover = Color3.fromRGB(255, 120, 210), textColor = Color3.new(1,1,1)})
-    LL.Section(parent, L.UISettings)
-    LL.Slider(parent, L.UIScale, 0.6, 1.2, function() return LL.S.UI.Scale end, function(v) LL.S.UI.Scale = v; LL.ApplyMainSize() end)
-    LL.Toggle(parent, L.Notifications, function() return LL.S.UI.Notifications end, function(v) LL.S.UI.Notifications = v end)
-    LL.Toggle(parent, L.AutoHideMobile, function() return LL.S.UI.AutoHideOnMobile end, function(v) LL.S.UI.AutoHideOnMobile = v end)
-    LL.Section(parent, L.Configs)
-    if not LL.FS_AVAILABLE then
-        local warnLbl = Instance.new("TextLabel")
-        warnLbl.Size = UDim2.new(1, 0, 0, 40); warnLbl.BackgroundColor3 = COL.red
-        warnLbl.BackgroundTransparency = 0.7; warnLbl.BorderSizePixel = 0; warnLbl.LayoutOrder = LL.NextOrder()
-        warnLbl.Text = "⚠ Экзекутор не поддерживает файловую систему"; warnLbl.TextColor3 = COL.text
-        warnLbl.Font = Enum.Font.GothamBold; warnLbl.TextSize = 13; warnLbl.Parent = parent
-        LL.corner(warnLbl, 12)
-    end
-    LL.TextBox(parent, L.ConfigName, "auto", function() return LL.S.ConfigName end, function(v) LL.S.ConfigName = (v ~= "" and v) or "auto" end)
-    LL.Button(parent, L.SaveConfig, function()
-        local name = LL.S.ConfigName or "auto"
-        local ok, err = LL.saveConfig(name)
-        if ok then
-            LL.Notify("Сохранено: "..name)
-            if LL.RefreshCfgList then LL.RefreshCfgList() end
-        else LL.Notify("Ошибка: "..tostring(err)) end
-    end)
-    LL.Button(parent, L.LoadConfig, function()
-        local name = LL.S.ConfigName or "auto"
-        if LL.loadConfigFile(name) then
-            LL.applyLoadedSettings()
-            LL.Notify("Загружено: "..name)
-        else LL.Notify("Не найден: "..name) end
-    end)
-    LL.Button(parent, L.DeleteConfig, function()
-        local name = LL.S.ConfigName or "auto"
-        LL.deleteConfig(name)
-        LL.Notify("Удалено: "..name)
-        if LL.RefreshCfgList then LL.RefreshCfgList() end
-    end)
-    LL.Toggle(parent, L.AutoSave, function() return LL.S.AutoSave end, function(v) LL.S.AutoSave = v end)
-    LL.Section(parent, L.AvailableConfigs)
-    local cfgListLbl = Instance.new("TextLabel")
-    cfgListLbl.Size = UDim2.new(1, 0, 0, 100); cfgListLbl.BackgroundColor3 = COL.elem
-    cfgListLbl.BackgroundTransparency = 0.05; cfgListLbl.BorderSizePixel = 0; cfgListLbl.LayoutOrder = LL.NextOrder()
-    cfgListLbl.TextColor3 = COL.sub; cfgListLbl.Font = Enum.Font.Gotham; cfgListLbl.TextSize = 13
-    cfgListLbl.TextWrapped = true; cfgListLbl.TextXAlignment = Enum.TextXAlignment.Left
-    cfgListLbl.TextYAlignment = Enum.TextYAlignment.Top; cfgListLbl.Parent = parent
-    LL.corner(cfgListLbl, 12); LL.stroke(cfgListLbl, COL.stroke, 1)
-    LL.padding(cfgListLbl, 8, 16, 12, 8)
-    LL.RefreshCfgList = function()
-        local list = LL.listConfigs()
-        if #list == 0 then cfgListLbl.Text = L.EmptyConfigs
-        else table.sort(list); cfgListLbl.Text = table.concat(list, "\n") end
-    end
-    LL.RefreshCfgList()
-end)
-
-LL.Tab("Binds", function(parent)
-    local L = LL.Loc[LL.Language].Binds
-    LL.Section(parent, L.Title)
-    local searchBox = Instance.new("TextBox")
-    searchBox.Size = UDim2.new(1, 0, 0, 36); searchBox.BackgroundColor3 = COL.elem
-    searchBox.BorderSizePixel = 0; searchBox.PlaceholderText = L.Search
-    searchBox.Text = ""; searchBox.TextColor3 = COL.text; searchBox.PlaceholderColor3 = COL.sub
-    searchBox.Font = Enum.Font.Gotham; searchBox.TextSize = 13; searchBox.TextXAlignment = Enum.TextXAlignment.Left
-    searchBox.ClearTextOnFocus = false; searchBox.LayoutOrder = LL.NextOrder(); searchBox.ZIndex = 10; searchBox.Parent = parent
-    LL.corner(searchBox, 12); LL.stroke(searchBox, COL.stroke, 1); LL.padding(searchBox, 0, 12, 0, 0)
-    local bindList = Instance.new("Frame")
-    bindList.Size = UDim2.new(1, 0, 0, 0); bindList.BackgroundTransparency = 1
-    bindList.AutomaticSize = Enum.AutomaticSize.Y; bindList.LayoutOrder = LL.NextOrder(); bindList.Parent = parent
-    local bindLayout = Instance.new("UIListLayout")
-    bindLayout.Padding = UDim.new(0, 6); bindLayout.SortOrder = Enum.SortOrder.LayoutOrder; bindLayout.Parent = bindList
-    local bindEntries = {}
-    local function addBind(action, name)
-        local f = Instance.new("Frame")
-        f.Size = UDim2.new(1, 0, 0, 42); f.BackgroundColor3 = COL.elem
-        f.BackgroundTransparency = 0.05; f.BorderSizePixel = 0; f.Parent = bindList
-        f.Visible = true
-        LL.corner(f, 12); LL.stroke(f, COL.stroke, 1)
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1, -130, 1, 0); lbl.Position = UDim2.new(0, 16, 0, 0)
-        lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = COL.text
-        lbl.Font = Enum.Font.Gotham; lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = f
-        local keyLbl = Instance.new("TextLabel")
-        keyLbl.Size = UDim2.new(0, 108, 0, 28); keyLbl.Position = UDim2.new(1, -120, 0.5, -14)
-        keyLbl.BackgroundColor3 = COL.bg2; keyLbl.BorderSizePixel = 0; keyLbl.TextColor3 = COL.accent2
-        keyLbl.Font = Enum.Font.GothamBold; keyLbl.TextSize = 13; keyLbl.Parent = f
-        LL.corner(keyLbl, 8)
-        local function refresh()
-            local k = LL.S.Binds[action]
-            if k then
-                keyLbl.Text = tostring(k):gsub("Enum.KeyCode.","")
-                keyLbl.TextColor3 = COL.accent2
-            else
-                keyLbl.Text = "None"; keyLbl.TextColor3 = COL.sub
-            end
-        end
-        refresh(); LL.BindRefreshers[action] = refresh
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 108, 0, 28); btn.Position = UDim2.new(1, -120, 0.5, -14)
-        btn.BackgroundTransparency = 1; btn.Text = ""; btn.Active = true; btn.ZIndex = 10; btn.Parent = f
-        btn.MouseButton1Down:Connect(function()
-            getgenv().TIMON_LISTENING = action
-            keyLbl.Text = "нажми..."; keyLbl.TextColor3 = Color3.fromRGB(255, 200, 100)
+    LL.Tab("Settings", function(parent)
+        local L = LL.Loc[LL.Language].Settings
+        LL.Section(parent, L.Actions)
+        LL.Button(parent, L.ResetSettings, function()
+            local S = LL.S
+            S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25
+            S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
+            S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
+            S.Aimbot.JitterEnabled=false; S.Aimbot.Jitter=1.5
+            S.Aimbot.HitboxVisualizer=false; S.Aimbot.AimAssistBeam=false
+            S.Aimbot.MicroAdjust=false; S.Aimbot.MicroAdjustAmount=1.0
+            S.ESP.Enabled=false; S.ESP.NPCEnabled=false
+            S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
+            S.Player.Fly=false
+            S.Player.Noclip=false; S.Player.InfiniteJump=false
+            S.Player.ZeroGravity=false
+            S.Player.WalkSpeed=16; S.Player.JumpPower=50
+            S.Player.WalkSpeedEnabled=false; S.Player.JumpPowerEnabled=false
+            S.Player.AntiAFK=false; LL.stopAntiAFK()
+            S.Player.FPSBooster=false; LL.disableFPSBooster()
+            S.Player.LowQuality=false; LL.disableLowQuality()
+            S.Player.Fullbright=false; LL.disableFullbright()
+            S.Troll.AntiFling=false
+            S.Macro.IgnoreObstacles=false; S.Macro.PushThrough=false
+            S.FloatingLock=false; S.FloatingPos={}
+            LL.ApplyFloatingLock()
+            LL.RepositionAllFloatingBtns()
+            LL.applyGravityState()
+            LL.RefreshAll(); LL.MarkDirty(); LL.Notify("Настройки сброшены")
         end)
-        bindEntries[#bindEntries+1] = {frame = f, name = name, action = action}
-    end
-    addBind("Aimbot", L.Aimbot)
-    addBind("AimbotHold", L.AimbotHold)
-    addBind("ESP", L.ESP)
-    addBind("Hitbox", L.Hitbox)
-    addBind("Fly", L.Fly)
-    addBind("Noclip", L.Noclip)
-    addBind("InfiniteJump", L.InfiniteJump)
-    addBind("ZeroGravity", L.ZeroGravity)
-    addBind("SavePos", L.SavePos)
-    addBind("LoadPos", L.LoadPos)
-    addBind("Macro", L.Macro)
-    addBind("MacroRecord", L.MacroRecord)
-    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        local q = string.lower(searchBox.Text)
-        for _, e in ipairs(bindEntries) do
-            if q == "" or string.find(string.lower(e.name), q, 1, true) then e.frame.Visible = true
-            else e.frame.Visible = false end
+        LL.Button(parent, L.Unload, function()
+            if getgenv().TIMON_UNLOAD then pcall(getgenv().TIMON_UNLOAD)
+            else LL.Notify("Unload не готов") end
+        end, {color = COL.accent2, hover = Color3.fromRGB(255, 120, 210), textColor = Color3.new(1,1,1)})
+        LL.Section(parent, L.UISettings)
+        LL.Slider(parent, L.UIScale, 0.6, 1.2, function() return LL.S.UI.Scale end, function(v) LL.S.UI.Scale = v; LL.ApplyMainSize() end)
+        LL.Toggle(parent, L.Notifications, function() return LL.S.UI.Notifications end, function(v) LL.S.UI.Notifications = v end)
+        LL.Toggle(parent, L.AutoHideMobile, function() return LL.S.UI.AutoHideOnMobile end, function(v) LL.S.UI.AutoHideOnMobile = v end)
+        LL.Section(parent, L.Configs)
+        if not LL.FS_AVAILABLE then
+            local warnLbl = Instance.new("TextLabel")
+            warnLbl.Size = UDim2.new(1, 0, 0, 40); warnLbl.BackgroundColor3 = COL.red
+            warnLbl.BackgroundTransparency = 0.7; warnLbl.BorderSizePixel = 0; warnLbl.LayoutOrder = LL.NextOrder()
+            warnLbl.Text = "⚠ Экзекутор не поддерживает файловую систему"; warnLbl.TextColor3 = COL.text
+            warnLbl.Font = Enum.Font.GothamBold; warnLbl.TextSize = 13; warnLbl.Parent = parent
+            LL.corner(warnLbl, 12)
         end
+        LL.TextBox(parent, L.ConfigName, "auto", function() return LL.S.ConfigName end, function(v) LL.S.ConfigName = (v ~= "" and v) or "auto" end)
+        LL.Button(parent, L.SaveConfig, function()
+            local name = LL.S.ConfigName or "auto"
+            local ok, err = LL.saveConfig(name)
+            if ok then
+                LL.Notify("Сохранено: "..name)
+                if LL.RefreshCfgList then LL.RefreshCfgList() end
+            else LL.Notify("Ошибка: "..tostring(err)) end
+        end)
+        LL.Button(parent, L.LoadConfig, function()
+            local name = LL.S.ConfigName or "auto"
+            if LL.loadConfigFile(name) then
+                LL.applyLoadedSettings()
+                LL.Notify("Загружено: "..name)
+            else LL.Notify("Не найден: "..name) end
+        end)
+        LL.Button(parent, L.DeleteConfig, function()
+            local name = LL.S.ConfigName or "auto"
+            LL.deleteConfig(name)
+            LL.Notify("Удалено: "..name)
+            if LL.RefreshCfgList then LL.RefreshCfgList() end
+        end)
+        LL.Toggle(parent, L.AutoSave, function() return LL.S.AutoSave end, function(v) LL.S.AutoSave = v end)
+        LL.Section(parent, L.AvailableConfigs)
+        local cfgListLbl = Instance.new("TextLabel")
+        cfgListLbl.Size = UDim2.new(1, 0, 0, 100); cfgListLbl.BackgroundColor3 = COL.elem
+        cfgListLbl.BackgroundTransparency = 0.05; cfgListLbl.BorderSizePixel = 0; cfgListLbl.LayoutOrder = LL.NextOrder()
+        cfgListLbl.TextColor3 = COL.sub; cfgListLbl.Font = Enum.Font.Gotham; cfgListLbl.TextSize = 13
+        cfgListLbl.TextWrapped = true; cfgListLbl.TextXAlignment = Enum.TextXAlignment.Left
+        cfgListLbl.TextYAlignment = Enum.TextYAlignment.Top; cfgListLbl.Parent = parent
+        LL.corner(cfgListLbl, 12); LL.stroke(cfgListLbl, COL.stroke, 1)
+        LL.padding(cfgListLbl, 8, 16, 12, 8)
+        LL.RefreshCfgList = function()
+            local list = LL.listConfigs()
+            if #list == 0 then cfgListLbl.Text = L.EmptyConfigs
+            else table.sort(list); cfgListLbl.Text = table.concat(list, "\n") end
+        end
+        LL.RefreshCfgList()
     end)
-    LL.Button(parent, L.ResetBinds, function()
-        LL.S.Binds = {}
-        for _, fn in pairs(LL.BindRefreshers) do pcall(fn) end
-        LL.MarkDirty(); LL.Notify("Бинды сброшены")
-    end, {textColor = COL.accent2})
-    LL.Section(parent, L.FloatingLock)
-    LL.Toggle(parent, L.FloatingLock, function() return LL.S.FloatingLock end, function(v)
-        LL.S.FloatingLock = v
-        LL.ApplyFloatingLock(); LL.MarkDirty()
-        LL.Notify("Floating: "..(v and "LOCKED" or "FREE"))
+    LL.Tab("Binds", function(parent)
+        local L = LL.Loc[LL.Language].Binds
+        LL.Section(parent, L.Title)
+        local searchBox = Instance.new("TextBox")
+        searchBox.Size = UDim2.new(1, 0, 0, 36); searchBox.BackgroundColor3 = COL.elem
+        searchBox.BorderSizePixel = 0; searchBox.PlaceholderText = L.Search
+        searchBox.Text = ""; searchBox.TextColor3 = COL.text; searchBox.PlaceholderColor3 = COL.sub
+        searchBox.Font = Enum.Font.Gotham; searchBox.TextSize = 13; searchBox.TextXAlignment = Enum.TextXAlignment.Left
+        searchBox.ClearTextOnFocus = false; searchBox.LayoutOrder = LL.NextOrder(); searchBox.ZIndex = 10; searchBox.Parent = parent
+        LL.corner(searchBox, 12); LL.stroke(searchBox, COL.stroke, 1); LL.padding(searchBox, 0, 12, 0, 0)
+        local bindList = Instance.new("Frame")
+        bindList.Size = UDim2.new(1, 0, 0, 0); bindList.BackgroundTransparency = 1
+        bindList.AutomaticSize = Enum.AutomaticSize.Y; bindList.LayoutOrder = LL.NextOrder(); bindList.Parent = parent
+        local bindLayout = Instance.new("UIListLayout")
+        bindLayout.Padding = UDim.new(0, 6); bindLayout.SortOrder = Enum.SortOrder.LayoutOrder; bindLayout.Parent = bindList
+        local bindEntries = {}
+        local function addBind(action, name)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, 0, 0, 42); f.BackgroundColor3 = COL.elem
+            f.BackgroundTransparency = 0.05; f.BorderSizePixel = 0; f.Parent = bindList
+            f.Visible = true
+            LL.corner(f, 12); LL.stroke(f, COL.stroke, 1)
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1, -130, 1, 0); lbl.Position = UDim2.new(0, 16, 0, 0)
+            lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = COL.text
+            lbl.Font = Enum.Font.Gotham; lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = f
+            local keyLbl = Instance.new("TextLabel")
+            keyLbl.Size = UDim2.new(0, 108, 0, 28); keyLbl.Position = UDim2.new(1, -120, 0.5, -14)
+            keyLbl.BackgroundColor3 = COL.bg2; keyLbl.BorderSizePixel = 0; keyLbl.TextColor3 = COL.accent2
+            keyLbl.Font = Enum.Font.GothamBold; keyLbl.TextSize = 13; keyLbl.Parent = f
+            LL.corner(keyLbl, 8)
+            local function refresh()
+                local k = LL.S.Binds[action]
+                if k then
+                    keyLbl.Text = tostring(k):gsub("Enum.KeyCode.","")
+                    keyLbl.TextColor3 = COL.accent2
+                else
+                    keyLbl.Text = "None"; keyLbl.TextColor3 = COL.sub
+                end
+            end
+            refresh(); LL.BindRefreshers[action] = refresh
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(0, 108, 0, 28); btn.Position = UDim2.new(1, -120, 0.5, -14)
+            btn.BackgroundTransparency = 1; btn.Text = ""; btn.Active = true; btn.ZIndex = 10; btn.Parent = f
+            btn.MouseButton1Down:Connect(function()
+                getgenv().TIMON_LISTENING = action
+                keyLbl.Text = "нажми..."; keyLbl.TextColor3 = Color3.fromRGB(255, 200, 100)
+            end)
+            bindEntries[#bindEntries+1] = {frame = f, name = name, action = action}
+        end
+        addBind("Aimbot", L.Aimbot)
+        addBind("AimbotHold", L.AimbotHold)
+        addBind("ESP", L.ESP)
+        addBind("Hitbox", L.Hitbox)
+        addBind("Fly", L.Fly)
+        addBind("Noclip", L.Noclip)
+        addBind("InfiniteJump", L.InfiniteJump)
+        addBind("ZeroGravity", L.ZeroGravity)
+        addBind("SavePos", L.SavePos)
+        addBind("LoadPos", L.LoadPos)
+        addBind("Macro", L.Macro)
+        addBind("MacroRecord", L.MacroRecord)
+        searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+            local q = string.lower(searchBox.Text)
+            for _, e in ipairs(bindEntries) do
+                if q == "" or string.find(string.lower(e.name), q, 1, true) then e.frame.Visible = true
+                else e.frame.Visible = false end
+            end
+        end)
+        LL.Button(parent, L.ResetBinds, function()
+            LL.S.Binds = {}
+            for _, fn in pairs(LL.BindRefreshers) do pcall(fn) end
+            LL.MarkDirty(); LL.Notify("Бинды сброшены")
+        end, {textColor = COL.accent2})
+        LL.Section(parent, L.FloatingLock)
+        LL.Toggle(parent, L.FloatingLock, function() return LL.S.FloatingLock end, function(v)
+            LL.S.FloatingLock = v
+            LL.ApplyFloatingLock(); LL.MarkDirty()
+            LL.Notify("Floating: "..(v and "LOCKED" or "FREE"))
+        end)
+        LL.Button(parent, L.ResetPositions, function()
+            LL.S.FloatingPos = {}
+            LL.RepositionAllFloatingBtns()
+            LL.MarkDirty(); LL.Notify("Позиции сброшены")
+        end, {textColor = COL.accent2})
+        LL.Section(parent, L.FloatingButtons)
+        LL.Toggle(parent, "Aimbot Button", function() return LL.S.MobileBtns.Aimbot == true end, function(v) LL.S.MobileBtns.Aimbot = v; LL.ToggleMobileBtn("Aimbot", v) end)
+        LL.Toggle(parent, "Noclip Button", function() return LL.S.MobileBtns.Noclip == true end, function(v) LL.S.MobileBtns.Noclip = v; LL.ToggleMobileBtn("Noclip", v) end)
+        LL.Toggle(parent, "Anti Fling Button", function() return LL.S.MobileBtns.AntiFling == true end, function(v) LL.S.MobileBtns.AntiFling = v; LL.ToggleMobileBtn("AntiFling", v) end)
+        LL.Toggle(parent, "ESP Button", function() return LL.S.MobileBtns.ESP == true end, function(v) LL.S.MobileBtns.ESP = v; LL.ToggleMobileBtn("ESP", v) end)
+        LL.Toggle(parent, "Hitbox Button", function() return LL.S.MobileBtns.Hitbox == true end, function(v) LL.S.MobileBtns.Hitbox = v; LL.ToggleMobileBtn("Hitbox", v) end)
+        LL.Toggle(parent, "Macro Button", function() return LL.S.MobileBtns.Macro == true end, function(v) LL.S.MobileBtns.Macro = v; LL.ToggleMobileBtn("Macro", v) end)
+        LL.Toggle(parent, "Macro Record Button", function() return LL.S.MobileBtns.MacroRecord == true end, function(v) LL.S.MobileBtns.MacroRecord = v; LL.ToggleMobileBtn("MacroRecord", v) end)
     end)
-    LL.Button(parent, L.ResetPositions, function()
-        LL.S.FloatingPos = {}
-        LL.RepositionAllFloatingBtns()
-        LL.MarkDirty(); LL.Notify("Позиции сброшены")
-    end, {textColor = COL.accent2})
-    LL.Section(parent, L.FloatingButtons)
-    LL.Toggle(parent, "Aimbot Button", function() return LL.S.MobileBtns.Aimbot == true end, function(v) LL.S.MobileBtns.Aimbot = v; LL.ToggleMobileBtn("Aimbot", v) end)
-    LL.Toggle(parent, "Fly Button", function() return LL.S.MobileBtns.Fly == true end, function(v) LL.S.MobileBtns.Fly = v; LL.ToggleMobileBtn("Fly", v) end)
-    LL.Toggle(parent, "Zero Gravity Button", function() return LL.S.MobileBtns.ZeroGravity == true end, function(v) LL.S.MobileBtns.ZeroGravity = v; LL.ToggleMobileBtn("ZeroGravity", v) end)
-    LL.Toggle(parent, "Noclip Button", function() return LL.S.MobileBtns.Noclip == true end, function(v) LL.S.MobileBtns.Noclip = v; LL.ToggleMobileBtn("Noclip", v) end)
-    LL.Toggle(parent, "Anti Fling Button", function() return LL.S.MobileBtns.AntiFling == true end, function(v) LL.S.MobileBtns.AntiFling = v; LL.ToggleMobileBtn("AntiFling", v) end)
-    LL.Toggle(parent, "ESP Button", function() return LL.S.MobileBtns.ESP == true end, function(v) LL.S.MobileBtns.ESP = v; LL.ToggleMobileBtn("ESP", v) end)
-    LL.Toggle(parent, "Hitbox Button", function() return LL.S.MobileBtns.Hitbox == true end, function(v) LL.S.MobileBtns.Hitbox = v; LL.ToggleMobileBtn("Hitbox", v) end)
-    LL.Toggle(parent, "Macro Button", function() return LL.S.MobileBtns.Macro == true end, function(v) LL.S.MobileBtns.Macro = v; LL.ToggleMobileBtn("Macro", v) end)
-    LL.Toggle(parent, "Macro Record Button", function() return LL.S.MobileBtns.MacroRecord == true end, function(v) LL.S.MobileBtns.MacroRecord = v; LL.ToggleMobileBtn("MacroRecord", v) end)
-end)
-
-LL.Tab("Info", function(parent)
-    local L = LL.Loc[LL.Language].Info
-    LL.Section(parent, L.Title)
-    local infoFrame = Instance.new("Frame")
-    infoFrame.Size = UDim2.new(1, 0, 0, 180)
-    infoFrame.BackgroundColor3 = COL.elem
-    infoFrame.BackgroundTransparency = 0.05
-    infoFrame.BorderSizePixel = 0
-    infoFrame.LayoutOrder = LL.NextOrder()
-    infoFrame.Parent = parent
-    LL.corner(infoFrame, 12); LL.stroke(infoFrame, COL.stroke, 1)
-    LL.padding(infoFrame, 12, 16, 16, 12)
-    local ownerLbl = Instance.new("TextLabel")
-    ownerLbl.Size = UDim2.new(1, 0, 0, 24)
-    ownerLbl.BackgroundTransparency = 1
-    ownerLbl.Text = L.Owner..": @ForchanW"
-    ownerLbl.TextColor3 = COL.accent2
-    ownerLbl.Font = Enum.Font.GothamBold
-    ownerLbl.TextSize = 15
-    ownerLbl.TextXAlignment = Enum.TextXAlignment.Left
-    ownerLbl.Parent = infoFrame
-    local channelLbl = Instance.new("TextLabel")
-    channelLbl.Size = UDim2.new(1, 0, 0, 24)
-    channelLbl.Position = UDim2.new(0, 0, 0, 28)
-    channelLbl.BackgroundTransparency = 1
-    channelLbl.Text = L.Channel..": @luaLARP"
-    channelLbl.TextColor3 = COL.accent2
-    channelLbl.Font = Enum.Font.GothamBold
-    channelLbl.TextSize = 15
-    channelLbl.TextXAlignment = Enum.TextXAlignment.Left
-    channelLbl.Parent = infoFrame
-    local noteLbl = Instance.new("TextLabel")
-    noteLbl.Size = UDim2.new(1, 0, 0, 100)
-    noteLbl.Position = UDim2.new(0, 0, 0, 60)
-    noteLbl.BackgroundTransparency = 1
-    noteLbl.Text = L.Note
-    noteLbl.TextColor3 = COL.text
-    noteLbl.Font = Enum.Font.Gotham
-    noteLbl.TextSize = 13
-    noteLbl.TextWrapped = true
-    noteLbl.TextXAlignment = Enum.TextXAlignment.Left
-    noteLbl.TextYAlignment = Enum.TextYAlignment.Top
-    noteLbl.Parent = infoFrame
-end)
+    LL.Tab("Info", function(parent)
+        local L = LL.Loc[LL.Language].Info
+        LL.Section(parent, L.Title)
+        local infoFrame = Instance.new("Frame")
+        infoFrame.Size = UDim2.new(1, 0, 0, 180)
+        infoFrame.BackgroundColor3 = COL.elem
+        infoFrame.BackgroundTransparency = 0.05
+        infoFrame.BorderSizePixel = 0
+        infoFrame.LayoutOrder = LL.NextOrder()
+        infoFrame.Parent = parent
+        LL.corner(infoFrame, 12); LL.stroke(infoFrame, COL.stroke, 1)
+        LL.padding(infoFrame, 12, 16, 16, 12)
+        local ownerLbl = Instance.new("TextLabel")
+        ownerLbl.Size = UDim2.new(1, 0, 0, 24)
+        ownerLbl.BackgroundTransparency = 1
+        ownerLbl.Text = L.Owner..": @ForchanW"
+        ownerLbl.TextColor3 = COL.accent2
+        ownerLbl.Font = Enum.Font.GothamBold
+        ownerLbl.TextSize = 15
+        ownerLbl.TextXAlignment = Enum.TextXAlignment.Left
+        ownerLbl.Parent = infoFrame
+        local channelLbl = Instance.new("TextLabel")
+        channelLbl.Size = UDim2.new(1, 0, 0, 24)
+        channelLbl.Position = UDim2.new(0, 0, 0, 28)
+        channelLbl.BackgroundTransparency = 1
+        channelLbl.Text = L.Channel..": @luaLARP"
+        channelLbl.TextColor3 = COL.accent2
+        channelLbl.Font = Enum.Font.GothamBold
+        channelLbl.TextSize = 15
+        channelLbl.TextXAlignment = Enum.TextXAlignment.Left
+        channelLbl.Parent = infoFrame
+        local noteLbl = Instance.new("TextLabel")
+        noteLbl.Size = UDim2.new(1, 0, 0, 100)
+        noteLbl.Position = UDim2.new(0, 0, 0, 60)
+        noteLbl.BackgroundTransparency = 1
+        noteLbl.Text = L.Note
+        noteLbl.TextColor3 = COL.text
+        noteLbl.Font = Enum.Font.Gotham
+        noteLbl.TextSize = 13
+        noteLbl.TextWrapped = true
+        noteLbl.TextXAlignment = Enum.TextXAlignment.Left
+        noteLbl.TextYAlignment = Enum.TextYAlignment.Top
+        noteLbl.Parent = infoFrame
+    end)
+end
 LL.LightingMgr = { original=nil, boosterApplied=false, fullbrightApplied=false }
 function LL.captureLightingOriginal()
     if LL.LightingMgr.original then return end
@@ -1788,162 +1782,6 @@ LL.trackConn(Players.PlayerRemoving:Connect(function(pl)
     LL.RemoveESP(pl)
     LL.RemoveHitboxFor(pl)
 end))
-LL.MacroRecordLoopThread = nil
-LL.MacroJumpConn = nil
-function LL.MacroStartRecording()
-    if LL.S.Macro.Recording then return end
-    if not LL.Cache.Character or not LL.Cache.Humanoid then
-        LL.Notify("Персонаж не загружен")
-        return
-    end
-    LL.S.Macro.Recording = true
-    LL.MacroRecord = {}
-    if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
-    if LL.MacroJumpConn then pcall(function() LL.MacroJumpConn:Disconnect() end) end
-    LL.MacroJumpConn = LL.trackConn(UIS.JumpRequest:Connect(function()
-        if LL.S.Macro.Recording and LL.S.Macro.JumpDetection then
-            local hrp = LL.Cache.HRP
-            if hrp then
-                table.insert(LL.MacroRecord, { pos = hrp.Position, jump = true })
-                if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
-            end
-        end
-    end))
-    LL.MacroRecordLoopThread = LL.trackThread(task.spawn(function()
-        while getgenv().TIMON_LOADED and LL.S.Macro.Recording do
-            local chr = LL.Cache.Character
-            local hum = LL.Cache.Humanoid
-            if not chr or not hum or hum.Health <= 0 then
-                LL.MacroStopRecording()
-                break
-            end
-            local pos = chr.HumanoidRootPart and chr.HumanoidRootPart.Position
-            if pos then
-                table.insert(LL.MacroRecord, { pos = pos, jump = false })
-                if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
-            end
-            task.wait(LL.S.Macro.SampleRate)
-        end
-    end))
-    LL.Notify("Запись пошла")
-end
-function LL.MacroStopRecording()
-    if not LL.S.Macro.Recording then return end
-    LL.S.Macro.Recording = false
-    if LL.MacroRecordLoopThread then
-        pcall(function() task.cancel(LL.MacroRecordLoopThread) end)
-        LL.MacroRecordLoopThread = nil
-    end
-    if LL.MacroJumpConn then
-        pcall(function() LL.MacroJumpConn:Disconnect() end)
-        LL.MacroJumpConn = nil
-    end
-    local count = LL.MacroRecord and #LL.MacroRecord or 0
-    LL.Notify("Запись остановлена: "..tostring(count).." точек")
-    if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
-end
-function LL.MacroStartPlaying(name)
-    name = name or LL.S.Macro.CurrentMacro
-    local points = LL.Macros[name]
-    if not points or #points < 2 then
-        LL.Notify("Макрос пуст: "..tostring(name))
-        return
-    end
-    if LL.S.Macro.Playing then LL.MacroStopPlaying() end
-    LL.S.Macro.Playing = true
-    if LL.S.Macro.IgnoreObstacles and LL.Cache.Character then
-        for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
-            if p:IsA("BasePart") then p.CanCollide = false end
-        end
-    end
-    LL.MacroPlayThread = LL.trackThread(task.spawn(function()
-        local startPos = points[1].pos
-        while getgenv().TIMON_LOADED and LL.S.Macro.Playing do
-            for i, pt in ipairs(points) do
-                if not LL.S.Macro.Playing or not getgenv().TIMON_LOADED then break end
-                local chr = LL.Cache.Character
-                local hum = LL.Cache.Humanoid
-                if not chr or not hum or hum.Health <= 0 then
-                    LL.S.Macro.Playing = false
-                    break
-                end
-                local hrp = chr:FindFirstChild("HumanoidRootPart")
-                if not hrp then break end
-                if LL.S.Macro.PushThrough then
-                    hum:MoveTo(pt.pos)
-                    if pt.jump then
-                        pcall(function() hum.Jump = true end)
-                    end
-                    task.wait(LL.S.Macro.SampleRate)
-                else
-                    if (hrp.Position - pt.pos).Magnitude > 2 then
-                        hum:MoveTo(pt.pos)
-                        if pt.jump then
-                            task.wait(0.1)
-                            pcall(function() hum.Jump = true end)
-                        end
-                        local t0 = tick()
-                        local lastPos = hrp.Position
-                        local stuckCount = 0
-                        while (hrp.Position - pt.pos).Magnitude > 2 and (tick() - t0) < 3 and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
-                            task.wait(0.1)
-                            if (hrp.Position - lastPos).Magnitude < 0.1 then
-                                stuckCount = stuckCount + 1
-                                if stuckCount > 5 then break end
-                            else
-                                stuckCount = 0
-                                lastPos = hrp.Position
-                            end
-                        end
-                    end
-                end
-            end
-            if not LL.S.Macro.Loop then
-                LL.S.Macro.Playing = false
-                break
-            end
-            local chr = LL.Cache.Character
-            local hum = LL.Cache.Humanoid
-            if chr and hum and hum.Health > 0 then
-                hum:MoveTo(startPos)
-                local t0 = tick()
-                while (chr.HumanoidRootPart.Position - startPos).Magnitude > 2 and (tick() - t0) < 5 and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
-                    task.wait(0.1)
-                end
-            end
-        end
-        if LL.S.Macro.IgnoreObstacles and LL.Cache.Character then
-            for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
-                if p:IsA("BasePart") then p.CanCollide = true end
-            end
-        end
-        LL.S.Macro.Playing = false
-    end))
-    LL.Notify("Макрос запущен: "..name)
-end
-function LL.MacroStopPlaying()
-    if not LL.S.Macro.Playing then return end
-    LL.S.Macro.Playing = false
-    if LL.MacroPlayThread then
-        pcall(function() task.cancel(LL.MacroPlayThread) end)
-        LL.MacroPlayThread = nil
-    end
-    if LL.S.Macro.IgnoreObstacles and LL.Cache.Character then
-        for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
-            if p:IsA("BasePart") then p.CanCollide = true end
-        end
-    end
-    local hum = LL.Cache.Humanoid
-    if hum and LL.Cache.HRP then pcall(function() hum:MoveTo(LL.Cache.HRP.Position) end) end
-    LL.Notify("Макрос остановлен")
-end
-function LL.MacroReturnToStart()
-    local name = LL.S.Macro.CurrentMacro
-    local points = LL.Macros[name]
-    if not points or #points < 1 then return end
-    local hum = LL.Cache.Humanoid
-    if hum then hum:MoveTo(points[1].pos) end
-end
 LL.StickyTarget = nil
 LL.StickyTargetIsNPC = false
 LL.aimHoldDown = false
@@ -2225,6 +2063,162 @@ RunService:BindToRenderStep("LARP_AIM", Enum.RenderPriority.Camera.Value + 1, fu
     local lookCF = CFrame.new(Camera.CFrame.Position, aimPos)
     Camera.CFrame = Camera.CFrame:Lerp(lookCF, LL.S.Aimbot.Smooth)
 end)
+LL.MacroRecordLoopThread = nil
+LL.MacroJumpConn = nil
+function LL.MacroStartRecording()
+    if LL.S.Macro.Recording then return end
+    if not LL.Cache.Character or not LL.Cache.Humanoid then
+        LL.Notify("Персонаж не загружен")
+        return
+    end
+    LL.S.Macro.Recording = true
+    LL.MacroRecord = {}
+    if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
+    if LL.MacroJumpConn then pcall(function() LL.MacroJumpConn:Disconnect() end) end
+    LL.MacroJumpConn = LL.trackConn(UIS.JumpRequest:Connect(function()
+        if LL.S.Macro.Recording and LL.S.Macro.JumpDetection then
+            local hrp = LL.Cache.HRP
+            if hrp then
+                table.insert(LL.MacroRecord, { pos = hrp.Position, jump = true })
+                if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
+            end
+        end
+    end))
+    LL.MacroRecordLoopThread = LL.trackThread(task.spawn(function()
+        while getgenv().TIMON_LOADED and LL.S.Macro.Recording do
+            local chr = LL.Cache.Character
+            local hum = LL.Cache.Humanoid
+            if not chr or not hum or hum.Health <= 0 then
+                LL.MacroStopRecording()
+                break
+            end
+            local pos = chr.HumanoidRootPart and chr.HumanoidRootPart.Position
+            if pos then
+                table.insert(LL.MacroRecord, { pos = pos, jump = false })
+                if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
+            end
+            task.wait(LL.S.Macro.SampleRate)
+        end
+    end))
+    LL.Notify("Запись пошла")
+end
+function LL.MacroStopRecording()
+    if not LL.S.Macro.Recording then return end
+    LL.S.Macro.Recording = false
+    if LL.MacroRecordLoopThread then
+        pcall(function() task.cancel(LL.MacroRecordLoopThread) end)
+        LL.MacroRecordLoopThread = nil
+    end
+    if LL.MacroJumpConn then
+        pcall(function() LL.MacroJumpConn:Disconnect() end)
+        LL.MacroJumpConn = nil
+    end
+    local count = LL.MacroRecord and #LL.MacroRecord or 0
+    LL.Notify("Запись остановлена: "..tostring(count).." точек")
+    if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
+end
+function LL.MacroStartPlaying(name)
+    name = name or LL.S.Macro.CurrentMacro
+    local points = LL.Macros[name]
+    if not points or #points < 2 then
+        LL.Notify("Макрос пуст: "..tostring(name))
+        return
+    end
+    if LL.S.Macro.Playing then LL.MacroStopPlaying() end
+    LL.S.Macro.Playing = true
+    if LL.S.Macro.IgnoreObstacles and LL.Cache.Character then
+        for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide = false end
+        end
+    end
+    LL.MacroPlayThread = LL.trackThread(task.spawn(function()
+        local startPos = points[1].pos
+        while getgenv().TIMON_LOADED and LL.S.Macro.Playing do
+            for i, pt in ipairs(points) do
+                if not LL.S.Macro.Playing or not getgenv().TIMON_LOADED then break end
+                local chr = LL.Cache.Character
+                local hum = LL.Cache.Humanoid
+                if not chr or not hum or hum.Health <= 0 then
+                    LL.S.Macro.Playing = false
+                    break
+                end
+                local hrp = chr:FindFirstChild("HumanoidRootPart")
+                if not hrp then break end
+                if LL.S.Macro.PushThrough then
+                    hum:MoveTo(pt.pos)
+                    if pt.jump then
+                        pcall(function() hum.Jump = true end)
+                    end
+                    task.wait(LL.S.Macro.SampleRate)
+                else
+                    if (hrp.Position - pt.pos).Magnitude > 2 then
+                        hum:MoveTo(pt.pos)
+                        if pt.jump then
+                            task.wait(0.1)
+                            pcall(function() hum.Jump = true end)
+                        end
+                        local t0 = tick()
+                        local lastPos = hrp.Position
+                        local stuckCount = 0
+                        while (hrp.Position - pt.pos).Magnitude > 2 and (tick() - t0) < 3 and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
+                            task.wait(0.1)
+                            if (hrp.Position - lastPos).Magnitude < 0.1 then
+                                stuckCount = stuckCount + 1
+                                if stuckCount > 5 then break end
+                            else
+                                stuckCount = 0
+                                lastPos = hrp.Position
+                            end
+                        end
+                    end
+                end
+            end
+            if not LL.S.Macro.Loop then
+                LL.S.Macro.Playing = false
+                break
+            end
+            local chr = LL.Cache.Character
+            local hum = LL.Cache.Humanoid
+            if chr and hum and hum.Health > 0 then
+                hum:MoveTo(startPos)
+                local t0 = tick()
+                while (chr.HumanoidRootPart.Position - startPos).Magnitude > 2 and (tick() - t0) < 5 and LL.S.Macro.Playing and getgenv().TIMON_LOADED do
+                    task.wait(0.1)
+                end
+            end
+        end
+        if LL.S.Macro.IgnoreObstacles and LL.Cache.Character then
+            for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = true end
+            end
+        end
+        LL.S.Macro.Playing = false
+    end))
+    LL.Notify("Макрос запущен: "..name)
+end
+function LL.MacroStopPlaying()
+    if not LL.S.Macro.Playing then return end
+    LL.S.Macro.Playing = false
+    if LL.MacroPlayThread then
+        pcall(function() task.cancel(LL.MacroPlayThread) end)
+        LL.MacroPlayThread = nil
+    end
+    if LL.S.Macro.IgnoreObstacles and LL.Cache.Character then
+        for _, p in ipairs(LL.Cache.Character:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide = true end
+        end
+    end
+    local hum = LL.Cache.Humanoid
+    if hum and LL.Cache.HRP then pcall(function() hum:MoveTo(LL.Cache.HRP.Position) end) end
+    LL.Notify("Макрос остановлен")
+end
+function LL.MacroReturnToStart()
+    local name = LL.S.Macro.CurrentMacro
+    local points = LL.Macros[name]
+    if not points or #points < 1 then return end
+    local hum = LL.Cache.Humanoid
+    if hum then hum:MoveTo(points[1].pos) end
+end
 function LL.saveBtnPos(id, pos)
     LL.S.FloatingPos[id] = { xS = pos.X.Scale, xO = pos.X.Offset, yS = pos.Y.Scale, yO = pos.Y.Offset }
 end
@@ -2284,7 +2278,7 @@ function LL.ToggleMobileBtn(action, show)
     b.Position = LL.loadBtnPos(action, defaultPos)
     b.BackgroundColor3 = COL.bg2; b.BackgroundTransparency = 0.1; b.TextColor3 = COL.accent2
     b.Font = Enum.Font.GothamBold; b.TextSize = 11
-    local LABEL = { Aimbot="AIM", Fly="FLY", ZeroGravity="GRAV", Noclip="NOCLIP", AntiFling="AFLNG", InfiniteJump="IJMP", ESP="ESP", Hitbox="HITBX", Macro="MACRO", MacroRecord="REC" }
+    local LABEL = { Aimbot="AIM", Noclip="NOCLIP", AntiFling="AFLNG", InfiniteJump="IJMP", ESP="ESP", Hitbox="HITBX", Macro="MACRO", MacroRecord="REC" }
     b.Text = LABEL[action] or action
     b.BorderSizePixel = 0; b.AutoButtonColor = false; b.ZIndex = 5; b.Parent = ScreenGui
     LL.corner(b, 29)
@@ -2295,8 +2289,6 @@ function LL.ToggleMobileBtn(action, show)
         if action == "Aimbot" then return LL.S.Aimbot.Enabled
         elseif action == "ESP" then return LL.S.ESP.Enabled
         elseif action == "Hitbox" then return LL.S.Hitbox.Enabled or LL.S.Hitbox.NPCSupport
-        elseif action == "Fly" then return LL.S.Player.Fly
-        elseif action == "ZeroGravity" then return LL.S.Player.ZeroGravity
         elseif action == "Noclip" then return LL.S.Player.Noclip
         elseif action == "InfiniteJump" then return LL.S.Player.InfiniteJump
         elseif action == "AntiFling" then return LL.S.Troll.AntiFling
@@ -2332,413 +2324,6 @@ LL.MakeDraggableLockable(OpenBtn, OpenBtn, "__OpenBtn", openDefault)
 OpenBtn.MouseEnter:Connect(function() Tween:Create(OpenBtn, LL.Anim.Fast, {BackgroundColor3 = COL.elem}):Play() end)
 OpenBtn.MouseLeave:Connect(function() Tween:Create(OpenBtn, LL.Anim.Fast, {BackgroundColor3 = COL.bg2}):Play() end)
 OpenBtn.MouseButton1Click:Connect(function() if LL.Main then LL.Main.Visible = not LL.Main.Visible end end)
-LL.Actions.XNEO = function()
-    if LL.xneoScriptRunning then
-        LL.Notify("XNEO уже запущен")
-        return
-    end
-    LL.Notify("Запуск XNEO...")
-    local ok, err = pcall(function()
-        local main = Instance.new("ScreenGui")
-        local Frame = Instance.new("Frame")
-        local up = Instance.new("TextButton")
-        local down = Instance.new("TextButton")
-        local onof = Instance.new("TextButton")
-        local TextLabel = Instance.new("TextLabel")
-        local plus = Instance.new("TextButton")
-        local speed = Instance.new("TextLabel")
-        local mine = Instance.new("TextButton")
-        local closebutton = Instance.new("TextButton")
-        local mini = Instance.new("TextButton")
-        local mini2 = Instance.new("TextButton")
-        main.Name = "main"
-        main.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-        main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        main.ResetOnSpawn = false
-        Frame.Parent = main
-        Frame.BackgroundColor3 = Color3.fromRGB(163, 255, 137)
-        Frame.BorderColor3 = Color3.fromRGB(103, 221, 213)
-        Frame.Position = UDim2.new(0.100320168, 0, 0.379746825, 0)
-        Frame.Size = UDim2.new(0, 190, 0, 57)
-        up.Name = "up"
-        up.Parent = Frame
-        up.BackgroundColor3 = Color3.fromRGB(79, 255, 152)
-        up.Size = UDim2.new(0, 44, 0, 28)
-        up.Font = Enum.Font.SourceSans
-        up.Text = "UP"
-        up.TextColor3 = Color3.fromRGB(0, 0, 0)
-        up.TextSize = 14.000
-        down.Name = "down"
-        down.Parent = Frame
-        down.BackgroundColor3 = Color3.fromRGB(215, 255, 121)
-        down.Position = UDim2.new(0, 0, 0.491228074, 0)
-        down.Size = UDim2.new(0, 44, 0, 28)
-        down.Font = Enum.Font.SourceSans
-        down.Text = "DOWN"
-        down.TextColor3 = Color3.fromRGB(0, 0, 0)
-        down.TextSize = 14.000
-        onof.Name = "onof"
-        onof.Parent = Frame
-        onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
-        onof.Position = UDim2.new(0.702823281, 0, 0.491228074, 0)
-        onof.Size = UDim2.new(0, 56, 0, 28)
-        onof.Font = Enum.Font.SourceSans
-        onof.Text = "fly"
-        onof.TextColor3 = Color3.fromRGB(0, 0, 0)
-        onof.TextSize = 14.000
-        TextLabel.Parent = Frame
-        TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
-        TextLabel.Position = UDim2.new(0.469327301, 0, 0, 0)
-        TextLabel.Size = UDim2.new(0, 100, 0, 28)
-        TextLabel.Font = Enum.Font.SourceSans
-        TextLabel.Text = "FLY GUI V3"
-        TextLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-        TextLabel.TextScaled = true
-        TextLabel.TextSize = 14.000
-        TextLabel.TextWrapped = true
-        plus.Name = "plus"
-        plus.Parent = Frame
-        plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
-        plus.Position = UDim2.new(0.231578946, 0, 0, 0)
-        plus.Size = UDim2.new(0, 45, 0, 28)
-        plus.Font = Enum.Font.SourceSans
-        plus.Text = "+"
-        plus.TextColor3 = Color3.fromRGB(0, 0, 0)
-        plus.TextScaled = true
-        plus.TextSize = 14.000
-        plus.TextWrapped = true
-        speed.Name = "speed"
-        speed.Parent = Frame
-        speed.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
-        speed.Position = UDim2.new(0.468421042, 0, 0.491228074, 0)
-        speed.Size = UDim2.new(0, 44, 0, 28)
-        speed.Font = Enum.Font.SourceSans
-        speed.Text = "1"
-        speed.TextColor3 = Color3.fromRGB(0, 0, 0)
-        speed.TextScaled = true
-        speed.TextSize = 14.000
-        speed.TextWrapped = true
-        mine.Name = "mine"
-        mine.Parent = Frame
-        mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
-        mine.Position = UDim2.new(0.231578946, 0, 0.491228074, 0)
-        mine.Size = UDim2.new(0, 45, 0, 29)
-        mine.Font = Enum.Font.SourceSans
-        mine.Text = "-"
-        mine.TextColor3 = Color3.fromRGB(0, 0, 0)
-        mine.TextScaled = true
-        mine.TextSize = 14.000
-        mine.TextWrapped = true
-        closebutton.Name = "Close"
-        closebutton.Parent = main.Frame
-        closebutton.BackgroundColor3 = Color3.fromRGB(225, 25, 0)
-        closebutton.Font = "SourceSans"
-        closebutton.Size = UDim2.new(0, 45, 0, 28)
-        closebutton.Text = "X"
-        closebutton.TextSize = 30
-        closebutton.Position =  UDim2.new(0, 0, -1, 27)
-        mini.Name = "minimize"
-        mini.Parent = main.Frame
-        mini.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
-        mini.Font = "SourceSans"
-        mini.Size = UDim2.new(0, 45, 0, 28)
-        mini.Text = "-"
-        mini.TextSize = 40
-        mini.Position = UDim2.new(0, 44, -1, 27)
-        mini2.Name = "minimize2"
-        mini2.Parent = main.Frame
-        mini2.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
-        mini2.Font = "SourceSans"
-        mini2.Size = UDim2.new(0, 45, 0, 28)
-        mini2.Text = "+"
-        mini2.TextSize = 40
-        mini2.Position = UDim2.new(0, 44, -1, 57)
-        mini2.Visible = false
-        local speeds = 1
-        local speaker = game:GetService("Players").LocalPlayer
-        local chr = game.Players.LocalPlayer.Character
-        local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-        local nowe = false
-        game:GetService("StarterGui"):SetCore("SendNotification", { Title = "FLY GUI V3", Text = "BY XNEO", Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150" })
-        Frame.Active = true
-        Frame.Draggable = true
-        onof.MouseButton1Down:connect(function()
-            if nowe == true then
-                nowe = false
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming,true)
-                speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
-            else 
-                nowe = true
-                for i = 1, speeds do
-                    spawn(function()
-                        local hb = game:GetService("RunService").Heartbeat	
-                        tpwalking = true
-                        local chr = game.Players.LocalPlayer.Character
-                        local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-                        while tpwalking and hb:Wait() and chr and hum and hum.Parent do
-                            if hum.MoveDirection.Magnitude > 0 then
-                                chr:TranslateBy(hum.MoveDirection)
-                            end
-                        end
-                    end)
-                end
-                game.Players.LocalPlayer.Character.Animate.Disabled = true
-                local Char = game.Players.LocalPlayer.Character
-                local Hum = Char:FindFirstChildOfClass("Humanoid") or Char:FindFirstChildOfClass("AnimationController")
-                for i,v in next, Hum:GetPlayingAnimationTracks() do
-                    v:AdjustSpeed(0)
-                end
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming,false)
-                speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
-            end
-            if game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid").RigType == Enum.HumanoidRigType.R6 then
-                local plr = game.Players.LocalPlayer
-                local torso = plr.Character.Torso
-                local flying = true
-                local deb = true
-                local ctrl = {f = 0, b = 0, l = 0, r = 0}
-                local lastctrl = {f = 0, b = 0, l = 0, r = 0}
-                local maxspeed = 50
-                local speed = 0
-                local bg = Instance.new("BodyGyro", torso)
-                bg.P = 9e4
-                bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
-                bg.cframe = torso.CFrame
-                local bv = Instance.new("BodyVelocity", torso)
-                bv.velocity = Vector3.new(0,0.1,0)
-                bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
-                if nowe == true then
-                    plr.Character.Humanoid.PlatformStand = true
-                end
-                while nowe == true or game:GetService("Players").LocalPlayer.Character.Humanoid.Health == 0 do
-                    game:GetService("RunService").RenderStepped:Wait()
-                    if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
-                        speed = speed+.5+(speed/maxspeed)
-                        if speed > maxspeed then
-                            speed = maxspeed
-                        end
-                    elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
-                        speed = speed-1
-                        if speed < 0 then
-                            speed = 0
-                        end
-                    end
-                    if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
-                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
-                        lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
-                    elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and speed ~= 0 then
-                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
-                    else
-                        bv.velocity = Vector3.new(0,0,0)
-                    end
-                    bg.cframe = game.Workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/maxspeed),0,0)
-                end
-                ctrl = {f = 0, b = 0, l = 0, r = 0}
-                lastctrl = {f = 0, b = 0, l = 0, r = 0}
-                speed = 0
-                bg:Destroy()
-                bv:Destroy()
-                plr.Character.Humanoid.PlatformStand = false
-                game.Players.LocalPlayer.Character.Animate.Disabled = false
-                tpwalking = false
-            else
-                local plr = game.Players.LocalPlayer
-                local UpperTorso = plr.Character.UpperTorso
-                local flying = true
-                local deb = true
-                local ctrl = {f = 0, b = 0, l = 0, r = 0}
-                local lastctrl = {f = 0, b = 0, l = 0, r = 0}
-                local maxspeed = 50
-                local speed = 0
-                local bg = Instance.new("BodyGyro", UpperTorso)
-                bg.P = 9e4
-                bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
-                bg.cframe = UpperTorso.CFrame
-                local bv = Instance.new("BodyVelocity", UpperTorso)
-                bv.velocity = Vector3.new(0,0.1,0)
-                bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
-                if nowe == true then
-                    plr.Character.Humanoid.PlatformStand = true
-                end
-                while nowe == true or game:GetService("Players").LocalPlayer.Character.Humanoid.Health == 0 do
-                    wait()
-                    if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
-                        speed = speed+.5+(speed/maxspeed)
-                        if speed > maxspeed then
-                            speed = maxspeed
-                        end
-                    elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
-                        speed = speed-1
-                        if speed < 0 then
-                            speed = 0
-                        end
-                    end
-                    if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
-                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
-                        lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
-                    elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and speed ~= 0 then
-                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
-                    else
-                        bv.velocity = Vector3.new(0,0,0)
-                    end
-                    bg.cframe = game.Workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/maxspeed),0,0)
-                end
-                ctrl = {f = 0, b = 0, l = 0, r = 0}
-                lastctrl = {f = 0, b = 0, l = 0, r = 0}
-                speed = 0
-                bg:Destroy()
-                bv:Destroy()
-                plr.Character.Humanoid.PlatformStand = false
-                game.Players.LocalPlayer.Character.Animate.Disabled = false
-                tpwalking = false
-            end
-        end)
-        local tis
-        up.MouseButton1Down:connect(function()
-            tis = up.MouseEnter:connect(function()
-                while tis do
-                    wait()
-                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,1,0)
-                end
-            end)
-        end)
-        up.MouseLeave:connect(function()
-            if tis then
-                tis:Disconnect()
-                tis = nil
-            end
-        end)
-        local dis
-        down.MouseButton1Down:connect(function()
-            dis = down.MouseEnter:connect(function()
-                while dis do
-                    wait()
-                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,-1,0)
-                end
-            end)
-        end)
-        down.MouseLeave:connect(function()
-            if dis then
-                dis:Disconnect()
-                dis = nil
-            end
-        end)
-        game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(char)
-            wait(0.7)
-            game.Players.LocalPlayer.Character.Humanoid.PlatformStand = false
-            game.Players.LocalPlayer.Character.Animate.Disabled = false
-        end)
-        plus.MouseButton1Down:connect(function()
-            speeds = speeds + 1
-            speed.Text = speeds
-            if nowe == true then
-                tpwalking = false
-                for i = 1, speeds do
-                    spawn(function()
-                        local hb = game:GetService("RunService").Heartbeat	
-                        tpwalking = true
-                        local chr = game.Players.LocalPlayer.Character
-                        local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-                        while tpwalking and hb:Wait() and chr and hum and hum.Parent do
-                            if hum.MoveDirection.Magnitude > 0 then
-                                chr:TranslateBy(hum.MoveDirection)
-                            end
-                        end
-                    end)
-                end
-            end
-        end)
-        mine.MouseButton1Down:connect(function()
-            if speeds == 1 then
-                speed.Text = 'cannot be less than 1'
-                wait(1)
-                speed.Text = speeds
-            else
-                speeds = speeds - 1
-                speed.Text = speeds
-                if nowe == true then
-                    tpwalking = false
-                    for i = 1, speeds do
-                        spawn(function()
-                            local hb = game:GetService("RunService").Heartbeat	
-                            tpwalking = true
-                            local chr = game.Players.LocalPlayer.Character
-                            local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-                            while tpwalking and hb:Wait() and chr and hum and hum.Parent do
-                                if hum.MoveDirection.Magnitude > 0 then
-                                    chr:TranslateBy(hum.MoveDirection)
-                                end
-                            end
-                        end)
-                    end
-                end
-            end
-        end)
-        closebutton.MouseButton1Click:Connect(function()
-            main:Destroy()
-            LL.xneoScriptRunning = false
-        end)
-        mini.MouseButton1Click:Connect(function()
-            up.Visible = false
-            down.Visible = false
-            onof.Visible = false
-            plus.Visible = false
-            speed.Visible = false
-            mine.Visible = false
-            mini.Visible = false
-            mini2.Visible = true
-            main.Frame.BackgroundTransparency = 1
-            closebutton.Position =  UDim2.new(0, 0, -1, 57)
-        end)
-        mini2.MouseButton1Click:Connect(function()
-            up.Visible = true
-            down.Visible = true
-            onof.Visible = true
-            plus.Visible = true
-            speed.Visible = true
-            mine.Visible = true
-            mini.Visible = true
-            mini2.Visible = false
-            main.Frame.BackgroundTransparency = 0 
-            closebutton.Position =  UDim2.new(0, 0, -1, 27)
-        end)
-    end)
-    if ok then
-        LL.xneoScriptRunning = true
-        LL.Notify("XNEO Fly GUI загружен")
-    else
-        LL.Notify("Ошибка XNEO: "..tostring(err))
-        warn("[LARP XNEO] "..tostring(err))
-    end
-end
 LL.Actions.Aimbot = function()
     LL.S.Aimbot.Enabled = not LL.S.Aimbot.Enabled; LL.RefreshAll(); LL.MarkDirty()
     LL.Notify("Aimbot: "..tostring(LL.S.Aimbot.Enabled))
@@ -2757,15 +2342,6 @@ LL.Actions.Hitbox = function()
     end
     LL.RefreshAll(); LL.MarkDirty()
     LL.Notify("Hitbox: "..tostring(newEnabled))
-end
-LL.Actions.Fly = function()
-    LL.S.Player.Fly = not LL.S.Player.Fly; LL.RefreshAll(); LL.MarkDirty()
-    LL.Notify("Fly: "..tostring(LL.S.Player.Fly))
-end
-LL.Actions.ZeroGravity = function()
-    LL.S.Player.ZeroGravity = not LL.S.Player.ZeroGravity
-    LL.applyGravityState(); LL.RefreshAll(); LL.MarkDirty()
-    LL.Notify("ZeroG: "..tostring(LL.S.Player.ZeroGravity))
 end
 LL.Actions.Noclip = function()
     LL.S.Player.Noclip = not LL.S.Player.Noclip; LL.RefreshAll(); LL.MarkDirty()
@@ -3292,4 +2868,411 @@ getgenv().TIMON_UNLOAD = function()
     LL.antiAFKThread = nil
     LL.MacroRecBtnUpdate = nil
     LL.MacroRecBtn = nil
+end
+LL.Actions.XNEO = function()
+    if LL.xneoScriptRunning then
+        LL.Notify("XNEO уже запущен")
+        return
+    end
+    LL.Notify("Запуск XNEO...")
+    local ok, err = pcall(function()
+        local main = Instance.new("ScreenGui")
+        local Frame = Instance.new("Frame")
+        local up = Instance.new("TextButton")
+        local down = Instance.new("TextButton")
+        local onof = Instance.new("TextButton")
+        local TextLabel = Instance.new("TextLabel")
+        local plus = Instance.new("TextButton")
+        local speed = Instance.new("TextLabel")
+        local mine = Instance.new("TextButton")
+        local closebutton = Instance.new("TextButton")
+        local mini = Instance.new("TextButton")
+        local mini2 = Instance.new("TextButton")
+        main.Name = "main"
+        main.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+        main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        main.ResetOnSpawn = false
+        Frame.Parent = main
+        Frame.BackgroundColor3 = Color3.fromRGB(163, 255, 137)
+        Frame.BorderColor3 = Color3.fromRGB(103, 221, 213)
+        Frame.Position = UDim2.new(0.100320168, 0, 0.379746825, 0)
+        Frame.Size = UDim2.new(0, 190, 0, 57)
+        up.Name = "up"
+        up.Parent = Frame
+        up.BackgroundColor3 = Color3.fromRGB(79, 255, 152)
+        up.Size = UDim2.new(0, 44, 0, 28)
+        up.Font = Enum.Font.SourceSans
+        up.Text = "UP"
+        up.TextColor3 = Color3.fromRGB(0, 0, 0)
+        up.TextSize = 14.000
+        down.Name = "down"
+        down.Parent = Frame
+        down.BackgroundColor3 = Color3.fromRGB(215, 255, 121)
+        down.Position = UDim2.new(0, 0, 0.491228074, 0)
+        down.Size = UDim2.new(0, 44, 0, 28)
+        down.Font = Enum.Font.SourceSans
+        down.Text = "DOWN"
+        down.TextColor3 = Color3.fromRGB(0, 0, 0)
+        down.TextSize = 14.000
+        onof.Name = "onof"
+        onof.Parent = Frame
+        onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
+        onof.Position = UDim2.new(0.702823281, 0, 0.491228074, 0)
+        onof.Size = UDim2.new(0, 56, 0, 28)
+        onof.Font = Enum.Font.SourceSans
+        onof.Text = "fly"
+        onof.TextColor3 = Color3.fromRGB(0, 0, 0)
+        onof.TextSize = 14.000
+        TextLabel.Parent = Frame
+        TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
+        TextLabel.Position = UDim2.new(0.469327301, 0, 0, 0)
+        TextLabel.Size = UDim2.new(0, 100, 0, 28)
+        TextLabel.Font = Enum.Font.SourceSans
+        TextLabel.Text = "FLY GUI V3"
+        TextLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+        TextLabel.TextScaled = true
+        TextLabel.TextSize = 14.000
+        TextLabel.TextWrapped = true
+        plus.Name = "plus"
+        plus.Parent = Frame
+        plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
+        plus.Position = UDim2.new(0.231578946, 0, 0, 0)
+        plus.Size = UDim2.new(0, 45, 0, 28)
+        plus.Font = Enum.Font.SourceSans
+        plus.Text = "+"
+        plus.TextColor3 = Color3.fromRGB(0, 0, 0)
+        plus.TextScaled = true
+        plus.TextSize = 14.000
+        plus.TextWrapped = true
+        speed.Name = "speed"
+        speed.Parent = Frame
+        speed.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
+        speed.Position = UDim2.new(0.468421042, 0, 0.491228074, 0)
+        speed.Size = UDim2.new(0, 44, 0, 28)
+        speed.Font = Enum.Font.SourceSans
+        speed.Text = "1"
+        speed.TextColor3 = Color3.fromRGB(0, 0, 0)
+        speed.TextScaled = true
+        speed.TextSize = 14.000
+        speed.TextWrapped = true
+        mine.Name = "mine"
+        mine.Parent = Frame
+        mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
+        mine.Position = UDim2.new(0.231578946, 0, 0.491228074, 0)
+        mine.Size = UDim2.new(0, 45, 0, 29)
+        mine.Font = Enum.Font.SourceSans
+        mine.Text = "-"
+        mine.TextColor3 = Color3.fromRGB(0, 0, 0)
+        mine.TextScaled = true
+        mine.TextSize = 14.000
+        mine.TextWrapped = true
+        closebutton.Name = "Close"
+        closebutton.Parent = main.Frame
+        closebutton.BackgroundColor3 = Color3.fromRGB(225, 25, 0)
+        closebutton.Font = "SourceSans"
+        closebutton.Size = UDim2.new(0, 45, 0, 28)
+        closebutton.Text = "X"
+        closebutton.TextSize = 30
+        closebutton.Position =  UDim2.new(0, 0, -1, 27)
+        mini.Name = "minimize"
+        mini.Parent = main.Frame
+        mini.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
+        mini.Font = "SourceSans"
+        mini.Size = UDim2.new(0, 45, 0, 28)
+        mini.Text = "-"
+        mini.TextSize = 40
+        mini.Position = UDim2.new(0, 44, -1, 27)
+        mini2.Name = "minimize2"
+        mini2.Parent = main.Frame
+        mini2.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
+        mini2.Font = "SourceSans"
+        mini2.Size = UDim2.new(0, 45, 0, 28)
+        mini2.Text = "+"
+        mini2.TextSize = 40
+        mini2.Position = UDim2.new(0, 44, -1, 57)
+        mini2.Visible = false
+        local speeds = 1
+        local speaker = game:GetService("Players").LocalPlayer
+        local chr = game.Players.LocalPlayer.Character
+        local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+        local nowe = false
+        game:GetService("StarterGui"):SetCore("SendNotification", { Title = "FLY GUI V3", Text = "BY XNEO", Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150" })
+        Frame.Active = true
+        Frame.Draggable = true
+        onof.MouseButton1Down:connect(function()
+            if nowe == true then
+                nowe = false
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics,true)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming,true)
+                speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+            else 
+                nowe = true
+                for i = 1, speeds do
+                    spawn(function()
+                        local hb = game:GetService("RunService").Heartbeat	
+                        tpwalking = true
+                        local chr = game.Players.LocalPlayer.Character
+                        local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+                        while tpwalking and hb:Wait() and chr and hum and hum.Parent do
+                            if hum.MoveDirection.Magnitude > 0 then
+                                chr:TranslateBy(hum.MoveDirection)
+                            end
+                        end
+                    end)
+                end
+                game.Players.LocalPlayer.Character.Animate.Disabled = true
+                local Char = game.Players.LocalPlayer.Character
+                local Hum = Char:FindFirstChildOfClass("Humanoid") or Char:FindFirstChildOfClass("AnimationController")
+                for i,v in next, Hum:GetPlayingAnimationTracks() do
+                    v:AdjustSpeed(0)
+                end
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics,false)
+                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming,false)
+                speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
+            end
+            if game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid").RigType == Enum.HumanoidRigType.R6 then
+                local plr = game.Players.LocalPlayer
+                local torso = plr.Character.Torso
+                local flying = true
+                local deb = true
+                local ctrl = {f = 0, b = 0, l = 0, r = 0}
+                local lastctrl = {f = 0, b = 0, l = 0, r = 0}
+                local maxspeed = 50
+                local speed = 0
+                local bg = Instance.new("BodyGyro", torso)
+                bg.P = 9e4
+                bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+                bg.cframe = torso.CFrame
+                local bv = Instance.new("BodyVelocity", torso)
+                bv.velocity = Vector3.new(0,0.1,0)
+                bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+                if nowe == true then
+                    plr.Character.Humanoid.PlatformStand = true
+                end
+                while nowe == true or game:GetService("Players").LocalPlayer.Character.Humanoid.Health == 0 do
+                    game:GetService("RunService").RenderStepped:Wait()
+                    if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
+                        speed = speed+.5+(speed/maxspeed)
+                        if speed > maxspeed then
+                            speed = maxspeed
+                        end
+                    elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
+                        speed = speed-1
+                        if speed < 0 then
+                            speed = 0
+                        end
+                    end
+                    if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
+                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
+                        lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
+                    elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and speed ~= 0 then
+                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
+                    else
+                        bv.velocity = Vector3.new(0,0,0)
+                    end
+                    bg.cframe = game.Workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/maxspeed),0,0)
+                end
+                ctrl = {f = 0, b = 0, l = 0, r = 0}
+                lastctrl = {f = 0, b = 0, l = 0, r = 0}
+                speed = 0
+                bg:Destroy()
+                bv:Destroy()
+                plr.Character.Humanoid.PlatformStand = false
+                game.Players.LocalPlayer.Character.Animate.Disabled = false
+                tpwalking = false
+            else
+                local plr = game.Players.LocalPlayer
+                local UpperTorso = plr.Character.UpperTorso
+                local flying = true
+                local deb = true
+                local ctrl = {f = 0, b = 0, l = 0, r = 0}
+                local lastctrl = {f = 0, b = 0, l = 0, r = 0}
+                local maxspeed = 50
+                local speed = 0
+                local bg = Instance.new("BodyGyro", UpperTorso)
+                bg.P = 9e4
+                bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+                bg.cframe = UpperTorso.CFrame
+                local bv = Instance.new("BodyVelocity", UpperTorso)
+                bv.velocity = Vector3.new(0,0.1,0)
+                bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+                if nowe == true then
+                    plr.Character.Humanoid.PlatformStand = true
+                end
+                while nowe == true or game:GetService("Players").LocalPlayer.Character.Humanoid.Health == 0 do
+                    wait()
+                    if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
+                        speed = speed+.5+(speed/maxspeed)
+                        if speed > maxspeed then
+                            speed = maxspeed
+                        end
+                    elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
+                        speed = speed-1
+                        if speed < 0 then
+                            speed = 0
+                        end
+                    end
+                    if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
+                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
+                        lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
+                    elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and speed ~= 0 then
+                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
+                    else
+                        bv.velocity = Vector3.new(0,0,0)
+                    end
+                    bg.cframe = game.Workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/maxspeed),0,0)
+                end
+                ctrl = {f = 0, b = 0, l = 0, r = 0}
+                lastctrl = {f = 0, b = 0, l = 0, r = 0}
+                speed = 0
+                bg:Destroy()
+                bv:Destroy()
+                plr.Character.Humanoid.PlatformStand = false
+                game.Players.LocalPlayer.Character.Animate.Disabled = false
+                tpwalking = false
+            end
+        end)
+        local tis
+        up.MouseButton1Down:connect(function()
+            tis = up.MouseEnter:connect(function()
+                while tis do
+                    wait()
+                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,1,0)
+                end
+            end)
+        end)
+        up.MouseLeave:connect(function()
+            if tis then
+                tis:Disconnect()
+                tis = nil
+            end
+        end)
+        local dis
+        down.MouseButton1Down:connect(function()
+            dis = down.MouseEnter:connect(function()
+                while dis do
+                    wait()
+                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,-1,0)
+                end
+            end)
+        end)
+        down.MouseLeave:connect(function()
+            if dis then
+                dis:Disconnect()
+                dis = nil
+            end
+        end)
+        game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(char)
+            wait(0.7)
+            game.Players.LocalPlayer.Character.Humanoid.PlatformStand = false
+            game.Players.LocalPlayer.Character.Animate.Disabled = false
+        end)
+        plus.MouseButton1Down:connect(function()
+            speeds = speeds + 1
+            speed.Text = speeds
+            if nowe == true then
+                tpwalking = false
+                for i = 1, speeds do
+                    spawn(function()
+                        local hb = game:GetService("RunService").Heartbeat	
+                        tpwalking = true
+                        local chr = game.Players.LocalPlayer.Character
+                        local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+                        while tpwalking and hb:Wait() and chr and hum and hum.Parent do
+                            if hum.MoveDirection.Magnitude > 0 then
+                                chr:TranslateBy(hum.MoveDirection)
+                            end
+                        end
+                    end)
+                end
+            end
+        end)
+        mine.MouseButton1Down:connect(function()
+            if speeds == 1 then
+                speed.Text = 'cannot be less than 1'
+                wait(1)
+                speed.Text = speeds
+            else
+                speeds = speeds - 1
+                speed.Text = speeds
+                if nowe == true then
+                    tpwalking = false
+                    for i = 1, speeds do
+                        spawn(function()
+                            local hb = game:GetService("RunService").Heartbeat	
+                            tpwalking = true
+                            local chr = game.Players.LocalPlayer.Character
+                            local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+                            while tpwalking and hb:Wait() and chr and hum and hum.Parent do
+                                if hum.MoveDirection.Magnitude > 0 then
+                                    chr:TranslateBy(hum.MoveDirection)
+                                end
+                            end
+                        end)
+                    end
+                end
+            end
+        end)
+        closebutton.MouseButton1Click:Connect(function()
+            main:Destroy()
+            LL.xneoScriptRunning = false
+        end)
+        mini.MouseButton1Click:Connect(function()
+            up.Visible = false
+            down.Visible = false
+            onof.Visible = false
+            plus.Visible = false
+            speed.Visible = false
+            mine.Visible = false
+            mini.Visible = false
+            mini2.Visible = true
+            main.Frame.BackgroundTransparency = 1
+            closebutton.Position =  UDim2.new(0, 0, -1, 57)
+        end)
+        mini2.MouseButton1Click:Connect(function()
+            up.Visible = true
+            down.Visible = true
+            onof.Visible = true
+            plus.Visible = true
+            speed.Visible = true
+            mine.Visible = true
+            mini.Visible = true
+            mini2.Visible = false
+            main.Frame.BackgroundTransparency = 0 
+            closebutton.Position =  UDim2.new(0, 0, -1, 27)
+        end)
+    end)
+    if ok then
+        LL.xneoScriptRunning = true
+        LL.Notify("XNEO Fly GUI загружен")
+    else
+        LL.Notify("Ошибка XNEO: "..tostring(err))
+        warn("[LARP XNEO] "..tostring(err))
+    end
 end
