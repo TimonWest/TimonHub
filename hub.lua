@@ -87,6 +87,7 @@ function LL.makeShadow(parent, radius, transparency)
     LL.corner(s, radius or 12)
     return s
 end
+
 LL.Loc = {
     ru = {
         Title = "LARP(T) · 333 SINISTER",
@@ -258,6 +259,7 @@ function LL.listConfigs()
     return out
 end
 LL.ensureDir()
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "LARP_GUI"
 ScreenGui.ResetOnSpawn = false
@@ -701,6 +703,7 @@ function LL.ShowMainUI()
     LL.RefreshAll()
     LL.applyLoadedSettings()
 end
+
 function LL.BuildTabs(Main)
     local Left = Instance.new("ScrollingFrame")
     Left.Size = UDim2.new(0, 170, 1, -60)
@@ -868,239 +871,237 @@ function LL.BuildTabs(Main)
         LL.Toggle(parent, L.NPCDistance, function() return LL.S.ESP.NPCDistance end, function(v) LL.S.ESP.NPCDistance = v end)
         LL.Toggle(parent, L.NPCHPBar, function() return LL.S.ESP.NPCHPBar end, function(v) LL.S.ESP.NPCHPBar = v end)
     end)
-    LL.SwitchTab("Combat")
-end
-LL.Tab("Player", function(parent)
-    local L = LL.Loc[LL.Language].Player
-    local function captureOriginals()
-        local hum = LL.Cache.Humanoid
-        if hum then
-            if not LL.S.Player.OrigWalkSpeed then LL.S.Player.OrigWalkSpeed = hum.WalkSpeed end
-            if not LL.S.Player.OrigJumpPower then LL.S.Player.OrigJumpPower = hum.JumpPower end
+    LL.Tab("Player", function(parent)
+        local L = LL.Loc[LL.Language].Player
+        local function captureOriginals()
+            local hum = LL.Cache.Humanoid
+            if hum then
+                if not LL.S.Player.OrigWalkSpeed then LL.S.Player.OrigWalkSpeed = hum.WalkSpeed end
+                if not LL.S.Player.OrigJumpPower then LL.S.Player.OrigJumpPower = hum.JumpPower end
+            end
         end
-    end
-    LL.Section(parent, L.Movement)
-    LL.Toggle(parent, L.WalkSpeedEnabled, function() return LL.S.Player.WalkSpeedEnabled end, function(v)
-        if v then captureOriginals() end
-        LL.S.Player.WalkSpeedEnabled = v
-    end)
-    LL.Slider(parent, L.WalkSpeed, 16, 300, function() return LL.S.Player.WalkSpeed end, function(v) LL.S.Player.WalkSpeed = v end)
-    LL.Toggle(parent, L.JumpPowerEnabled, function() return LL.S.Player.JumpPowerEnabled end, function(v)
-        if v then captureOriginals() end
-        LL.S.Player.JumpPowerEnabled = v
-    end)
-    LL.Slider(parent, L.JumpPower, 50, 300, function() return LL.S.Player.JumpPower end, function(v) LL.S.Player.JumpPower = v end)
-    LL.Toggle(parent, L.InfiniteJump, function() return LL.S.Player.InfiniteJump end, function(v) LL.S.Player.InfiniteJump = v end)
-    LL.Toggle(parent, L.Noclip, function() return LL.S.Player.Noclip end, function(v) LL.S.Player.Noclip = v end)
-    LL.Section(parent, L.Fly)
-    LL.Toggle(parent, L.Fly, function() return LL.S.Player.Fly end, function(v) LL.S.Player.Fly = v end)
-    LL.Slider(parent, L.FlySpeed, 10, 300, function() return LL.S.Player.FlySpeed end, function(v) LL.S.Player.FlySpeed = v end)
-    LL.Section(parent, L.Gravity)
-    LL.Toggle(parent, L.ZeroGravity, function() return LL.S.Player.ZeroGravity end, function(v) LL.S.Player.ZeroGravity = v; LL.applyGravityState() end)
-    LL.Section(parent, L.Coordinates)
-    LL.Button(parent, L.SavePos, function()
-        local hrp = LL.Cache.HRP
-        if hrp then
-            LL.S.Player.SavedPos = hrp.CFrame
-            LL.MarkDirty()
-            LL.Notify("Позиция сохранена")
-        end
-    end)
-    LL.Button(parent, L.LoadPos, function()
-        local hrp = LL.Cache.HRP
-        if hrp and LL.S.Player.SavedPos then
-            hrp.CFrame = LL.S.Player.SavedPos
-            LL.Notify("Позиция загружена")
-        else
-            LL.Notify("Нет сохранённой позиции")
-        end
-    end)
-    LL.Button(parent, L.ClearPos, function()
-        LL.S.Player.SavedPos = nil
-        LL.MarkDirty()
-        LL.Notify("Позиция очищена")
-    end)
-    LL.Section(parent, L.Utility)
-    LL.Toggle(parent, L.AntiAFK, function() return LL.S.Player.AntiAFK end, function(v)
-        LL.S.Player.AntiAFK = v
-        if v then LL.startAntiAFK() else LL.stopAntiAFK() end
-    end)
-    LL.Toggle(parent, L.LazyMode, function() return LL.S.Player.LazyMode end, function(v) LL.S.Player.LazyMode = v end)
-    LL.Toggle(parent, L.FPSBooster, function() return LL.S.Player.FPSBooster end, function(v)
-        LL.S.Player.FPSBooster = v
-        if v then LL.enableFPSBooster() else LL.disableFPSBooster() end
-    end)
-    LL.Toggle(parent, L.LowQuality, function() return LL.S.Player.LowQuality end, function(v)
-        LL.S.Player.LowQuality = v
-        if v then LL.enableLowQuality() else LL.disableLowQuality() end
-    end)
-    LL.Toggle(parent, L.Fullbright, function() return LL.S.Player.Fullbright end, function(v)
-        LL.S.Player.Fullbright = v
-        if v then LL.enableFullbright() else LL.disableFullbright() end
-    end)
-    LL.Section(parent, L.XNEO)
-    LL.Button(parent, L.XNEOBtn, function()
-        if LL.Actions and LL.Actions.XNEO then
-            LL.Actions.XNEO()
-        else
-            LL.Notify("XNEO ещё не готов")
-        end
-    end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
-end)
-LL.Tab("Hitbox", function(parent)
-    local L = LL.Loc[LL.Language].Hitbox
-    LL.Section(parent, L.Who)
-    LL.Dropdown(parent, L.Mode,
-        {L.All, L.PlayersOnly, L.NPConly, L.Nobody},
-        function()
-            if LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then return L.All
-            elseif LL.S.Hitbox.Enabled and not LL.S.Hitbox.NPCSupport then return L.PlayersOnly
-            elseif not LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then return L.NPConly
-            else return L.Nobody end
-        end,
-        function(v)
-            if v == L.All then
-                LL.S.Hitbox.Enabled = true
-                LL.S.Hitbox.NPCSupport = true
-            elseif v == L.PlayersOnly then
-                LL.S.Hitbox.Enabled = true
-                LL.S.Hitbox.NPCSupport = false
-                LL.ClearAllNPCHitboxes()
-            elseif v == L.NPConly then
-                LL.S.Hitbox.Enabled = false
-                LL.S.Hitbox.NPCSupport = true
-                LL.ClearAllHitboxes()
-            else
-                LL.S.Hitbox.Enabled = false
-                LL.S.Hitbox.NPCSupport = false
-                LL.ClearAllHitboxes()
-                LL.ClearAllNPCHitboxes()
+        LL.Section(parent, L.Movement)
+        LL.Toggle(parent, L.WalkSpeedEnabled, function() return LL.S.Player.WalkSpeedEnabled end, function(v)
+            if v then captureOriginals() end
+            LL.S.Player.WalkSpeedEnabled = v
+        end)
+        LL.Slider(parent, L.WalkSpeed, 16, 300, function() return LL.S.Player.WalkSpeed end, function(v) LL.S.Player.WalkSpeed = v end)
+        LL.Toggle(parent, L.JumpPowerEnabled, function() return LL.S.Player.JumpPowerEnabled end, function(v)
+            if v then captureOriginals() end
+            LL.S.Player.JumpPowerEnabled = v
+        end)
+        LL.Slider(parent, L.JumpPower, 50, 300, function() return LL.S.Player.JumpPower end, function(v) LL.S.Player.JumpPower = v end)
+        LL.Toggle(parent, L.InfiniteJump, function() return LL.S.Player.InfiniteJump end, function(v) LL.S.Player.InfiniteJump = v end)
+        LL.Toggle(parent, L.Noclip, function() return LL.S.Player.Noclip end, function(v) LL.S.Player.Noclip = v end)
+        LL.Section(parent, L.Fly)
+        LL.Toggle(parent, L.Fly, function() return LL.S.Player.Fly end, function(v) LL.S.Player.Fly = v end)
+        LL.Slider(parent, L.FlySpeed, 10, 300, function() return LL.S.Player.FlySpeed end, function(v) LL.S.Player.FlySpeed = v end)
+        LL.Section(parent, L.Gravity)
+        LL.Toggle(parent, L.ZeroGravity, function() return LL.S.Player.ZeroGravity end, function(v) LL.S.Player.ZeroGravity = v; LL.applyGravityState() end)
+        LL.Section(parent, L.Coordinates)
+        LL.Button(parent, L.SavePos, function()
+            local hrp = LL.Cache.HRP
+            if hrp then
+                LL.S.Player.SavedPos = hrp.CFrame
+                LL.MarkDirty()
+                LL.Notify("Позиция сохранена")
             end
         end)
-    LL.Toggle(parent, L.AutoRefresh, function() return LL.S.Hitbox.RealTimeRefresh end, function(v) LL.S.Hitbox.RealTimeRefresh = v end)
-    LL.Section(parent, L.Parts)
-    LL.Toggle(parent, L.HeadHitbox, function() return LL.S.Hitbox.HeadEnabled end, function(v) LL.S.Hitbox.HeadEnabled = v; LL.RefreshHitboxes() end)
-    LL.Toggle(parent, L.BodyHitbox, function() return LL.S.Hitbox.BodyEnabled end, function(v) LL.S.Hitbox.BodyEnabled = v; LL.RefreshHitboxes() end)
-    LL.Section(parent, L.Sizes)
-    LL.Slider(parent, L.RootSize, 2, 30, function() return LL.S.Hitbox.RootSize end, function(v) LL.S.Hitbox.RootSize = v; LL.RefreshHitboxes() end)
-    LL.Slider(parent, L.HeadSize, 1, 15, function() return LL.S.Hitbox.HeadSize end, function(v) LL.S.Hitbox.HeadSize = v; LL.RefreshHitboxes() end)
-    LL.Slider(parent, L.BodySize, 2, 25, function() return LL.S.Hitbox.BodySize end, function(v) LL.S.Hitbox.BodySize = v; LL.RefreshHitboxes() end)
-end)
-LL.Tab("Macro", function(parent)
-    local L = LL.Loc[LL.Language].Macro
-    LL.Section(parent, L.Settings)
-    LL.TextBox(parent, L.MacroName, "macro1", function() return LL.S.Macro.CurrentMacro end, function(v) LL.S.Macro.CurrentMacro = (v ~= "" and v) or "macro1" end)
-    LL.Slider(parent, L.SampleRate, 0.05, 1.0, function() return LL.S.Macro.SampleRate end, function(v) LL.S.Macro.SampleRate = math.floor(v * 100 + 0.5) / 100 end)
-    LL.Toggle(parent, L.Loop, function() return LL.S.Macro.Loop end, function(v) LL.S.Macro.Loop = v end)
-    LL.Toggle(parent, L.JumpDetection, function() return LL.S.Macro.JumpDetection end, function(v) LL.S.Macro.JumpDetection = v end)
-    LL.Section(parent, L.Advanced)
-    LL.Toggle(parent, L.IgnoreObstacles, function() return LL.S.Macro.IgnoreObstacles end, function(v)
-        LL.S.Macro.IgnoreObstacles = v
-        LL.Notify("Ignore Obstacles: "..(v and "ON" or "OFF"))
+        LL.Button(parent, L.LoadPos, function()
+            local hrp = LL.Cache.HRP
+            if hrp and LL.S.Player.SavedPos then
+                hrp.CFrame = LL.S.Player.SavedPos
+                LL.Notify("Позиция загружена")
+            else
+                LL.Notify("Нет сохранённой позиции")
+            end
+        end)
+        LL.Button(parent, L.ClearPos, function()
+            LL.S.Player.SavedPos = nil
+            LL.MarkDirty()
+            LL.Notify("Позиция очищена")
+        end)
+        LL.Section(parent, L.Utility)
+        LL.Toggle(parent, L.AntiAFK, function() return LL.S.Player.AntiAFK end, function(v)
+            LL.S.Player.AntiAFK = v
+            if v then LL.startAntiAFK() else LL.stopAntiAFK() end
+        end)
+        LL.Toggle(parent, L.LazyMode, function() return LL.S.Player.LazyMode end, function(v) LL.S.Player.LazyMode = v end)
+        LL.Toggle(parent, L.FPSBooster, function() return LL.S.Player.FPSBooster end, function(v)
+            LL.S.Player.FPSBooster = v
+            if v then LL.enableFPSBooster() else LL.disableFPSBooster() end
+        end)
+        LL.Toggle(parent, L.LowQuality, function() return LL.S.Player.LowQuality end, function(v)
+            LL.S.Player.LowQuality = v
+            if v then LL.enableLowQuality() else LL.disableLowQuality() end
+        end)
+        LL.Toggle(parent, L.Fullbright, function() return LL.S.Player.Fullbright end, function(v)
+            LL.S.Player.Fullbright = v
+            if v then LL.enableFullbright() else LL.disableFullbright() end
+        end)
+        LL.Section(parent, L.XNEO)
+        LL.Button(parent, L.XNEOBtn, function()
+            if LL.Actions and LL.Actions.XNEO then
+                LL.Actions.XNEO()
+            else
+                LL.Notify("XNEO ещё не готов")
+            end
+        end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
     end)
-    LL.Toggle(parent, L.PushThrough, function() return LL.S.Macro.PushThrough end, function(v)
-        LL.S.Macro.PushThrough = v
-        LL.Notify("Push Through: "..(v and "ON" or "OFF"))
+    LL.Tab("Hitbox", function(parent)
+        local L = LL.Loc[LL.Language].Hitbox
+        LL.Section(parent, L.Who)
+        LL.Dropdown(parent, L.Mode,
+            {L.All, L.PlayersOnly, L.NPConly, L.Nobody},
+            function()
+                if LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then return L.All
+                elseif LL.S.Hitbox.Enabled and not LL.S.Hitbox.NPCSupport then return L.PlayersOnly
+                elseif not LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then return L.NPConly
+                else return L.Nobody end
+            end,
+            function(v)
+                if v == L.All then
+                    LL.S.Hitbox.Enabled = true
+                    LL.S.Hitbox.NPCSupport = true
+                elseif v == L.PlayersOnly then
+                    LL.S.Hitbox.Enabled = true
+                    LL.S.Hitbox.NPCSupport = false
+                    LL.ClearAllNPCHitboxes()
+                elseif v == L.NPConly then
+                    LL.S.Hitbox.Enabled = false
+                    LL.S.Hitbox.NPCSupport = true
+                    LL.ClearAllHitboxes()
+                else
+                    LL.S.Hitbox.Enabled = false
+                    LL.S.Hitbox.NPCSupport = false
+                    LL.ClearAllHitboxes()
+                    LL.ClearAllNPCHitboxes()
+                end
+            end)
+        LL.Toggle(parent, L.AutoRefresh, function() return LL.S.Hitbox.RealTimeRefresh end, function(v) LL.S.Hitbox.RealTimeRefresh = v end)
+        LL.Section(parent, L.Parts)
+        LL.Toggle(parent, L.HeadHitbox, function() return LL.S.Hitbox.HeadEnabled end, function(v) LL.S.Hitbox.HeadEnabled = v; LL.RefreshHitboxes() end)
+        LL.Toggle(parent, L.BodyHitbox, function() return LL.S.Hitbox.BodyEnabled end, function(v) LL.S.Hitbox.BodyEnabled = v; LL.RefreshHitboxes() end)
+        LL.Section(parent, L.Sizes)
+        LL.Slider(parent, L.RootSize, 2, 30, function() return LL.S.Hitbox.RootSize end, function(v) LL.S.Hitbox.RootSize = v; LL.RefreshHitboxes() end)
+        LL.Slider(parent, L.HeadSize, 1, 15, function() return LL.S.Hitbox.HeadSize end, function(v) LL.S.Hitbox.HeadSize = v; LL.RefreshHitboxes() end)
+        LL.Slider(parent, L.BodySize, 2, 25, function() return LL.S.Hitbox.BodySize end, function(v) LL.S.Hitbox.BodySize = v; LL.RefreshHitboxes() end)
     end)
-    LL.Section(parent, L.Record)
-    local recBtn = LL.Button(parent, L.StartRecord, function()
-        if LL.S.Macro.Recording then
-            LL.MacroStopRecording()
-        else
-            LL.MacroStartRecording()
+    LL.Tab("Macro", function(parent)
+        local L = LL.Loc[LL.Language].Macro
+        LL.Section(parent, L.Settings)
+        LL.TextBox(parent, L.MacroName, "macro1", function() return LL.S.Macro.CurrentMacro end, function(v) LL.S.Macro.CurrentMacro = (v ~= "" and v) or "macro1" end)
+        LL.Slider(parent, L.SampleRate, 0.05, 1.0, function() return LL.S.Macro.SampleRate end, function(v) LL.S.Macro.SampleRate = math.floor(v * 100 + 0.5) / 100 end)
+        LL.Toggle(parent, L.Loop, function() return LL.S.Macro.Loop end, function(v) LL.S.Macro.Loop = v end)
+        LL.Toggle(parent, L.JumpDetection, function() return LL.S.Macro.JumpDetection end, function(v) LL.S.Macro.JumpDetection = v end)
+        LL.Section(parent, L.Advanced)
+        LL.Toggle(parent, L.IgnoreObstacles, function() return LL.S.Macro.IgnoreObstacles end, function(v)
+            LL.S.Macro.IgnoreObstacles = v
+            LL.Notify("Ignore Obstacles: "..(v and "ON" or "OFF"))
+        end)
+        LL.Toggle(parent, L.PushThrough, function() return LL.S.Macro.PushThrough end, function(v)
+            LL.S.Macro.PushThrough = v
+            LL.Notify("Push Through: "..(v and "ON" or "OFF"))
+        end)
+        LL.Section(parent, L.Record)
+        local recBtn = LL.Button(parent, L.StartRecord, function()
+            if LL.S.Macro.Recording then
+                LL.MacroStopRecording()
+            else
+                LL.MacroStartRecording()
+            end
+        end)
+        LL.MacroRecBtn = recBtn
+        LL.MacroRecBtnUpdate = function()
+            if LL.S.Macro.Recording then
+                recBtn.Text = L.StopRecord.." ("..tostring(#(LL.MacroRecord or {}))..")"
+                recBtn.BackgroundColor3 = COL.red
+                recBtn.TextColor3 = Color3.new(1,1,1)
+            else
+                recBtn.Text = L.StartRecord
+                recBtn.BackgroundColor3 = COL.elem
+                recBtn.TextColor3 = COL.text
+            end
         end
-    end)
-    LL.MacroRecBtn = recBtn
-    LL.MacroRecBtnUpdate = function()
-        if LL.S.Macro.Recording then
-            recBtn.Text = L.StopRecord.." ("..tostring(#(LL.MacroRecord or {}))..")"
-            recBtn.BackgroundColor3 = COL.red
-            recBtn.TextColor3 = Color3.new(1,1,1)
-        else
-            recBtn.Text = L.StartRecord
-            recBtn.BackgroundColor3 = COL.elem
-            recBtn.TextColor3 = COL.text
-        end
-    end
-    LL.MacroRecBtnUpdate()
-    LL.AddRefresh(LL.MacroRecBtnUpdate)
-    LL.Section(parent, L.Play)
-    local playBtn = LL.Button(parent, L.PlayMacro, function()
-        if LL.S.Macro.Playing then
+        LL.MacroRecBtnUpdate()
+        LL.AddRefresh(LL.MacroRecBtnUpdate)
+        LL.Section(parent, L.Play)
+        local playBtn = LL.Button(parent, L.PlayMacro, function()
+            if LL.S.Macro.Playing then
+                LL.MacroStopPlaying()
+            else
+                LL.MacroStartPlaying(LL.S.Macro.CurrentMacro)
+            end
+        end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
+        LL.AddRefresh(function()
+            if LL.S.Macro.Playing then
+                playBtn.Text = L.StopMacro
+                playBtn.BackgroundColor3 = COL.red
+            else
+                playBtn.Text = L.PlayMacro
+                playBtn.BackgroundColor3 = COL.accent
+            end
+        end)
+        LL.Button(parent, L.StopAndReturn, function()
             LL.MacroStopPlaying()
-        else
-            LL.MacroStartPlaying(LL.S.Macro.CurrentMacro)
+            LL.MacroReturnToStart()
+        end, {color = COL.elemHover})
+        LL.Section(parent, L.Manage)
+        LL.Button(parent, L.SaveRecord, function()
+            if not LL.MacroRecord or #LL.MacroRecord < 2 then
+                LL.Notify("Нечего сохранять — запиши сначала")
+                return
+            end
+            local name = LL.S.Macro.CurrentMacro or "macro1"
+            LL.Macros[name] = LL.MacroRecord
+            LL.MacroRecord = nil
+            LL.Notify("Сохранён: "..name.." ("..#LL.Macros[name].." точек)")
+            if LL.MacroRefreshList then LL.MacroRefreshList() end
+            if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
+        end)
+        LL.Button(parent, L.DeleteCurrent, function()
+            local name = LL.S.Macro.CurrentMacro or "macro1"
+            LL.Macros[name] = nil
+            LL.Notify("Удалён: "..name)
+            if LL.MacroRefreshList then LL.MacroRefreshList() end
+        end, {textColor = COL.red})
+        LL.Button(parent, L.DeleteAll, function()
+            LL.Macros = {}
+            LL.MacroRecord = nil
+            LL.Notify("Все макросы удалены")
+            if LL.MacroRefreshList then LL.MacroRefreshList() end
+        end, {textColor = COL.red})
+        LL.Section(parent, L.List)
+        local listLbl = Instance.new("TextLabel")
+        listLbl.Size = UDim2.new(1, 0, 0, 120)
+        listLbl.BackgroundColor3 = COL.elem
+        listLbl.BackgroundTransparency = 0.05
+        listLbl.BorderSizePixel = 0
+        listLbl.LayoutOrder = LL.NextOrder()
+        listLbl.TextColor3 = COL.sub
+        listLbl.Font = Enum.Font.Gotham
+        listLbl.TextSize = 13
+        listLbl.TextWrapped = true
+        listLbl.TextXAlignment = Enum.TextXAlignment.Left
+        listLbl.TextYAlignment = Enum.TextYAlignment.Top
+        listLbl.Parent = parent
+        LL.corner(listLbl, 12)
+        LL.stroke(listLbl, COL.stroke, 1)
+        LL.padding(listLbl, 8, 12, 12, 8)
+        LL.MacroRefreshList = function()
+            local lines = {}
+            for name, pts in pairs(LL.Macros) do
+                table.insert(lines, "• "..name.." ("..#pts.." точек)")
+            end
+            if #lines == 0 then
+                listLbl.Text = L.Empty
+            else
+                table.sort(lines)
+                listLbl.Text = table.concat(lines, "\n")
+            end
         end
-    end, {color = COL.accent, hover = Color3.fromRGB(180, 120, 255), textColor = Color3.new(1,1,1)})
-    LL.AddRefresh(function()
-        if LL.S.Macro.Playing then
-            playBtn.Text = L.StopMacro
-            playBtn.BackgroundColor3 = COL.red
-        else
-            playBtn.Text = L.PlayMacro
-            playBtn.BackgroundColor3 = COL.accent
-        end
+        LL.MacroRefreshList()
     end)
-    LL.Button(parent, L.StopAndReturn, function()
-        LL.MacroStopPlaying()
-        LL.MacroReturnToStart()
-    end, {color = COL.elemHover})
-    LL.Section(parent, L.Manage)
-    LL.Button(parent, L.SaveRecord, function()
-        if not LL.MacroRecord or #LL.MacroRecord < 2 then
-            LL.Notify("Нечего сохранять — запиши сначала")
-            return
-        end
-        local name = LL.S.Macro.CurrentMacro or "macro1"
-        LL.Macros[name] = LL.MacroRecord
-        LL.MacroRecord = nil
-        LL.Notify("Сохранён: "..name.." ("..#LL.Macros[name].." точек)")
-        if LL.MacroRefreshList then LL.MacroRefreshList() end
-        if LL.MacroRecBtnUpdate then LL.MacroRecBtnUpdate() end
-    end)
-    LL.Button(parent, L.DeleteCurrent, function()
-        local name = LL.S.Macro.CurrentMacro or "macro1"
-        LL.Macros[name] = nil
-        LL.Notify("Удалён: "..name)
-        if LL.MacroRefreshList then LL.MacroRefreshList() end
-    end, {textColor = COL.red})
-    LL.Button(parent, L.DeleteAll, function()
-        LL.Macros = {}
-        LL.MacroRecord = nil
-        LL.Notify("Все макросы удалены")
-        if LL.MacroRefreshList then LL.MacroRefreshList() end
-    end, {textColor = COL.red})
-    LL.Section(parent, L.List)
-    local listLbl = Instance.new("TextLabel")
-    listLbl.Size = UDim2.new(1, 0, 0, 120)
-    listLbl.BackgroundColor3 = COL.elem
-    listLbl.BackgroundTransparency = 0.05
-    listLbl.BorderSizePixel = 0
-    listLbl.LayoutOrder = LL.NextOrder()
-    listLbl.TextColor3 = COL.sub
-    listLbl.Font = Enum.Font.Gotham
-    listLbl.TextSize = 13
-    listLbl.TextWrapped = true
-    listLbl.TextXAlignment = Enum.TextXAlignment.Left
-    listLbl.TextYAlignment = Enum.TextYAlignment.Top
-    listLbl.Parent = parent
-    LL.corner(listLbl, 12)
-    LL.stroke(listLbl, COL.stroke, 1)
-    LL.padding(listLbl, 8, 12, 12, 8)
-    LL.MacroRefreshList = function()
-        local lines = {}
-        for name, pts in pairs(LL.Macros) do
-            table.insert(lines, "• "..name.." ("..#pts.." точек)")
-        end
-        if #lines == 0 then
-            listLbl.Text = L.Empty
-        else
-            table.sort(lines)
-            listLbl.Text = table.concat(lines, "\n")
-        end
-    end
-    LL.MacroRefreshList()
-end)
     LL.Tab("Settings", function(parent)
         local L = LL.Loc[LL.Language].Settings
         LL.Section(parent, L.Actions)
@@ -1325,6 +1326,7 @@ end)
         noteLbl.TextYAlignment = Enum.TextYAlignment.Top
         noteLbl.Parent = infoFrame
     end)
+    LL.SwitchTab("Combat")
 end
 LL.LightingMgr = { original=nil, boosterApplied=false, fullbrightApplied=false }
 function LL.captureLightingOriginal()
@@ -1446,6 +1448,7 @@ end
 LL.trackConn(UIS.InputBegan:Connect(function()
     LL.lastUserAction = tick()
 end))
+
 function LL.applyHitboxToCharacter(entry, character)
     if not character or not entry then return end
     local hum = character:FindFirstChildOfClass("Humanoid")
@@ -1827,6 +1830,7 @@ LL.trackConn(Players.PlayerRemoving:Connect(function(pl)
     LL.RemoveESP(pl)
     LL.RemoveHitboxFor(pl)
 end))
+
 LL.StickyTarget = nil
 LL.StickyTargetIsNPC = false
 LL.aimHoldDown = false
@@ -3132,8 +3136,8 @@ LL.Actions.XNEO = function()
                     if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
                         speed = speed+.5+(speed/maxspeed)
                         if speed > maxspeed then
-                            speed = maxspeed
-                        end
+                            speed = maxspeed 
+end
                     elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
                         speed = speed-1
                         if speed < 0 then
