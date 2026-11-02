@@ -15,7 +15,11 @@ local VirtualUser = game:GetService("VirtualUser")
 
 local LP = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
-if not Camera then repeat task.wait() until Workspace.CurrentCamera; Camera = Workspace.CurrentCamera end
+if not Camera then
+    task.wait(0.5)
+    Camera = Workspace.CurrentCamera
+end
+if not Camera then warn("[LARP] Camera не найдена"); return end
 local DEFAULT_GRAVITY = Workspace.Gravity
 local IS_MOBILE = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
@@ -34,6 +38,7 @@ LL.lastNPCRescan = 0
 LL.Language = "ru"
 LL.KeyValidated = false
 LL.SECRET_KEY = "LARP333"
+LL._acLast = 0
 
 function LL.trackConn(c) CONNS[#CONNS+1] = c; return c end
 function LL.trackThread(t) THREADS[#THREADS+1] = t; return t end
@@ -91,12 +96,13 @@ end
 LL.Loc = {
     ru = {
         Title = "LARP(T) · 333 SINISTER",
-        Tabs = {Combat="Бой", ESP="ESP", Player="Игрок", Hitbox="Хитбокс", Macro="Макросы", Settings="Настройки", Binds="Бинды", Info="Инфо"},
-        Combat = {Main="Основное",EnableAim="Включить Aimbot",TargetWho="Кого наводить",TargetPlayers="Игроки",TargetNPCs="NPC",AimBehavior="Поведение",StickyLock="Липкая цель",WallCheck="Проверка стен",AimMode="Режим",Smoothness="Плавность",DistanceWeight="Вес дистанции",FOV="FOV",CameraFOV="Камера FOV",MobileFOV="Мобильный FOV",ShowFOV="Показывать круг FOV",FOVColor="Цвет FOV",TargetPart="Часть цели",AimPart="Часть",Prediction="Предсказание",PredictLead="Упреждение",HitscanMode="Хитскан",BulletSpeed="Скорость пули",LeadMultiplier="Множитель упреждения",Jitter="Дрожание",EnableJitter="Включить дрожание",JitterAmount="Сила дрожания (px)",CombatVisuals="Визуалы",HitboxVisualizer="Показ хитбокса",AimAssistBeam="Луч наведения",BeamColor="Цвет луча",MicroAdjust="Микрокоррекция",MicroAdjustAmount="Сила коррекции (px)"},
+        Tabs = {Combat="Бой", ESP="ESP", Player="Игрок", Hitbox="Хитбокс", Macro="Макросы", AutoClicker="Автокликер", Settings="Настройки", Binds="Бинды", Info="Инфо"},
+        Combat = {Main="Основное",EnableAim="Включить Aimbot",TargetWho="Кого наводить",TargetPlayers="Игроки",TargetNPCs="NPC",AimBehavior="Поведение",StickyLock="Липкая цель",WallCheck="Проверка стен",AimMode="Режим",Smoothness="Плавность",DistanceWeight="Вес дистанции",FOV="FOV",CameraFOV="Камера FOV",MobileFOV="Мобильный FOV",ShowFOV="Показывать круг FOV",FOVColor="Цвет FOV",TargetPart="Часть цели",AimPart="Часть",Prediction="Предсказание",PredictLead="Упреждение",HitscanMode="Хитскан",BulletSpeed="Скорость пули",LeadMultiplier="Множитель упреждения",Jitter="Дрожание",EnableJitter="Включить дрожание",JitterAmount="Сила дрожания (px)",CombatVisuals="Визуалы",HitboxVisualizer="Показ хитбокса",AimAssistBeam="Луч наведения",BeamColor="Цвет луча",MicroAdjust="Микрокоррекция",MicroAdjustAmount="Сила коррекции (px)",SilentAim="Silent Aim",EnableSilent="Включить Silent Aim",SilentMode="Режим",SilentFOV="Silent FOV",SilentPart="Часть",SilentWallCheck="Проверка стен",SilentSmooth="Плавность",SilentShowFOV="Показывать круг"},
         ESP = {Toggle="ESP",EnableESP="Включить ESP (игроки)",AutoRefresh="Авто-обновление",MaxDistance="Макс. дистанция",Highlight="Подсветка",OutlineColor="Цвет обводки",FillColor="Цвет заливки",FillTransparency="Прозрачность заливки",OutlineTransparency="Прозрачность обводки",ThroughWalls="Сквозь стены",Nicks="Ники",ShowName="Показывать ники",NickColor="Цвет ников",NickSize="Размер ников",HPBar="ХП бар",ShowHPBar="Показывать ХП",HPDynamicColor="Динамический цвет ХП",HPBarColor="Цвет ХП",HPBarWidth="Ширина ХП",HPBarHeight="Высота ХП",Distance="Дистанция",ShowDistance="Показывать дистанцию",Tracer="Трейсеры",EnableTracer="Включить трейсеры",TracerFrom="Трейсер (низ)",TracerTo="Трейсер (цель)",NPCESP="NPC ESP",EnableNPCESP="Включить NPC ESP",NPCName="Имя NPC",NPCDistance="Дистанция NPC",NPCHPBar="ХП бар NPC"},
         Player = {Movement="Движение",WalkSpeedEnabled="Скорость ходьбы",WalkSpeed="Скорость",JumpPowerEnabled="Сила прыжка",JumpPower="Сила прыжка",InfiniteJump="Бесконечный прыжок",Noclip="Noclip",Fly="Полёт",FlySpeed="Скорость полёта",Gravity="Гравитация",ZeroGravity="Нулевая гравитация (ragdoll)",Coordinates="Координаты",SavePos="Сохранить позицию",LoadPos="Загрузить позицию",ClearPos="Очистить позицию",Utility="Утилиты",AntiAFK="Anti-AFK",LazyMode="Ленивый режим",FPSBooster="Бустер FPS",LowQuality="Низкое качество",Fullbright="Полная яркость",XNEO="XNEO Fly",XNEOBtn="Запустить XNEO Fly"},
         Hitbox = {Who="Кому хитбоксы",Mode="Режим",All="Все (игроки + NPC)",PlayersOnly="Только игроки",NPConly="Только NPC",Nobody="Никому",AutoRefresh="Авто-обновление",Parts="Части",HeadHitbox="Хитбокс головы",BodyHitbox="Хитбокс тела",Sizes="Размеры (реальный Size)",RootSize="Размер HRP",HeadSize="Размер головы",BodySize="Размер тела"},
         Macro = {Info="Записывает движение через MoveTo (без телепорта).",Settings="Настройки",MacroName="Имя макроса",SampleRate="Частота записи (сек)",Loop="Цикл",JumpDetection="Записывать прыжки",Advanced="Продвинутые режимы",IgnoreObstacles="Игнорировать стены",PushThrough="Пробивать стены",Record="Запись",StartRecord="🔴 Начать запись",StopRecord="⏹ Закончить запись",Play="Воспроизведение",PlayMacro="▶ Запустить макрос",StopMacro="⏹ Остановить макрос",StopAndReturn="⏸ Остановить и вернуться в начало",Manage="Управление",SaveRecord="💾 Сохранить запись",DeleteCurrent="🗑 Удалить текущий макрос",DeleteAll="🗑 Удалить все макросы",List="Список макросов",Empty="(нет макросов)"},
+        AutoClicker = {Title="Автокликер",Enable="Включить автокликер",Speed="Скорость (кликов/сек)",Button="Кнопка",Left="ЛКМ",Right="ПКМ",Mode="Режим",ModeVirtual="Виртуальный",ModeReal="Реальный (курсор)",Info="Кликает автоматически с заданной скоростью. Виртуальный режим — без движения мыши, реальный — по позиции курсора."},
         Settings = {Actions="Действия",ResetSettings="Сбросить настройки",Unload="Выгрузить скрипт",UISettings="UI",UIScale="Масштаб UI",Notifications="Уведомления",AutoHideMobile="Авто-скрытие GUI на мобиле",Configs="Конфиги",ConfigName="Имя конфига",SaveConfig="Сохранить",LoadConfig="Загрузить",DeleteConfig="Удалить",AutoSave="Авто-сохранение",AvailableConfigs="Доступные конфиги",EmptyConfigs="(пусто)"},
         Binds = {Title="Бинды",Search="Поиск биндов...",Actions="Действия",Aimbot="Aimbot",AimbotHold="Удержание Aim",ESP="ESP",Hitbox="Hitbox",Fly="Полёт",Noclip="Noclip",InfiniteJump="Бесконечный прыжок",ZeroGravity="Нулевая гравитация",SavePos="Сохранить позицию",LoadPos="Загрузить позицию",Macro="Макрос (Play/Stop)",MacroRecord="Запись макроса",ResetBinds="Сбросить все бинды",FloatingLock="Фиксация кнопок",ResetPositions="Сбросить позиции кнопок",FloatingButtons="Плавающие кнопки"},
         Info = {Title="О скрипте LARP(T)",Owner="Владелец (Telegram)",Channel="Канал (Telegram)",Note="Скрипт полностью бесплатный. Ключ навсегда: @luaLARP (подпишись) и напиши @ForchanW, если ключ не опубликован.",Free="Скрипт полностью бесплатный.",Key="Ключ навсегда: @luaLARP / @ForchanW"},
@@ -104,12 +110,13 @@ LL.Loc = {
     },
     en = {
         Title = "LARP(T) · 333 SINISTER",
-        Tabs = {Combat="Combat", ESP="ESP", Player="Player", Hitbox="Hitbox", Macro="Macro", Settings="Settings", Binds="Binds", Info="Info"},
-        Combat = {Main="Main",EnableAim="Enable Aim",TargetWho="Target",TargetPlayers="Players",TargetNPCs="NPCs",AimBehavior="Aim Behavior",StickyLock="Sticky Lock",WallCheck="Wall Check",AimMode="Aim Mode",Smoothness="Smoothness",DistanceWeight="Distance Weight",FOV="FOV",CameraFOV="Camera FOV",MobileFOV="Mobile FOV",ShowFOV="Show FOV Circle",FOVColor="FOV Color",TargetPart="Target Part",AimPart="Aim Part",Prediction="Prediction",PredictLead="Predict Lead",HitscanMode="Hitscan Mode",BulletSpeed="Bullet Speed",LeadMultiplier="Lead Multiplier",Jitter="Jitter",EnableJitter="Enable Jitter",JitterAmount="Jitter Amount (px)",CombatVisuals="Combat Visuals",HitboxVisualizer="Hitbox Visualizer",AimAssistBeam="Aim Assist Beam",BeamColor="Beam Color",MicroAdjust="Micro Adjust",MicroAdjustAmount="Micro Adjust Amount (px)"},
+        Tabs = {Combat="Combat", ESP="ESP", Player="Player", Hitbox="Hitbox", Macro="Macro", AutoClicker="AutoClicker", Settings="Settings", Binds="Binds", Info="Info"},
+        Combat = {Main="Main",EnableAim="Enable Aim",TargetWho="Target",TargetPlayers="Players",TargetNPCs="NPCs",AimBehavior="Aim Behavior",StickyLock="Sticky Lock",WallCheck="Wall Check",AimMode="Aim Mode",Smoothness="Smoothness",DistanceWeight="Distance Weight",FOV="FOV",CameraFOV="Camera FOV",MobileFOV="Mobile FOV",ShowFOV="Show FOV Circle",FOVColor="FOV Color",TargetPart="Target Part",AimPart="Aim Part",Prediction="Prediction",PredictLead="Predict Lead",HitscanMode="Hitscan Mode",BulletSpeed="Bullet Speed",LeadMultiplier="Lead Multiplier",Jitter="Jitter",EnableJitter="Enable Jitter",JitterAmount="Jitter Amount (px)",CombatVisuals="Combat Visuals",HitboxVisualizer="Hitbox Visualizer",AimAssistBeam="Aim Assist Beam",BeamColor="Beam Color",MicroAdjust="Micro Adjust",MicroAdjustAmount="Micro Adjust Amount (px)",SilentAim="Silent Aim",EnableSilent="Enable Silent Aim",SilentMode="Mode",SilentFOV="Silent FOV",SilentPart="Part",SilentWallCheck="Wall Check",SilentSmooth="Smoothness",SilentShowFOV="Show FOV Circle"},
         ESP = {Toggle="ESP",EnableESP="Enable ESP (Players)",AutoRefresh="Auto-Refresh",MaxDistance="Max Distance",Highlight="Highlight",OutlineColor="Outline Color",FillColor="Fill Color",FillTransparency="Fill Transparency",OutlineTransparency="Outline Transparency",ThroughWalls="Through Walls",Nicks="Names",ShowName="Show Name",NickColor="Nick Color",NickSize="Nick Size",HPBar="HP Bar",ShowHPBar="Show HP Bar",HPDynamicColor="Dynamic HP Color",HPBarColor="HP Bar Color",HPBarWidth="HP Bar Width",HPBarHeight="HP Bar Height",Distance="Distance",ShowDistance="Show Distance",Tracer="Tracer",EnableTracer="Enable Tracer",TracerFrom="Tracer From",TracerTo="Tracer To",NPCESP="NPC ESP",EnableNPCESP="Enable NPC ESP",NPCName="Show NPC Name",NPCDistance="Show NPC Distance",NPCHPBar="NPC HP Bar"},
         Player = {Movement="Movement",WalkSpeedEnabled="Walk Speed Override",WalkSpeed="Walk Speed",JumpPowerEnabled="Jump Power Override",JumpPower="Jump Power",InfiniteJump="Infinite Jump",Noclip="Noclip",Fly="Fly",FlySpeed="Fly Speed",Gravity="Gravity",ZeroGravity="Zero Gravity (ragdoll)",Coordinates="Coordinates",SavePos="Save Position",LoadPos="Load Position",ClearPos="Clear Position",Utility="Utility",AntiAFK="Anti-AFK",LazyMode="Lazy Mode",FPSBooster="FPS Booster",LowQuality="Low Quality",Fullbright="Fullbright",XNEO="XNEO Fly",XNEOBtn="Load XNEO Fly"},
         Hitbox = {Who="Hitbox Target",Mode="Mode",All="All (Players + NPC)",PlayersOnly="Players Only",NPConly="NPC Only",Nobody="Nobody",AutoRefresh="Auto-Refresh",Parts="Parts",HeadHitbox="Head Hitbox",BodyHitbox="Body Hitbox",Sizes="Sizes",RootSize="Root Size",HeadSize="Head Size",BodySize="Body Size"},
         Macro = {Info="Records movement via MoveTo.",Settings="Settings",MacroName="Macro Name",SampleRate="Sample Rate (sec)",Loop="Loop",JumpDetection="Record Jumps",Advanced="Advanced Modes",IgnoreObstacles="Ignore Obstacles",PushThrough="Push Through",Record="Record",StartRecord="🔴 Start Recording",StopRecord="⏹ Stop Recording",Play="Playback",PlayMacro="▶ Play Macro",StopMacro="⏹ Stop Macro",StopAndReturn="⏸ Stop and Return",Manage="Manage",SaveRecord="💾 Save Recording",DeleteCurrent="🗑 Delete Current",DeleteAll="🗑 Delete All",List="Macro List",Empty="(no macros)"},
+        AutoClicker = {Title="AutoClicker",Enable="Enable AutoClicker",Speed="Speed (clicks/sec)",Button="Button",Left="Left",Right="Right",Mode="Mode",ModeVirtual="Virtual",ModeReal="Real (Cursor)",Info="Clicks automatically at set speed. Virtual — no mouse movement, Real — at cursor position."},
         Settings = {Actions="Actions",ResetSettings="Reset Settings",Unload="Unload Script",UISettings="UI Settings",UIScale="UI Scale",Notifications="Notifications",AutoHideMobile="Auto-hide GUI on Mobile",Configs="Configs",ConfigName="Config Name",SaveConfig="Save",LoadConfig="Load",DeleteConfig="Delete",AutoSave="Auto-save",AvailableConfigs="Available Configs",EmptyConfigs="(empty)"},
         Binds = {Title="Binds",Search="Search binds...",Actions="Actions",Aimbot="Aimbot",AimbotHold="Aim Hold",ESP="ESP",Hitbox="Hitbox",Fly="Fly",Noclip="Noclip",InfiniteJump="Infinite Jump",ZeroGravity="Zero Gravity",SavePos="Save Position",LoadPos="Load Position",Macro="Macro (Play/Stop)",MacroRecord="Macro Record",ResetBinds="Reset All Binds",FloatingLock="Floating Lock",ResetPositions="Reset Button Positions",FloatingButtons="Floating Buttons"},
         Info = {Title="About LARP(T)",Owner="Owner (Telegram)",Channel="Channel (Telegram)",Note="Script is 100% free. Forever key: @luaLARP (subscribe), message @ForchanW if not posted.",Free="Script is 100% free.",Key="Forever key: @luaLARP / @ForchanW"},
@@ -127,12 +134,13 @@ function LL.CheckKey(input)
     return input == LL.SECRET_KEY
 end
 LL.S = {
-    Aimbot = {Enabled=false, Mode="Camera", Smooth=0.25, CameraFOV=200, MobileFOV=200, Part="Head", ShowFOV=true, StickyLock=true, DistanceWeight=1.0, WallCheck=false, PredictLead=false, BulletSpeed=1000, LeadMultiplier=1.0, HitscanMode=false, TargetPlayers=true, TargetNPCs=false, JitterEnabled=false, Jitter=1.5, HitboxVisualizer=false, AimAssistBeam=false, MicroAdjust=false, MicroAdjustAmount=1.0, FOVColor = Color3.fromRGB(155,90,255), TracerColor = Color3.fromRGB(255,90,190)},
+    Aimbot = {Enabled=false, Mode="Camera", Smooth=0.25, CameraFOV=200, MobileFOV=200, Part="Head", ShowFOV=true, StickyLock=true, DistanceWeight=1.0, WallCheck=false, PredictLead=false, BulletSpeed=1000, LeadMultiplier=1.0, HitscanMode=false, TargetPlayers=true, TargetNPCs=false, JitterEnabled=false, Jitter=1.5, HitboxVisualizer=false, AimAssistBeam=false, MicroAdjust=false, MicroAdjustAmount=1.0, FOVColor = Color3.fromRGB(155,90,255), TracerColor = Color3.fromRGB(255,90,190), SilentAim=false, SilentMode="Silent", SilentFOV=200, SilentPart="Head", SilentWallCheck=false, SilentSmooth=0.3, SilentShowFOV=true},
     ESP = {Enabled=false, OutlineColor=Color3.fromRGB(180,100,255), FillColor=Color3.fromRGB(120,60,220), FillTransparency=0.75, OutlineTransparency=0.05, ThroughWalls=true, ShowName=true, ShowDistance=true, NickColor=Color3.fromRGB(245,235,255), NickSize=15, ShowHPBar=true, HPBarWidth=55, HPBarHeight=5, HPDynamicColor=true, HPBarColor=Color3.fromRGB(110,255,170), NPCEnabled=false, NPCName=true, NPCDistance=false, NPCHPBar=true, MaxDistance=1500, TracerEnabled=false, TracerFrom=Color3.fromRGB(180,100,255), TracerTo=Color3.fromRGB(255,90,190), RealTimeRefresh=false},
     Hitbox = {Enabled=false, HeadEnabled=true, BodyEnabled=true, HeadSize=3, BodySize=5, RootSize=12, NPCSupport=false, RealTimeRefresh=true},
     Player = {Fly=false, FlySpeed=50, ZeroGravity=false, WalkSpeed=16, JumpPower=50, WalkSpeedEnabled=false, JumpPowerEnabled=false, OrigWalkSpeed=nil, OrigJumpPower=nil, InfiniteJump=false, Noclip=false, AntiAFK=false, LazyMode=false, FPSBooster=false, LowQuality=false, Fullbright=false, SavedPos=nil},
     Troll = {Spin=false, Invisible=false, AntiFling=false},
     Hamster = {Coins=0},
+    AutoClicker = {Enabled=false, Speed=10, Button="Left", Mode="Virtual"},
     Macro = {Recording = false, Playing = false, CurrentMacro = "macro1", Loop = true, SampleRate = 0.2, JumpDetection = true, IgnoreObstacles = false, PushThrough = false},
     Binds = {}, MobileBtns = {},
     FloatingLock=false, FloatingPos={},
@@ -191,7 +199,7 @@ local unpackFn = table.unpack or unpack
 
 function LL.packSettings()
     local S = LL.S
-    local d = {Aimbot={}, ESP={}, Hitbox={}, Player={}, Troll={}, Hamster={Coins=S.Hamster.Coins}, Binds={}, MobileBtns={}, AutoSave=S.AutoSave, FloatingLock=S.FloatingLock, FloatingPos=S.FloatingPos, ConfigName=S.ConfigName, UI={}, Macro={}, KeyValidated=S.KeyValidated, Language=LL.Language}
+    local d = {Aimbot={}, ESP={}, Hitbox={}, Player={}, Troll={}, Hamster={Coins=S.Hamster.Coins}, AutoClicker=S.AutoClicker, Binds={}, MobileBtns={}, AutoSave=S.AutoSave, FloatingLock=S.FloatingLock, FloatingPos=S.FloatingPos, ConfigName=S.ConfigName, UI={}, Macro={}, KeyValidated=S.KeyValidated, Language=LL.Language}
     for k,v in pairs(S.Aimbot) do if type(v)=="Color3" then d.Aimbot[k]=LL.packC3(v) else d.Aimbot[k]=v end end
     for k,v in pairs(S.ESP) do if type(v)=="Color3" then d.ESP[k]=LL.packC3(v) else d.ESP[k]=v end end
     for k,v in pairs(S.Hitbox) do d.Hitbox[k]=v end
@@ -215,6 +223,7 @@ function LL.applySettings(d)
     if d.Player then for k,v in pairs(d.Player) do if k=="SavedPos" and type(v)=="table" and #v>=12 then local ok, cf = pcall(function() return CFrame.new(unpackFn(v)) end); if ok then S.Player.SavedPos=cf end elseif S.Player[k]~=nil then S.Player[k]=v end end end
     if d.Troll then for k,v in pairs(d.Troll) do if S.Troll[k]~=nil then S.Troll[k]=v end end end
     if d.Hamster and d.Hamster.Coins then S.Hamster.Coins=d.Hamster.Coins end
+    if d.AutoClicker then for k,v in pairs(d.AutoClicker) do if S.AutoClicker[k]~=nil then S.AutoClicker[k]=v end end end
     S.Binds = {}
     if d.Binds then for a,n in pairs(d.Binds) do local ok, code = pcall(function() return Enum.KeyCode[n] end); if ok and code then S.Binds[a]=code end end end
     if d.MobileBtns then S.MobileBtns = {}; for k,v in pairs(d.MobileBtns) do S.MobileBtns[k]=v end end
@@ -363,53 +372,6 @@ function LL.Toggle(parent, name, getter, setter)
         if not ok then warn("[LARP] "..name..": "..tostring(err)) end
         render(); LL.MarkDirty()
     end)
-end
-
-function LL.Slider(parent, name, minV, maxV, getter, setter)
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(1, 0, 0, 58); f.BackgroundColor3 = COL.elem; f.BackgroundTransparency = 0.05
-    f.BorderSizePixel = 0; f.LayoutOrder = LL.NextOrder(); f.Parent = parent
-    LL.corner(f, 12); LL.stroke(f, COL.stroke, 1)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -20, 0, 18); lbl.Position = UDim2.new(0, 16, 0, 8); lbl.BackgroundTransparency = 1
-    lbl.TextColor3 = COL.text; lbl.Font = Enum.Font.Gotham; lbl.TextSize = 14
-    lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = f
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(1, -32, 0, 8); bar.Position = UDim2.new(0, 16, 0, 38)
-    bar.BackgroundColor3 = Color3.fromRGB(14, 10, 22); bar.BorderSizePixel = 0; bar.Parent = f
-    LL.corner(bar, 4)
-    local fill = Instance.new("Frame")
-    fill.BackgroundColor3 = COL.accent; fill.BorderSizePixel = 0; fill.Parent = bar
-    LL.corner(fill, 4); LL.gradient(fill, COL.accent, COL.accent2, 0)
-    local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, 14, 0, 14); dot.AnchorPoint = Vector2.new(0.5, 0.5)
-    dot.BackgroundColor3 = Color3.new(1, 1, 1); dot.BorderSizePixel = 0; dot.ZIndex = 3; dot.Parent = bar
-    LL.corner(dot, 7)
-    local function render()
-        local v = getter()
-        local rel = math.clamp((v - minV) / (maxV - minV), 0, 1)
-        fill.Size = UDim2.new(rel, 0, 1, 0)
-        dot.Position = UDim2.new(rel, 0, 0.5, 0)
-        lbl.Text = name .. ": " .. tostring(math.floor(v*100+0.5)/100)
-    end
-    render(); LL.AddRefresh(render)
-    local ca = Instance.new("TextButton")
-    ca.Size = UDim2.new(1, 16, 0, 30); ca.Position = UDim2.new(0, -8, 0, -11)
-    ca.BackgroundTransparency = 1; ca.Text = ""; ca.ZIndex = 10; ca.Parent = bar
-    local drag = false
-    local function setX(px)
-        local rel = math.clamp((px - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-        setter(minV + rel * (maxV - minV)); render(); LL.MarkDirty()
-    end
-    ca.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drag = true; setX(i.Position.X) end
-    end)
-    LL.trackConn(UIS.InputChanged:Connect(function(i)
-        if drag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then setX(i.Position.X) end
-    end))
-    LL.trackConn(UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drag = false end
-    end))
 end
 
 function LL.Slider(parent, name, minV, maxV, getter, setter)
@@ -879,44 +841,54 @@ function LL.BuildTabs(Main)
         LL.ColorPicker(parent, L.BeamColor, function() return LL.S.Aimbot.TracerColor end, function(v) LL.S.Aimbot.TracerColor = v end)
         LL.Toggle(parent, L.MicroAdjust, function() return LL.S.Aimbot.MicroAdjust end, function(v) LL.S.Aimbot.MicroAdjust = v end)
         LL.Slider(parent, L.MicroAdjustAmount, 0.1, 3.0, function() return LL.S.Aimbot.MicroAdjustAmount end, function(v) LL.S.Aimbot.MicroAdjustAmount = v end)
+        LL.Section(parent, L.SilentAim or "Silent Aim")
+        LL.Toggle(parent, L.EnableSilent or "Enable Silent Aim", function() return LL.S.Aimbot.SilentAim end, function(v) LL.S.Aimbot.SilentAim = v end)
+        LL.Toggle(parent, L.TargetPlayers or "Players", function() return LL.S.Aimbot.TargetPlayers end, function(v) LL.S.Aimbot.TargetPlayers = v end)
+        LL.Toggle(parent, L.TargetNPCs or "NPCs", function() return LL.S.Aimbot.TargetNPCs end, function(v) LL.S.Aimbot.TargetNPCs = v end)
+        LL.Dropdown(parent, L.SilentMode or "Mode", {"Silent", "Camera"}, function() return LL.S.Aimbot.SilentMode end, function(v) LL.S.Aimbot.SilentMode = v end)
+        LL.Dropdown(parent, L.SilentPart or "Part", {"Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso"}, function() return LL.S.Aimbot.SilentPart end, function(v) LL.S.Aimbot.SilentPart = v end)
+        LL.Slider(parent, L.SilentFOV or "Silent FOV", 30, 800, function() return LL.S.Aimbot.SilentFOV end, function(v) LL.S.Aimbot.SilentFOV = v end)
+        LL.Toggle(parent, L.SilentWallCheck or "Wall Check", function() return LL.S.Aimbot.SilentWallCheck end, function(v) LL.S.Aimbot.SilentWallCheck = v end)
+        LL.Slider(parent, L.SilentSmooth or "Smoothness", 0.01, 1, function() return LL.S.Aimbot.SilentSmooth end, function(v) LL.S.Aimbot.SilentSmooth = math.min(v, 0.95) end)
+        LL.Toggle(parent, L.SilentShowFOV or "Show FOV Circle", function() return LL.S.Aimbot.SilentShowFOV end, function(v) LL.S.Aimbot.SilentShowFOV = v end)
     end)
-    LL.Tab("ESP", function(parent)
-        local L = LL.Loc[LL.Language].ESP
-        LL.Section(parent, L.Toggle)
-        LL.Toggle(parent, L.EnableESP, function() return LL.S.ESP.Enabled end, function(v) LL.S.ESP.Enabled = v end)
-        LL.Toggle(parent, L.AutoRefresh, function() return LL.S.ESP.RealTimeRefresh end, function(v) LL.S.ESP.RealTimeRefresh = v end)
-        LL.Slider(parent, L.MaxDistance, 100, 3000, function() return LL.S.ESP.MaxDistance end, function(v) LL.S.ESP.MaxDistance = math.floor(v + 0.5) end)
-        LL.Section(parent, L.Highlight)
-        LL.ColorPicker(parent, L.OutlineColor, function() return LL.S.ESP.OutlineColor end, function(v) LL.S.ESP.OutlineColor = v; LL.RefreshESPColors() end)
-        LL.ColorPicker(parent, L.FillColor, function() return LL.S.ESP.FillColor end, function(v) LL.S.ESP.FillColor = v; LL.RefreshESPColors() end)
-        LL.Slider(parent, L.FillTransparency, 0, 1, function() return LL.S.ESP.FillTransparency end, function(v) LL.S.ESP.FillTransparency = v; LL.RefreshESPColors() end)
-        LL.Slider(parent, L.OutlineTransparency, 0, 1, function() return LL.S.ESP.OutlineTransparency end, function(v) LL.S.ESP.OutlineTransparency = v; LL.RefreshESPColors() end)
-        LL.Toggle(parent, L.ThroughWalls, function() return LL.S.ESP.ThroughWalls end, function(v) LL.S.ESP.ThroughWalls = v; LL.RefreshESPColors() end)
-        LL.Section(parent, L.Nicks)
-        LL.Toggle(parent, L.ShowName, function() return LL.S.ESP.ShowName end, function(v) LL.S.ESP.ShowName = v end)
-        LL.ColorPicker(parent, L.NickColor, function() return LL.S.ESP.NickColor end, function(v) LL.S.ESP.NickColor = v end)
-        LL.Slider(parent, L.NickSize, 10, 24, function() return LL.S.ESP.NickSize end, function(v) LL.S.ESP.NickSize = math.floor(v + 0.5) end)
-        LL.Section(parent, L.HPBar)
-        LL.Toggle(parent, L.ShowHPBar, function() return LL.S.ESP.ShowHPBar end, function(v) LL.S.ESP.ShowHPBar = v end)
-        LL.Toggle(parent, L.HPDynamicColor, function() return LL.S.ESP.HPDynamicColor end, function(v) LL.S.ESP.HPDynamicColor = v end)
-        LL.ColorPicker(parent, L.HPBarColor, function() return LL.S.ESP.HPBarColor end, function(v) LL.S.ESP.HPBarColor = v end)
-        LL.Slider(parent, L.HPBarWidth, 20, 120, function() return LL.S.ESP.HPBarWidth end, function(v) LL.S.ESP.HPBarWidth = math.floor(v + 0.5) end)
-        LL.Slider(parent, L.HPBarHeight, 2, 12, function() return LL.S.ESP.HPBarHeight end, function(v) LL.S.ESP.HPBarHeight = math.floor(v + 0.5) end)
-        LL.Section(parent, L.Distance)
-        LL.Toggle(parent, L.ShowDistance, function() return LL.S.ESP.ShowDistance end, function(v) LL.S.ESP.ShowDistance = v end)
-        LL.Section(parent, L.Tracer)
-        LL.Toggle(parent, L.EnableTracer, function() return LL.S.ESP.TracerEnabled end, function(v) LL.S.ESP.TracerEnabled = v end)
-        LL.ColorPicker(parent, L.TracerFrom, function() return LL.S.ESP.TracerFrom end, function(v) LL.S.ESP.TracerFrom = v end)
-        LL.ColorPicker(parent, L.TracerTo, function() return LL.S.ESP.TracerTo end, function(v) LL.S.ESP.TracerTo = v end)
-        LL.Section(parent, L.NPCESP)
-        LL.Toggle(parent, L.EnableNPCESP, function() return LL.S.ESP.NPCEnabled end, function(v)
-            LL.S.ESP.NPCEnabled = v
-            if v then pcall(function() LL.refreshNPCCache() end) end
-        end)
-        LL.Toggle(parent, L.NPCName, function() return LL.S.ESP.NPCName end, function(v) LL.S.ESP.NPCName = v end)
-        LL.Toggle(parent, L.NPCDistance, function() return LL.S.ESP.NPCDistance end, function(v) LL.S.ESP.NPCDistance = v end)
-        LL.Toggle(parent, L.NPCHPBar, function() return LL.S.ESP.NPCHPBar end, function(v) LL.S.ESP.NPCHPBar = v end)
+LL.Tab("ESP", function(parent)
+    local L = LL.Loc[LL.Language].ESP
+    LL.Section(parent, L.Toggle)
+    LL.Toggle(parent, L.EnableESP, function() return LL.S.ESP.Enabled end, function(v) LL.S.ESP.Enabled = v end)
+    LL.Toggle(parent, L.AutoRefresh, function() return LL.S.ESP.RealTimeRefresh end, function(v) LL.S.ESP.RealTimeRefresh = v end)
+    LL.Slider(parent, L.MaxDistance, 100, 3000, function() return LL.S.ESP.MaxDistance end, function(v) LL.S.ESP.MaxDistance = math.floor(v + 0.5) end)
+    LL.Section(parent, L.Highlight)
+    LL.ColorPicker(parent, L.OutlineColor, function() return LL.S.ESP.OutlineColor end, function(v) LL.S.ESP.OutlineColor = v; LL.RefreshESPColors() end)
+    LL.ColorPicker(parent, L.FillColor, function() return LL.S.ESP.FillColor end, function(v) LL.S.ESP.FillColor = v; LL.RefreshESPColors() end)
+    LL.Slider(parent, L.FillTransparency, 0, 1, function() return LL.S.ESP.FillTransparency end, function(v) LL.S.ESP.FillTransparency = v; LL.RefreshESPColors() end)
+    LL.Slider(parent, L.OutlineTransparency, 0, 1, function() return LL.S.ESP.OutlineTransparency end, function(v) LL.S.ESP.OutlineTransparency = v; LL.RefreshESPColors() end)
+    LL.Toggle(parent, L.ThroughWalls, function() return LL.S.ESP.ThroughWalls end, function(v) LL.S.ESP.ThroughWalls = v; LL.RefreshESPColors() end)
+    LL.Section(parent, L.Nicks)
+    LL.Toggle(parent, L.ShowName, function() return LL.S.ESP.ShowName end, function(v) LL.S.ESP.ShowName = v end)
+    LL.ColorPicker(parent, L.NickColor, function() return LL.S.ESP.NickColor end, function(v) LL.S.ESP.NickColor = v end)
+    LL.Slider(parent, L.NickSize, 10, 24, function() return LL.S.ESP.NickSize end, function(v) LL.S.ESP.NickSize = math.floor(v + 0.5) end)
+    LL.Section(parent, L.HPBar)
+    LL.Toggle(parent, L.ShowHPBar, function() return LL.S.ESP.ShowHPBar end, function(v) LL.S.ESP.ShowHPBar = v end)
+    LL.Toggle(parent, L.HPDynamicColor, function() return LL.S.ESP.HPDynamicColor end, function(v) LL.S.ESP.HPDynamicColor = v end)
+    LL.ColorPicker(parent, L.HPBarColor, function() return LL.S.ESP.HPBarColor end, function(v) LL.S.ESP.HPBarColor = v end)
+    LL.Slider(parent, L.HPBarWidth, 20, 120, function() return LL.S.ESP.HPBarWidth end, function(v) LL.S.ESP.HPBarWidth = math.floor(v + 0.5) end)
+    LL.Slider(parent, L.HPBarHeight, 2, 12, function() return LL.S.ESP.HPBarHeight end, function(v) LL.S.ESP.HPBarHeight = math.floor(v + 0.5) end)
+    LL.Section(parent, L.Distance)
+    LL.Toggle(parent, L.ShowDistance, function() return LL.S.ESP.ShowDistance end, function(v) LL.S.ESP.ShowDistance = v end)
+    LL.Section(parent, L.Tracer)
+    LL.Toggle(parent, L.EnableTracer, function() return LL.S.ESP.TracerEnabled end, function(v) LL.S.ESP.TracerEnabled = v end)
+    LL.ColorPicker(parent, L.TracerFrom, function() return LL.S.ESP.TracerFrom end, function(v) LL.S.ESP.TracerFrom = v end)
+    LL.ColorPicker(parent, L.TracerTo, function() return LL.S.ESP.TracerTo end, function(v) LL.S.ESP.TracerTo = v end)
+    LL.Section(parent, L.NPCESP)
+    LL.Toggle(parent, L.EnableNPCESP, function() return LL.S.ESP.NPCEnabled end, function(v)
+        LL.S.ESP.NPCEnabled = v
+        if v then pcall(function() LL.refreshNPCCache() end) end
     end)
+    LL.Toggle(parent, L.NPCName, function() return LL.S.ESP.NPCName end, function(v) LL.S.ESP.NPCName = v end)
+    LL.Toggle(parent, L.NPCDistance, function() return LL.S.ESP.NPCDistance end, function(v) LL.S.ESP.NPCDistance = v end)
+    LL.Toggle(parent, L.NPCHPBar, function() return LL.S.ESP.NPCHPBar end, function(v) LL.S.ESP.NPCHPBar = v end)
+end)
 LL.Tab("Player", function(parent)
     local L = LL.Loc[LL.Language].Player
     local function captureOriginals()
@@ -1148,92 +1120,130 @@ LL.Tab("Macro", function(parent)
     end
     LL.MacroRefreshList()
 end)
-LL.Tab("Settings", function(parent)
-        local L = LL.Loc[LL.Language].Settings
-        LL.Section(parent, L.Actions)
-        LL.Button(parent, L.ResetSettings, function()
-            local S = LL.S
-            S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25
-            S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
-            S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
-            S.Aimbot.JitterEnabled=false; S.Aimbot.Jitter=1.5
-            S.Aimbot.HitboxVisualizer=false; S.Aimbot.AimAssistBeam=false
-            S.Aimbot.MicroAdjust=false; S.Aimbot.MicroAdjustAmount=1.0
-            S.ESP.Enabled=false; S.ESP.NPCEnabled=false
-            S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
-            S.Player.Fly=false
-            S.Player.Noclip=false; S.Player.InfiniteJump=false
-            S.Player.ZeroGravity=false
-            S.Player.WalkSpeed=16; S.Player.JumpPower=50
-            S.Player.WalkSpeedEnabled=false; S.Player.JumpPowerEnabled=false
-            S.Player.AntiAFK=false; LL.stopAntiAFK()
-            S.Player.FPSBooster=false; LL.disableFPSBooster()
-            S.Player.LowQuality=false; LL.disableLowQuality()
-            S.Player.Fullbright=false; LL.disableFullbright()
-            S.Troll.AntiFling=false
-            S.Macro.IgnoreObstacles=false; S.Macro.PushThrough=false
-            S.FloatingLock=false; S.FloatingPos={}
-            LL.ApplyFloatingLock()
-            LL.RepositionAllFloatingBtns()
-            LL.applyGravityState()
-            LL.RefreshAll(); LL.MarkDirty(); LL.Notify("Настройки сброшены")
-        end)
-        LL.Button(parent, L.Unload, function()
-            if getgenv().TIMON_UNLOAD then pcall(getgenv().TIMON_UNLOAD)
-            else LL.Notify("Unload не готов") end
-        end, {color = COL.accent2, hover = Color3.fromRGB(255, 120, 210), textColor = Color3.new(1,1,1)})
-        LL.Section(parent, L.UISettings)
-        LL.Slider(parent, L.UIScale, 0.6, 1.2, function() return LL.S.UI.Scale end, function(v) LL.S.UI.Scale = v; LL.ApplyMainSize() end)
-        LL.Toggle(parent, L.Notifications, function() return LL.S.UI.Notifications end, function(v) LL.S.UI.Notifications = v end)
-        LL.Toggle(parent, L.AutoHideMobile, function() return LL.S.UI.AutoHideOnMobile end, function(v) LL.S.UI.AutoHideOnMobile = v end)
-        LL.Section(parent, L.Configs)
-        if not LL.FS_AVAILABLE then
-            local warnLbl = Instance.new("TextLabel")
-            warnLbl.Size = UDim2.new(1, 0, 0, 40); warnLbl.BackgroundColor3 = COL.red
-            warnLbl.BackgroundTransparency = 0.7; warnLbl.BorderSizePixel = 0; warnLbl.LayoutOrder = LL.NextOrder()
-            warnLbl.Text = "⚠ Экзекутор не поддерживает файловую систему"; warnLbl.TextColor3 = COL.text
-            warnLbl.Font = Enum.Font.GothamBold; warnLbl.TextSize = 13; warnLbl.Parent = parent
-            LL.corner(warnLbl, 12)
-        end
-        LL.TextBox(parent, L.ConfigName, "auto", function() return LL.S.ConfigName end, function(v) LL.S.ConfigName = (v ~= "" and v) or "auto" end)
-        LL.Button(parent, L.SaveConfig, function()
-            local name = LL.S.ConfigName or "auto"
-            local ok, err = LL.saveConfig(name)
-            if ok then
-                LL.Notify("Сохранено: "..name)
-                if LL.RefreshCfgList then LL.RefreshCfgList() end
-            else LL.Notify("Ошибка: "..tostring(err)) end
-        end)
-        LL.Button(parent, L.LoadConfig, function()
-            local name = LL.S.ConfigName or "auto"
-            if LL.loadConfigFile(name) then
-                LL.applyLoadedSettings()
-                LL.Notify("Загружено: "..name)
-            else LL.Notify("Не найден: "..name) end
-        end)
-        LL.Button(parent, L.DeleteConfig, function()
-            local name = LL.S.ConfigName or "auto"
-            LL.deleteConfig(name)
-            LL.Notify("Удалено: "..name)
-            if LL.RefreshCfgList then LL.RefreshCfgList() end
-        end)
-        LL.Toggle(parent, L.AutoSave, function() return LL.S.AutoSave end, function(v) LL.S.AutoSave = v end)
-        LL.Section(parent, L.AvailableConfigs)
-        local cfgListLbl = Instance.new("TextLabel")
-        cfgListLbl.Size = UDim2.new(1, 0, 0, 100); cfgListLbl.BackgroundColor3 = COL.elem
-        cfgListLbl.BackgroundTransparency = 0.05; cfgListLbl.BorderSizePixel = 0; cfgListLbl.LayoutOrder = LL.NextOrder()
-        cfgListLbl.TextColor3 = COL.sub; cfgListLbl.Font = Enum.Font.Gotham; cfgListLbl.TextSize = 13
-        cfgListLbl.TextWrapped = true; cfgListLbl.TextXAlignment = Enum.TextXAlignment.Left
-        cfgListLbl.TextYAlignment = Enum.TextYAlignment.Top; cfgListLbl.Parent = parent
-        LL.corner(cfgListLbl, 12); LL.stroke(cfgListLbl, COL.stroke, 1)
-        LL.padding(cfgListLbl, 8, 16, 12, 8)
-        LL.RefreshCfgList = function()
-            local list = LL.listConfigs()
-            if #list == 0 then cfgListLbl.Text = L.EmptyConfigs
-            else table.sort(list); cfgListLbl.Text = table.concat(list, "\n") end
-        end
-        LL.RefreshCfgList()
+LL.Tab("AutoClicker", function(parent)
+    local L = LL.Loc[LL.Language].AutoClicker or {}
+    LL.Section(parent, L.Title or "AutoClicker")
+    LL.Toggle(parent, L.Enable or "Enable AutoClicker", function() return LL.S.AutoClicker.Enabled end, function(v)
+        LL.S.AutoClicker.Enabled = v
+        LL.Notify("AutoClicker: " .. (v and "ON" or "OFF"))
     end)
+    LL.Section(parent, L.Speed or "Speed")
+    LL.Slider(parent, L.Speed or "Speed (clicks/sec)", 1, 100, function() return LL.S.AutoClicker.Speed end, function(v) LL.S.AutoClicker.Speed = math.floor(v + 0.5) end)
+    LL.Section(parent, L.Button or "Button")
+    LL.Dropdown(parent, L.Button or "Button", {L.Left or "Left", L.Right or "Right"}, function() return LL.S.AutoClicker.Button == "Right" and (L.Right or "Right") or (L.Left or "Left") end, function(v) LL.S.AutoClicker.Button = (v == (L.Right or "Right")) and "Right" or "Left" end)
+    LL.Section(parent, L.Mode or "Mode")
+    LL.Dropdown(parent, L.Mode or "Mode", {L.ModeVirtual or "Virtual", L.ModeReal or "Real (Cursor)"}, function() return LL.S.AutoClicker.Mode == "Real" and (L.ModeReal or "Real (Cursor)") or (L.ModeVirtual or "Virtual") end, function(v) LL.S.AutoClicker.Mode = (v == (L.ModeReal or "Real (Cursor)")) and "Real" or "Virtual" end)
+    LL.Section(parent, "Info")
+    local infoLbl = Instance.new("TextLabel")
+    infoLbl.Size = UDim2.new(1, 0, 0, 80)
+    infoLbl.BackgroundColor3 = COL.elem
+    infoLbl.BackgroundTransparency = 0.05
+    infoLbl.BorderSizePixel = 0
+    infoLbl.LayoutOrder = LL.NextOrder()
+    infoLbl.TextColor3 = COL.sub
+    infoLbl.Font = Enum.Font.Gotham
+    infoLbl.TextSize = 13
+    infoLbl.TextWrapped = true
+    infoLbl.TextXAlignment = Enum.TextXAlignment.Left
+    infoLbl.TextYAlignment = Enum.TextYAlignment.Top
+    infoLbl.Text = L.Info or ""
+    infoLbl.Parent = parent
+    LL.corner(infoLbl, 12)
+    LL.stroke(infoLbl, COL.stroke, 1)
+    LL.padding(infoLbl, 8, 12, 12, 8)
+end)
+LL.Tab("Settings", function(parent)
+    local L = LL.Loc[LL.Language].Settings
+    LL.Section(parent, L.Actions)
+    LL.Button(parent, L.ResetSettings, function()
+        local S = LL.S
+        S.Aimbot.Enabled=false; S.Aimbot.Smooth=0.25
+        S.Aimbot.CameraFOV=200; S.Aimbot.MobileFOV=200
+        S.Aimbot.DistanceWeight=1; S.Aimbot.WallCheck=false
+        S.Aimbot.JitterEnabled=false; S.Aimbot.Jitter=1.5
+        S.Aimbot.HitboxVisualizer=false; S.Aimbot.AimAssistBeam=false
+        S.Aimbot.MicroAdjust=false; S.Aimbot.MicroAdjustAmount=1.0
+        S.Aimbot.SilentAim=false; S.Aimbot.SilentMode="Silent"
+        S.Aimbot.SilentFOV=200; S.Aimbot.SilentPart="Head"
+        S.Aimbot.SilentWallCheck=false; S.Aimbot.SilentSmooth=0.3
+        S.Aimbot.SilentShowFOV=true
+        S.ESP.Enabled=false; S.ESP.NPCEnabled=false
+        S.Hitbox.Enabled=false; S.Hitbox.NPCSupport=false
+        S.Player.Fly=false
+        S.Player.Noclip=false; S.Player.InfiniteJump=false
+        S.Player.ZeroGravity=false
+        S.Player.WalkSpeed=16; S.Player.JumpPower=50
+        S.Player.WalkSpeedEnabled=false; S.Player.JumpPowerEnabled=false
+        S.Player.AntiAFK=false; LL.stopAntiAFK()
+        S.Player.FPSBooster=false; LL.disableFPSBooster()
+        S.Player.LowQuality=false; LL.disableLowQuality()
+        S.Player.Fullbright=false; LL.disableFullbright()
+        S.Troll.AntiFling=false
+        S.AutoClicker.Enabled=false; S.AutoClicker.Speed=10
+        S.AutoClicker.Button="Left"; S.AutoClicker.Mode="Virtual"
+        S.Macro.IgnoreObstacles=false; S.Macro.PushThrough=false
+        S.FloatingLock=false; S.FloatingPos={}
+        LL.ApplyFloatingLock()
+        LL.RepositionAllFloatingBtns()
+        LL.applyGravityState()
+        LL.RefreshAll(); LL.MarkDirty(); LL.Notify("Настройки сброшены")
+    end)
+    LL.Button(parent, L.Unload, function()
+        if getgenv().TIMON_UNLOAD then pcall(getgenv().TIMON_UNLOAD)
+        else LL.Notify("Unload не готов") end
+    end, {color = COL.accent2, hover = Color3.fromRGB(255, 120, 210), textColor = Color3.new(1,1,1)})
+    LL.Section(parent, L.UISettings)
+    LL.Slider(parent, L.UIScale, 0.6, 1.2, function() return LL.S.UI.Scale end, function(v) LL.S.UI.Scale = v; LL.ApplyMainSize() end)
+    LL.Toggle(parent, L.Notifications, function() return LL.S.UI.Notifications end, function(v) LL.S.UI.Notifications = v end)
+    LL.Toggle(parent, L.AutoHideMobile, function() return LL.S.UI.AutoHideOnMobile end, function(v) LL.S.UI.AutoHideOnMobile = v end)
+    LL.Section(parent, L.Configs)
+    if not LL.FS_AVAILABLE then
+        local warnLbl = Instance.new("TextLabel")
+        warnLbl.Size = UDim2.new(1, 0, 0, 40); warnLbl.BackgroundColor3 = COL.red
+        warnLbl.BackgroundTransparency = 0.7; warnLbl.BorderSizePixel = 0; warnLbl.LayoutOrder = LL.NextOrder()
+        warnLbl.Text = "⚠ Экзекутор не поддерживает файловую систему"; warnLbl.TextColor3 = COL.text
+        warnLbl.Font = Enum.Font.GothamBold; warnLbl.TextSize = 13; warnLbl.Parent = parent
+        LL.corner(warnLbl, 12)
+    end
+    LL.TextBox(parent, L.ConfigName, "auto", function() return LL.S.ConfigName end, function(v) LL.S.ConfigName = (v ~= "" and v) or "auto" end)
+    LL.Button(parent, L.SaveConfig, function()
+        local name = LL.S.ConfigName or "auto"
+        local ok, err = LL.saveConfig(name)
+        if ok then
+            LL.Notify("Сохранено: "..name)
+            if LL.RefreshCfgList then LL.RefreshCfgList() end
+        else LL.Notify("Ошибка: "..tostring(err)) end
+    end)
+    LL.Button(parent, L.LoadConfig, function()
+        local name = LL.S.ConfigName or "auto"
+        if LL.loadConfigFile(name) then
+            LL.applyLoadedSettings()
+            LL.Notify("Загружено: "..name)
+        else LL.Notify("Не найден: "..name) end
+    end)
+    LL.Button(parent, L.DeleteConfig, function()
+        local name = LL.S.ConfigName or "auto"
+        LL.deleteConfig(name)
+        LL.Notify("Удалено: "..name)
+        if LL.RefreshCfgList then LL.RefreshCfgList() end
+    end)
+    LL.Toggle(parent, L.AutoSave, function() return LL.S.AutoSave end, function(v) LL.S.AutoSave = v end)
+    LL.Section(parent, L.AvailableConfigs)
+    local cfgListLbl = Instance.new("TextLabel")
+    cfgListLbl.Size = UDim2.new(1, 0, 0, 100); cfgListLbl.BackgroundColor3 = COL.elem
+    cfgListLbl.BackgroundTransparency = 0.05; cfgListLbl.BorderSizePixel = 0; cfgListLbl.LayoutOrder = LL.NextOrder()
+    cfgListLbl.TextColor3 = COL.sub; cfgListLbl.Font = Enum.Font.Gotham; cfgListLbl.TextSize = 13
+    cfgListLbl.TextWrapped = true; cfgListLbl.TextXAlignment = Enum.TextXAlignment.Left
+    cfgListLbl.TextYAlignment = Enum.TextYAlignment.Top; cfgListLbl.Parent = parent
+    LL.corner(cfgListLbl, 12); LL.stroke(cfgListLbl, COL.stroke, 1)
+    LL.padding(cfgListLbl, 8, 16, 12, 8)
+    LL.RefreshCfgList = function()
+        local list = LL.listConfigs()
+        if #list == 0 then cfgListLbl.Text = L.EmptyConfigs
+        else table.sort(list); cfgListLbl.Text = table.concat(list, "\n") end
+    end
+    LL.RefreshCfgList()
+end)
     LL.Tab("Binds", function(parent)
         local L = LL.Loc[LL.Language].Binds
         LL.Section(parent, L.Title)
@@ -1323,6 +1333,7 @@ LL.Tab("Settings", function(parent)
         LL.Toggle(parent, "Aimbot Button", function() return LL.S.MobileBtns.Aimbot == true end, function(v) LL.S.MobileBtns.Aimbot = v; LL.ToggleMobileBtn("Aimbot", v) end)
         LL.Toggle(parent, "Noclip Button", function() return LL.S.MobileBtns.Noclip == true end, function(v) LL.S.MobileBtns.Noclip = v; LL.ToggleMobileBtn("Noclip", v) end)
         LL.Toggle(parent, "Anti Fling Button", function() return LL.S.MobileBtns.AntiFling == true end, function(v) LL.S.MobileBtns.AntiFling = v; LL.ToggleMobileBtn("AntiFling", v) end)
+        LL.Toggle(parent, "Zero Gravity Button", function() return LL.S.MobileBtns.ZeroGravity == true end, function(v) LL.S.MobileBtns.ZeroGravity = v; LL.ToggleMobileBtn("ZeroGravity", v) end)
         LL.Toggle(parent, "ESP Button", function() return LL.S.MobileBtns.ESP == true end, function(v) LL.S.MobileBtns.ESP = v; LL.ToggleMobileBtn("ESP", v) end)
         LL.Toggle(parent, "Hitbox Button", function() return LL.S.MobileBtns.Hitbox == true end, function(v) LL.S.MobileBtns.Hitbox = v; LL.ToggleMobileBtn("Hitbox", v) end)
         LL.Toggle(parent, "Macro Button", function() return LL.S.MobileBtns.Macro == true end, function(v) LL.S.MobileBtns.Macro = v; LL.ToggleMobileBtn("Macro", v) end)
@@ -1515,7 +1526,6 @@ end
 LL.trackConn(UIS.InputBegan:Connect(function()
     LL.lastUserAction = tick()
 end))
-
 function LL.applyHitboxToCharacter(entry, character)
     if not character or not entry then return end
     local hum = character:FindFirstChildOfClass("Humanoid")
@@ -1682,7 +1692,7 @@ end))
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
         task.wait(10)
-        if LL.S.ESP.NPCEnabled or LL.S.Hitbox.NPCSupport or LL.S.Aimbot.TargetNPCs then
+        if LL.S.ESP.NPCEnabled or LL.S.Hitbox.NPCSupport or LL.S.Aimbot.TargetNPCs or LL.S.Aimbot.SilentAim then
             pcall(LL.refreshNPCCache)
         end
     end
@@ -1734,6 +1744,7 @@ LL.DRAW_AVAILABLE = LL.ScriptAvailable.Drawing
 LL.fovCircle = nil
 LL.aimBeam = nil
 LL.hitboxBox = nil
+LL.silentFovCircle = nil
 if LL.DRAW_AVAILABLE then
     pcall(function()
         LL.fovCircle = Drawing.new("Circle")
@@ -1752,6 +1763,11 @@ if LL.DRAW_AVAILABLE then
         LL.hitboxBox.Color = Color3.fromRGB(255, 80, 120)
         LL.hitboxBox.Transparency = 0.7
         LL.hitboxBox.Filled = false
+        LL.silentFovCircle = Drawing.new("Circle")
+        LL.silentFovCircle.Visible = false
+        LL.silentFovCircle.Thickness = 1.5
+        LL.silentFovCircle.Color = Color3.fromRGB(255, 220, 100)
+        LL.silentFovCircle.Transparency = 0.7
     end)
 end
 function LL.applyHighlight(hl)
@@ -2104,8 +2120,83 @@ function LL.FindTarget()
     end
     return nil
 end
+function LL.SilentFindTarget()
+    local targetPlayers = LL.S.Aimbot.TargetPlayers
+    local targetNPCs = LL.S.Aimbot.TargetNPCs
+    if not targetPlayers and not targetNPCs then return nil end
+    local cmpPos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    local fovLimit = LL.S.Aimbot.SilentFOV
+    local best, bestScore = nil, math.huge
+    local myHRP = LL.Cache.HRP
+    local myPos = myHRP and myHRP.Position or Vector3.zero
+    local partName = LL.S.Aimbot.SilentPart
+    local wallCheck = LL.S.Aimbot.SilentWallCheck
+    if targetPlayers then
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl ~= LP then
+                local ch = pl.Character
+                if ch then
+                    local hum = ch:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        local part = ch:FindFirstChild(partName) or ch:FindFirstChild("Head")
+                        if part then
+                            local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
+                            if onScreen and sp.Z > 0 then
+                                local pd = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
+                                if pd <= fovLimit then
+                                    if not wallCheck or LL.IsVisible(part) then
+                                        local wd = (part.Position - myPos).Magnitude
+                                        local score = pd + wd * 0.1
+                                        if score < bestScore then
+                                            bestScore = score; best = part
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if targetNPCs then
+        for model in pairs(LL.NPCCache) do
+            if model.Parent and not LL.isPlayerCharacter(model) then
+                local hum = model:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local part = model:FindFirstChild(partName) or model:FindFirstChild("Head")
+                    if part then
+                        local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
+                        if onScreen and sp.Z > 0 then
+                            local pd = (Vector2.new(sp.X, sp.Y) - cmpPos).Magnitude
+                            if pd <= fovLimit then
+                                if not wallCheck or LL.IsVisible(part) then
+                                    local wd = (part.Position - myPos).Magnitude
+                                    local score = pd + wd * 0.1
+                                    if score < bestScore then
+                                        bestScore = score; best = part
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
 RunService:BindToRenderStep("LARP_AIM", Enum.RenderPriority.Camera.Value + 1, function()
     if not getgenv().TIMON_LOADED then return end
+    if LL.silentFovCircle then
+        if LL.S.Aimbot.SilentAim and LL.S.Aimbot.SilentShowFOV then
+            LL.silentFovCircle.Visible = true
+            LL.silentFovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+            LL.silentFovCircle.Radius = LL.S.Aimbot.SilentFOV
+        else
+            LL.silentFovCircle.Visible = false
+        end
+    end
     if not LL.S.Aimbot.Enabled then
         if LL.fovCircle then LL.fovCircle.Visible = false end
         if LL.aimBeam then LL.aimBeam.Visible = false end
@@ -2412,7 +2503,7 @@ function LL.ToggleMobileBtn(action, show)
     b.Position = LL.loadBtnPos(action, defaultPos)
     b.BackgroundColor3 = COL.bg2; b.BackgroundTransparency = 0.1; b.TextColor3 = COL.accent2
     b.Font = Enum.Font.GothamBold; b.TextSize = 11
-    local LABEL = { Aimbot="AIM", Noclip="NOCLIP", AntiFling="AFLNG", InfiniteJump="IJMP", ESP="ESP", Hitbox="HITBX", Macro="MACRO", MacroRecord="REC" }
+    local LABEL = { Aimbot="AIM", Noclip="NOCLIP", AntiFling="AFLNG", InfiniteJump="IJMP", ESP="ESP", Hitbox="HITBX", Macro="MACRO", MacroRecord="REC", ZeroGravity="ZERO G" }
     b.Text = LABEL[action] or action
     b.BorderSizePixel = 0; b.AutoButtonColor = false; b.ZIndex = 5; b.Parent = ScreenGui
     LL.corner(b, 29)
@@ -2426,6 +2517,7 @@ function LL.ToggleMobileBtn(action, show)
         elseif action == "Noclip" then return LL.S.Player.Noclip
         elseif action == "InfiniteJump" then return LL.S.Player.InfiniteJump
         elseif action == "AntiFling" then return LL.S.Troll.AntiFling
+        elseif action == "ZeroGravity" then return LL.S.Player.ZeroGravity
         elseif action == "Macro" then return LL.S.Macro.Playing
         elseif action == "MacroRecord" then return LL.S.Macro.Recording
         end
@@ -2527,6 +2619,11 @@ end
 LL.Actions.MacroRecord = function()
     if LL.S.Macro.Recording then LL.MacroStopRecording()
     else LL.MacroStartRecording() end
+end
+LL.Actions.AutoClicker = function()
+    LL.S.AutoClicker.Enabled = not LL.S.AutoClicker.Enabled
+    LL.RefreshAll(); LL.MarkDirty()
+    LL.Notify("AutoClicker: "..tostring(LL.S.AutoClicker.Enabled))
 end
 function LL.applyLoadedSettings()
     LL.RefreshAll()
@@ -2630,6 +2727,42 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
     local ch = LL.Cache.Character
     local hrp = LL.Cache.HRP
     local hum = LL.Cache.Humanoid
+    if LL.S.Aimbot.SilentAim then
+        local st = LL.SilentFindTarget()
+        if st then
+            local aimPos = LL.GetLeadPos(st, Camera.CFrame.Position)
+            if LL.S.Aimbot.SilentMode == "Camera" then
+                local lookCF = CFrame.new(Camera.CFrame.Position, aimPos)
+                Camera.CFrame = Camera.CFrame:Lerp(lookCF, LL.S.Aimbot.SilentSmooth)
+            else
+                local oldCF = Camera.CFrame
+                Camera.CFrame = CFrame.new(oldCF.Position, aimPos)
+                RunService.RenderStepped:Wait()
+                Camera.CFrame = oldCF
+            end
+        end
+    end
+    if LL.S.AutoClicker and LL.S.AutoClicker.Enabled then
+        local now = tick()
+        local interval = 1 / math.max(LL.S.AutoClicker.Speed or 10, 1)
+        if now - (LL._acLast or 0) >= interval then
+            LL._acLast = now
+            local btn = (LL.S.AutoClicker.Button == "Right") and 2 or 1
+            if LL.S.AutoClicker.Mode == "Real" then
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    local pos = UIS:GetMouseLocation()
+                    if btn == 1 then VirtualUser:ClickButton1(pos) else VirtualUser:ClickButton2(pos) end
+                end)
+            else
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    local pos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+                    if btn == 1 then VirtualUser:ClickButton1(pos) else VirtualUser:ClickButton2(pos) end
+                end)
+            end
+        end
+    end
     if LL.S.ESP.Enabled then
         for _, pl in ipairs(Players:GetPlayers()) do
             if pl ~= LP and not LL.ESPObjs[pl] then
@@ -2988,6 +3121,7 @@ getgenv().TIMON_UNLOAD = function()
         if LL.fovCircle then pcall(function() LL.fovCircle:Remove() end) end
         if LL.aimBeam then pcall(function() LL.aimBeam:Remove() end) end
         if LL.hitboxBox then pcall(function() LL.hitboxBox:Remove() end) end
+        if LL.silentFovCircle then pcall(function() LL.silentFovCircle:Remove() end) end
     end)
     step("aimRender", function() RunService:UnbindFromRenderStep("LARP_AIM") end)
     step("fly", function()
@@ -3013,411 +3147,4 @@ getgenv().TIMON_UNLOAD = function()
     LL.antiAFKThread = nil
     LL.MacroRecBtnUpdate = nil
     LL.MacroRecBtn = nil
-end
-LL.Actions.XNEO = function()
-    if LL.xneoScriptRunning then
-        LL.Notify("XNEO уже запущен")
-        return
-    end
-    LL.Notify("Запуск XNEO...")
-    local ok, err = pcall(function()
-        local main = Instance.new("ScreenGui")
-        local Frame = Instance.new("Frame")
-        local up = Instance.new("TextButton")
-        local down = Instance.new("TextButton")
-        local onof = Instance.new("TextButton")
-        local TextLabel = Instance.new("TextLabel")
-        local plus = Instance.new("TextButton")
-        local speed = Instance.new("TextLabel")
-        local mine = Instance.new("TextButton")
-        local closebutton = Instance.new("TextButton")
-        local mini = Instance.new("TextButton")
-        local mini2 = Instance.new("TextButton")
-        main.Name = "main"
-        main.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-        main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        main.ResetOnSpawn = false
-        Frame.Parent = main
-        Frame.BackgroundColor3 = Color3.fromRGB(163, 255, 137)
-        Frame.BorderColor3 = Color3.fromRGB(103, 221, 213)
-        Frame.Position = UDim2.new(0.100320168, 0, 0.379746825, 0)
-        Frame.Size = UDim2.new(0, 190, 0, 57)
-        up.Name = "up"
-        up.Parent = Frame
-        up.BackgroundColor3 = Color3.fromRGB(79, 255, 152)
-        up.Size = UDim2.new(0, 44, 0, 28)
-        up.Font = Enum.Font.SourceSans
-        up.Text = "UP"
-        up.TextColor3 = Color3.fromRGB(0, 0, 0)
-        up.TextSize = 14.000
-        down.Name = "down"
-        down.Parent = Frame
-        down.BackgroundColor3 = Color3.fromRGB(215, 255, 121)
-        down.Position = UDim2.new(0, 0, 0.491228074, 0)
-        down.Size = UDim2.new(0, 44, 0, 28)
-        down.Font = Enum.Font.SourceSans
-        down.Text = "DOWN"
-        down.TextColor3 = Color3.fromRGB(0, 0, 0)
-        down.TextSize = 14.000
-        onof.Name = "onof"
-        onof.Parent = Frame
-        onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
-        onof.Position = UDim2.new(0.702823281, 0, 0.491228074, 0)
-        onof.Size = UDim2.new(0, 56, 0, 28)
-        onof.Font = Enum.Font.SourceSans
-        onof.Text = "fly"
-        onof.TextColor3 = Color3.fromRGB(0, 0, 0)
-        onof.TextSize = 14.000
-        TextLabel.Parent = Frame
-        TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
-        TextLabel.Position = UDim2.new(0.469327301, 0, 0, 0)
-        TextLabel.Size = UDim2.new(0, 100, 0, 28)
-        TextLabel.Font = Enum.Font.SourceSans
-        TextLabel.Text = "FLY GUI V3"
-        TextLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-        TextLabel.TextScaled = true
-        TextLabel.TextSize = 14.000
-        TextLabel.TextWrapped = true
-        plus.Name = "plus"
-        plus.Parent = Frame
-        plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
-        plus.Position = UDim2.new(0.231578946, 0, 0, 0)
-        plus.Size = UDim2.new(0, 45, 0, 28)
-        plus.Font = Enum.Font.SourceSans
-        plus.Text = "+"
-        plus.TextColor3 = Color3.fromRGB(0, 0, 0)
-        plus.TextScaled = true
-        plus.TextSize = 14.000
-        plus.TextWrapped = true
-        speed.Name = "speed"
-        speed.Parent = Frame
-        speed.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
-        speed.Position = UDim2.new(0.468421042, 0, 0.491228074, 0)
-        speed.Size = UDim2.new(0, 44, 0, 28)
-        speed.Font = Enum.Font.SourceSans
-        speed.Text = "1"
-        speed.TextColor3 = Color3.fromRGB(0, 0, 0)
-        speed.TextScaled = true
-        speed.TextSize = 14.000
-        speed.TextWrapped = true
-        mine.Name = "mine"
-        mine.Parent = Frame
-        mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
-        mine.Position = UDim2.new(0.231578946, 0, 0.491228074, 0)
-        mine.Size = UDim2.new(0, 45, 0, 29)
-        mine.Font = Enum.Font.SourceSans
-        mine.Text = "-"
-        mine.TextColor3 = Color3.fromRGB(0, 0, 0)
-        mine.TextScaled = true
-        mine.TextSize = 14.000
-        mine.TextWrapped = true
-        closebutton.Name = "Close"
-        closebutton.Parent = main.Frame
-        closebutton.BackgroundColor3 = Color3.fromRGB(225, 25, 0)
-        closebutton.Font = "SourceSans"
-        closebutton.Size = UDim2.new(0, 45, 0, 28)
-        closebutton.Text = "X"
-        closebutton.TextSize = 30
-        closebutton.Position =  UDim2.new(0, 0, -1, 27)
-        mini.Name = "minimize"
-        mini.Parent = main.Frame
-        mini.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
-        mini.Font = "SourceSans"
-        mini.Size = UDim2.new(0, 45, 0, 28)
-        mini.Text = "-"
-        mini.TextSize = 40
-        mini.Position = UDim2.new(0, 44, -1, 27)
-        mini2.Name = "minimize2"
-        mini2.Parent = main.Frame
-        mini2.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
-        mini2.Font = "SourceSans"
-        mini2.Size = UDim2.new(0, 45, 0, 28)
-        mini2.Text = "+"
-        mini2.TextSize = 40
-        mini2.Position = UDim2.new(0, 44, -1, 57)
-        mini2.Visible = false
-        local speeds = 1
-        local speaker = game:GetService("Players").LocalPlayer
-        local chr = game.Players.LocalPlayer.Character
-        local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-        local nowe = false
-        game:GetService("StarterGui"):SetCore("SendNotification", { Title = "FLY GUI V3", Text = "BY XNEO", Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150" })
-        Frame.Active = true
-        Frame.Draggable = true
-        onof.MouseButton1Down:connect(function()
-            if nowe == true then
-                nowe = false
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics,true)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming,true)
-                speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
-            else 
-                nowe = true
-                for i = 1, speeds do
-                    spawn(function()
-                        local hb = game:GetService("RunService").Heartbeat	
-                        tpwalking = true
-                        local chr = game.Players.LocalPlayer.Character
-                        local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-                        while tpwalking and hb:Wait() and chr and hum and hum.Parent do
-                            if hum.MoveDirection.Magnitude > 0 then
-                                chr:TranslateBy(hum.MoveDirection)
-                            end
-                        end
-                    end)
-                end
-                game.Players.LocalPlayer.Character.Animate.Disabled = true
-                local Char = game.Players.LocalPlayer.Character
-                local Hum = Char:FindFirstChildOfClass("Humanoid") or Char:FindFirstChildOfClass("AnimationController")
-                for i,v in next, Hum:GetPlayingAnimationTracks() do
-                    v:AdjustSpeed(0)
-                end
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics,false)
-                speaker.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming,false)
-                speaker.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
-            end
-            if game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid").RigType == Enum.HumanoidRigType.R6 then
-                local plr = game.Players.LocalPlayer
-                local torso = plr.Character.Torso
-                local flying = true
-                local deb = true
-                local ctrl = {f = 0, b = 0, l = 0, r = 0}
-                local lastctrl = {f = 0, b = 0, l = 0, r = 0}
-                local maxspeed = 50
-                local speed = 0
-                local bg = Instance.new("BodyGyro", torso)
-                bg.P = 9e4
-                bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
-                bg.cframe = torso.CFrame
-                local bv = Instance.new("BodyVelocity", torso)
-                bv.velocity = Vector3.new(0,0.1,0)
-                bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
-                if nowe == true then
-                    plr.Character.Humanoid.PlatformStand = true
-                end
-                while nowe == true or game:GetService("Players").LocalPlayer.Character.Humanoid.Health == 0 do
-                    game:GetService("RunService").RenderStepped:Wait()
-                    if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
-                        speed = speed+.5+(speed/maxspeed)
-                        if speed > maxspeed then
-                            speed = maxspeed
-                        end
-                    elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
-                        speed = speed-1
-                        if speed < 0 then
-                            speed = 0
-                        end
-                    end
-                    if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
-                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
-                        lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
-                    elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and speed ~= 0 then
-                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
-                    else
-                        bv.velocity = Vector3.new(0,0,0)
-                    end
-                    bg.cframe = game.Workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/maxspeed),0,0)
-                end
-                ctrl = {f = 0, b = 0, l = 0, r = 0}
-                lastctrl = {f = 0, b = 0, l = 0, r = 0}
-                speed = 0
-                bg:Destroy()
-                bv:Destroy()
-                plr.Character.Humanoid.PlatformStand = false
-                game.Players.LocalPlayer.Character.Animate.Disabled = false
-                tpwalking = false
-            else
-                local plr = game.Players.LocalPlayer
-                local UpperTorso = plr.Character.UpperTorso
-                local flying = true
-                local deb = true
-                local ctrl = {f = 0, b = 0, l = 0, r = 0}
-                local lastctrl = {f = 0, b = 0, l = 0, r = 0}
-                local maxspeed = 50
-                local speed = 0
-                local bg = Instance.new("BodyGyro", UpperTorso)
-                bg.P = 9e4
-                bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
-                bg.cframe = UpperTorso.CFrame
-                local bv = Instance.new("BodyVelocity", UpperTorso)
-                bv.velocity = Vector3.new(0,0.1,0)
-                bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
-                if nowe == true then
-                    plr.Character.Humanoid.PlatformStand = true
-                end
-                while nowe == true or game:GetService("Players").LocalPlayer.Character.Humanoid.Health == 0 do
-                    wait()
-                    if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
-                        speed = speed+.5+(speed/maxspeed)
-                        if speed > maxspeed then
-                            speed = maxspeed
-                        end
-                    elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
-                        speed = speed-1
-                        if speed < 0 then
-                            speed = 0
-                        end
-                    end
-                    if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
-                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
-                        lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
-                    elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and speed ~= 0 then
-                        bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*speed
-                    else
-                        bv.velocity = Vector3.new(0,0,0)
-                    end
-                    bg.cframe = game.Workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/maxspeed),0,0)
-                end
-                ctrl = {f = 0, b = 0, l = 0, r = 0}
-                lastctrl = {f = 0, b = 0, l = 0, r = 0}
-                speed = 0
-                bg:Destroy()
-                bv:Destroy()
-                plr.Character.Humanoid.PlatformStand = false
-                game.Players.LocalPlayer.Character.Animate.Disabled = false
-                tpwalking = false
-            end
-        end)
-        local tis
-        up.MouseButton1Down:connect(function()
-            tis = up.MouseEnter:connect(function()
-                while tis do
-                    wait()
-                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,1,0)
-                end
-            end)
-        end)
-        up.MouseLeave:connect(function()
-            if tis then
-                tis:Disconnect()
-                tis = nil
-            end
-        end)
-        local dis
-        down.MouseButton1Down:connect(function()
-            dis = down.MouseEnter:connect(function()
-                while dis do
-                    wait()
-                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,-1,0)
-                end
-            end)
-        end)
-        down.MouseLeave:connect(function()
-            if dis then
-                dis:Disconnect()
-                dis = nil
-            end
-        end)
-        game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(char)
-            wait(0.7)
-            game.Players.LocalPlayer.Character.Humanoid.PlatformStand = false
-            game.Players.LocalPlayer.Character.Animate.Disabled = false
-        end)
-        plus.MouseButton1Down:connect(function()
-            speeds = speeds + 1
-            speed.Text = speeds
-            if nowe == true then
-                tpwalking = false
-                for i = 1, speeds do
-                    spawn(function()
-                        local hb = game:GetService("RunService").Heartbeat	
-                        tpwalking = true
-                        local chr = game.Players.LocalPlayer.Character
-                        local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-                        while tpwalking and hb:Wait() and chr and hum and hum.Parent do
-                            if hum.MoveDirection.Magnitude > 0 then
-                                chr:TranslateBy(hum.MoveDirection)
-                            end
-                        end
-                    end)
-                end
-            end
-        end)
-        mine.MouseButton1Down:connect(function()
-            if speeds == 1 then
-                speed.Text = 'cannot be less than 1'
-                wait(1)
-                speed.Text = speeds
-            else
-                speeds = speeds - 1
-                speed.Text = speeds
-                if nowe == true then
-                    tpwalking = false
-                    for i = 1, speeds do
-                        spawn(function()
-                            local hb = game:GetService("RunService").Heartbeat	
-                            tpwalking = true
-                            local chr = game.Players.LocalPlayer.Character
-                            local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-                            while tpwalking and hb:Wait() and chr and hum and hum.Parent do
-                                if hum.MoveDirection.Magnitude > 0 then
-                                    chr:TranslateBy(hum.MoveDirection)
-                                end
-                            end
-                        end)
-                    end
-                end
-            end
-        end)
-        closebutton.MouseButton1Click:Connect(function()
-            main:Destroy()
-            LL.xneoScriptRunning = false
-        end)
-        mini.MouseButton1Click:Connect(function()
-            up.Visible = false
-            down.Visible = false
-            onof.Visible = false
-            plus.Visible = false
-            speed.Visible = false
-            mine.Visible = false
-            mini.Visible = false
-            mini2.Visible = true
-            main.Frame.BackgroundTransparency = 1
-            closebutton.Position =  UDim2.new(0, 0, -1, 57)
-        end)
-        mini2.MouseButton1Click:Connect(function()
-            up.Visible = true
-            down.Visible = true
-            onof.Visible = true
-            plus.Visible = true
-            speed.Visible = true
-            mine.Visible = true
-            mini.Visible = true
-            mini2.Visible = false
-            main.Frame.BackgroundTransparency = 0 
-            closebutton.Position =  UDim2.new(0, 0, -1, 27)
-        end)
-    end)
-    if ok then
-        LL.xneoScriptRunning = true
-        LL.Notify("XNEO Fly GUI загружен")
-    else
-        LL.Notify("Ошибка XNEO: "..tostring(err))
-        warn("[LARP XNEO] "..tostring(err))
-    end
 end
