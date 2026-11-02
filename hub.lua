@@ -1,5 +1,5 @@
 -- ============================================================================
--- TIMON HUB v4.6.1 — Hitbox fix, deep NPC scan, XNEO load button, unload fix
+-- TIMON HUB v4.6.2 — ESP autosync, Hitbox modes, fresh configs
 -- ============================================================================
 
 if getgenv().TIMON_LOADED then pcall(function() getgenv().TIMON_UNLOAD() end) end
@@ -243,10 +243,10 @@ LL.ORDER = 0
 function LL.NextOrder() LL.ORDER = LL.ORDER + 1; return LL.ORDER end
 
 -- ============================================================
--- CONFIG (с проверкой экзекутора)
+-- CONFIG (TimonHub_New — новая папка)
 -- ============================================================
-LL.CONFIG_DIR = "TimonHub"
-LL.AUTOSAVE_FILE = "autosave"
+LL.CONFIG_DIR = "TimonHub_New"
+LL.AUTOSAVE_FILE = "autosave_new"
 LL.CONFIG_DIRTY = false
 LL.lastDirtyTime = 0
 LL.FS_AVAILABLE = LL.ScriptAvailable.WriteFile
@@ -604,7 +604,7 @@ local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -110, 1, 0)
 TitleLbl.Position = UDim2.new(0, 20, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "TIMON HUB  ·  v4.6.1"
+TitleLbl.Text = "TIMON HUB  ·  v4.6.2"
 TitleLbl.TextColor3 = Color3.new(1, 1, 1)
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 16
@@ -1431,16 +1431,7 @@ LL.Tab("ESP", function(parent)
     LL.Section(parent, "Toggle")
     LL.Toggle(parent, "Enable ESP (Players)",
         function() return LL.S.ESP.Enabled end,
-        function(v)
-            LL.S.ESP.Enabled = v
-            if v then
-                for _, p in ipairs(Players:GetPlayers()) do
-                    if p ~= LP then LL.CreateESP(p) end
-                end
-            else
-                for p in pairs(LL.ESPObjs) do LL.RemoveESP(p) end
-            end
-        end)
+        function(v) LL.S.ESP.Enabled = v end)
     LL.Section(parent, "Power Mode")
     LL.Toggle(parent, "ESP после смерти",
         function() return LL.S.ESP.PowerMode end,
@@ -1507,17 +1498,7 @@ LL.Tab("ESP", function(parent)
     LL.Section(parent, "NPC ESP")
     LL.Toggle(parent, "Enable NPC ESP",
         function() return LL.S.ESP.NPCEnabled end,
-        function(v)
-            LL.S.ESP.NPCEnabled = v
-            if v then
-                LL.refreshNPCCache()
-                for model in pairs(LL.NPCCache) do
-                    if not LL.isPlayerCharacter(model) then LL.CreateNPCESP(model) end
-                end
-            else
-                for model in pairs(LL.NPCESPObjs) do LL.RemoveNPCESP(model) end
-            end
-        end)
+        function(v) LL.S.ESP.NPCEnabled = v end)
     LL.Toggle(parent, "Show NPC Name",
         function() return LL.S.ESP.NPCName end,
         function(v) LL.S.ESP.NPCName = v end)
@@ -2052,15 +2033,33 @@ LL.Tab("Hamster", function(parent)
     end, {textColor = COL.accent2})
 end)
 -- ============================================================
--- HITBOX TAB (возвращена)
+-- HITBOX TAB (4 режима)
 -- ============================================================
 LL.Tab("Hitbox", function(parent)
-    LL.Section(parent, "Toggle")
-    LL.Toggle(parent, "Enable Hitbox",
-        function() return LL.S.Hitbox.Enabled end,
+    LL.Section(parent, "Кому хитбоксы")
+    LL.Dropdown(parent, "Режим",
+        {"Все (игроки + NPC)", "Только игроки", "Только NPC", "Никому"},
+        function()
+            if LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then return "Все (игроки + NPC)"
+            elseif LL.S.Hitbox.Enabled and not LL.S.Hitbox.NPCSupport then return "Только игроки"
+            elseif not LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then return "Только NPC"
+            else return "Никому" end
+        end,
         function(v)
-            LL.S.Hitbox.Enabled = v
-            if not v then
+            if v == "Все (игроки + NPC)" then
+                LL.S.Hitbox.Enabled = true
+                LL.S.Hitbox.NPCSupport = true
+            elseif v == "Только игроки" then
+                LL.S.Hitbox.Enabled = true
+                LL.S.Hitbox.NPCSupport = false
+                LL.ClearAllNPCHitboxes()
+            elseif v == "Только NPC" then
+                LL.S.Hitbox.Enabled = false
+                LL.S.Hitbox.NPCSupport = true
+                LL.ClearAllHitboxes()
+            else
+                LL.S.Hitbox.Enabled = false
+                LL.S.Hitbox.NPCSupport = false
                 LL.ClearAllHitboxes()
                 LL.ClearAllNPCHitboxes()
             end
@@ -2086,13 +2085,6 @@ LL.Tab("Hitbox", function(parent)
     LL.ColorPicker(parent, "Hitbox Color",
         function() return LL.S.Hitbox.Color end,
         function(v) LL.S.Hitbox.Color = v; LL.RefreshHitboxes() end)
-    LL.Section(parent, "NPC Hitbox")
-    LL.Toggle(parent, "Enable NPC Hitbox",
-        function() return LL.S.Hitbox.NPCSupport end,
-        function(v)
-            LL.S.Hitbox.NPCSupport = v
-            if not v then LL.ClearAllNPCHitboxes() end
-        end)
 end)
 
 -- ============================================================
@@ -2171,7 +2163,7 @@ LL.Tab("Settings", function(parent)
         local ok, err = LL.saveConfig(name)
         if ok then
             LL.Notify("Сохранено: "..name)
-            LL.RefreshCfgList()
+            if LL.RefreshCfgList then LL.RefreshCfgList() end
         else
             LL.Notify("Ошибка: "..tostring(err))
         end
@@ -2190,7 +2182,7 @@ LL.Tab("Settings", function(parent)
         local name = LL.S.ConfigName or "auto"
         LL.deleteConfig(name)
         LL.Notify("Удалено: "..name)
-        LL.RefreshCfgList()
+        if LL.RefreshCfgList then LL.RefreshCfgList() end
     end)
     LL.Toggle(parent, "Авто-сохранение",
         function() return LL.S.AutoSave end,
@@ -2470,7 +2462,7 @@ function LL.RefreshHitboxes()
     if LL.S.Hitbox.Enabled then
         for _, pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox, pl) end
     end
-    if LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then
+    if LL.S.Hitbox.NPCSupport then
         for model in pairs(LL.NPCHitboxes) do pcall(LL.RemoveNPCHitbox, model) end
         for model in pairs(LL.NPCCache) do pcall(LL.ApplyNPCHitbox, model) end
     end
@@ -2536,7 +2528,10 @@ end))
 function LL.ApplyNPCHitbox(model)
     if not model or not model.Parent then return end
     if LL.isPlayerCharacter(model) then return end
-    if not (LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport) then
+    if not (LL.S.Hitbox.Enabled or LL.S.Hitbox.NPCSupport) then
+        LL.RemoveNPCHitbox(model); return
+    end
+    if not LL.S.Hitbox.NPCSupport then
         LL.RemoveNPCHitbox(model); return
     end
     local entry = LL.NPCHitboxes[model]
@@ -2591,7 +2586,7 @@ end
 LL.trackThread(task.spawn(function()
     while getgenv().TIMON_LOADED do
         task.wait(1)
-        if LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then
+        if LL.S.Hitbox.NPCSupport then
             for model in pairs(LL.NPCCache) do pcall(LL.ApplyNPCHitbox, model) end
             for model in pairs(LL.NPCHitboxes) do
                 if not model.Parent or not LL.NPCCache[model] then LL.RemoveNPCHitbox(model) end
@@ -3201,7 +3196,7 @@ function LL.ToggleMobileBtn(action, show)
     local function activeState()
         if action == "Aimbot" then return LL.S.Aimbot.Enabled
         elseif action == "ESP" then return LL.S.ESP.Enabled
-        elseif action == "Hitbox" then return LL.S.Hitbox.Enabled
+        elseif action == "Hitbox" then return LL.S.Hitbox.Enabled or LL.S.Hitbox.NPCSupport
         elseif action == "Fly" then return LL.S.Player.Fly
         elseif action == "ZeroGravity" then return LL.S.Player.ZeroGravity
         elseif action == "Noclip" then return LL.S.Player.Noclip
@@ -3262,21 +3257,18 @@ LL.Actions.Aimbot = function()
 end
 LL.Actions.ESP = function()
     LL.S.ESP.Enabled = not LL.S.ESP.Enabled; LL.RefreshAll(); LL.MarkDirty()
-    if LL.S.ESP.Enabled then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP then LL.CreateESP(p) end
-        end
-    else
-        for p in pairs(LL.ESPObjs) do LL.RemoveESP(p) end
-    end
     LL.Notify("ESP: "..tostring(LL.S.ESP.Enabled))
 end
 LL.Actions.Hitbox = function()
-    LL.S.Hitbox.Enabled = not LL.S.Hitbox.Enabled; LL.RefreshAll(); LL.MarkDirty()
-    if LL.S.Hitbox.Enabled then
-        for _, pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox, pl) end
-    else LL.ClearAllHitboxes(); LL.ClearAllNPCHitboxes() end
-    LL.Notify("Hitbox: "..tostring(LL.S.Hitbox.Enabled))
+    local newEnabled = not (LL.S.Hitbox.Enabled or LL.S.Hitbox.NPCSupport)
+    LL.S.Hitbox.Enabled = newEnabled
+    LL.S.Hitbox.NPCSupport = newEnabled
+    if not newEnabled then
+        LL.ClearAllHitboxes()
+        LL.ClearAllNPCHitboxes()
+    end
+    LL.RefreshAll(); LL.MarkDirty()
+    LL.Notify("Hitbox: "..tostring(newEnabled))
 end
 LL.Actions.Fly = function()
     LL.S.Player.Fly = not LL.S.Player.Fly; LL.RefreshAll(); LL.MarkDirty()
@@ -3321,32 +3313,37 @@ LL.Actions.LoadPos = function()
 end
 
 -- ============================================================
--- APPLY LOADED SETTINGS (глобальная, для автозагрузки)
+-- APPLY LOADED SETTINGS
 -- ============================================================
 function LL.applyLoadedSettings()
     LL.RefreshAll()
     for _, fn in pairs(LL.BindRefreshers) do pcall(fn) end
-    for p in pairs(LL.ESPObjs) do LL.RemoveESP(p) end
-    for m in pairs(LL.NPCESPObjs) do LL.RemoveNPCESP(m) end
+    -- ESP — автосинк сам разберётся, но на всякий случай
     if LL.S.ESP.Enabled then
         for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP then LL.CreateESP(p) end
+            if p ~= LP and not LL.ESPObjs[p] then LL.CreateESP(p) end
         end
+    else
+        for p in pairs(LL.ESPObjs) do LL.RemoveESP(p) end
     end
     if LL.S.ESP.NPCEnabled then
         LL.refreshNPCCache()
         for m in pairs(LL.NPCCache) do
-            if not LL.isPlayerCharacter(m) then LL.CreateNPCESP(m) end
+            if not LL.isPlayerCharacter(m) and not LL.NPCESPObjs[m] then LL.CreateNPCESP(m) end
         end
+    else
+        for m in pairs(LL.NPCESPObjs) do LL.RemoveNPCESP(m) end
     end
-    LL.ClearAllHitboxes()
-    LL.ClearAllNPCHitboxes()
     if LL.S.Hitbox.Enabled then
         for _, pl in ipairs(Players:GetPlayers()) do pcall(LL.ApplyHitbox, pl) end
+    else
+        LL.ClearAllHitboxes()
     end
-    if LL.S.Hitbox.Enabled and LL.S.Hitbox.NPCSupport then
+    if LL.S.Hitbox.NPCSupport then
         LL.refreshNPCCache()
         for model in pairs(LL.NPCCache) do pcall(LL.ApplyNPCHitbox, model) end
+    else
+        LL.ClearAllNPCHitboxes()
     end
     for action, state in pairs(LL.S.MobileBtns) do
         LL.ToggleMobileBtn(action, state)
@@ -3400,7 +3397,7 @@ LL.trackConn(UIS.InputEnded:Connect(function(input, gp)
 end))
 
 -- ============================================================
--- RENDER LOOP (single)
+-- RENDER LOOP (single) с ESP autosync
 -- ============================================================
 LL.FlyBV = nil
 LL.FlyBG = nil
@@ -3422,6 +3419,26 @@ LL.trackConn(RunService.RenderStepped:Connect(function(dt)
     local ch = LL.Cache.Character
     local hrp = LL.Cache.HRP
     local hum = LL.Cache.Humanoid
+
+    -- ESP AUTO-SYNC: гарантирует что объекты соответствуют тумблерам
+    if LL.S.ESP.Enabled then
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl ~= LP and not LL.ESPObjs[pl] then
+                LL.CreateESP(pl)
+            end
+        end
+    else
+        for pl in pairs(LL.ESPObjs) do LL.RemoveESP(pl) end
+    end
+    if LL.S.ESP.NPCEnabled then
+        for model in pairs(LL.NPCCache) do
+            if not LL.isPlayerCharacter(model) and not LL.NPCESPObjs[model] then
+                LL.CreateNPCESP(model)
+            end
+        end
+    else
+        for model in pairs(LL.NPCESPObjs) do LL.RemoveNPCESP(model) end
+    end
 
     if LL.S.Player.Fly and hrp then
         if not LL.FlyBV then
@@ -3698,28 +3715,15 @@ end))
 -- ============================================================
 -- INIT
 -- ============================================================
--- Автозагрузка конфига при старте
 local autoloaded = false
 if LL.FS_AVAILABLE and LL.fileExists(LL.CONFIG_DIR.."/"..LL.AUTOSAVE_FILE..".json") then
     local ok = pcall(function() LL.loadConfigFile(LL.AUTOSAVE_FILE) end)
-    if ok then
-        autoloaded = true
-        pcall(function() LL.RefreshAll() end)
-        pcall(function() LL.applyLoadedSettings() end)
-    end
+    if ok then autoloaded = true end
 end
 
-if LL.S.ESP.Enabled and not autoloaded then
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP then LL.CreateESP(p) end
-    end
-end
-if LL.S.ESP.NPCEnabled and not autoloaded then
-    LL.refreshNPCCache()
-    for m in pairs(LL.NPCCache) do
-        if not LL.isPlayerCharacter(m) then pcall(LL.CreateNPCESP, m) end
-    end
-end
+pcall(function() LL.RefreshAll() end)
+pcall(function() LL.applyLoadedSettings() end)
+
 for action, state in pairs(LL.S.MobileBtns) do
     if state then LL.ToggleMobileBtn(action, true) end
 end
@@ -3732,13 +3736,13 @@ if LL.S.Player.LowQuality then LL.enableLowQuality() end
 if LL.S.Player.Fullbright then LL.enableFullbright() end
 
 if autoloaded then
-    LL.Notify("Timon Hub v4.6.1 · автозагрузка")
+    LL.Notify("Timon Hub v4.6.2 · автозагрузка")
 else
-    LL.Notify("Timon Hub v4.6.1 · загружен")
+    LL.Notify("Timon Hub v4.6.2 · загружен")
 end
 
 -- ============================================================
--- UNLOAD (пофикшенный — каждый шаг в своём pcall)
+-- UNLOAD
 -- ============================================================
 getgenv().TIMON_UNLOAD = function()
     local function step(name, fn)
@@ -3748,7 +3752,7 @@ getgenv().TIMON_UNLOAD = function()
 
     getgenv().TIMON_LOADED = false
 
-    step("xnEO", function()
+    step("xneo", function()
         if LL.xneoScriptRunning then
             local pg = LP:FindFirstChild("PlayerGui")
             if pg then
@@ -3785,9 +3789,9 @@ getgenv().TIMON_UNLOAD = function()
         LL.ClearAllNPCHitboxes()
     end)
     step("drawing", function()
-        if LL.fovCircle then LL.fovCircle:Remove() end
-        if LL.aimBeam then LL.aimBeam:Remove() end
-        if LL.hitboxBox then LL.hitboxBox:Remove() end
+        if LL.fovCircle then pcall(function() LL.fovCircle:Remove() end) end
+        if LL.aimBeam then pcall(function() LL.aimBeam:Remove() end) end
+        if LL.hitboxBox then pcall(function() LL.hitboxBox:Remove() end) end
     end)
     step("aimRender", function() RunService:UnbindFromRenderStep("TIMON_AIM") end)
     step("fly", function()
